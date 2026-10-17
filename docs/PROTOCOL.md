@@ -41,8 +41,10 @@ and occasional compaction avoid repeatedly copying a growing partial payload.
 A malformed version or oversized length poisons the decoder. Subsequent
 `next_frame` calls return the original error, further input is ignored, and the
 caller must drop the connection. Header errors are reported by `next_frame`
-because `push` has no return value. This applies even if earlier complete frames
-remain buffered in the same push.
+because `push` has no return value. Earlier complete frames still buffered when the error occurs are
+dropped from delivery, whether buffered by the same or an earlier `push`; they
+can no longer be retrieved. Their bytes remain counted by `buffered_len` until
+the decoder is dropped.
 
 At end-of-stream, `finish` returns `Truncated` if a partial header or payload
 remains. It succeeds at a clean frame boundary, including when complete frames

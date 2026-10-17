@@ -1,5 +1,7 @@
 //! MightyMonitor core: protocol framing and platform traits (skeleton).
 
+mod error;
+
 /// Length-prefixed framing for byte streams.
 pub mod frame;
 

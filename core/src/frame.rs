@@ -7,19 +7,6 @@ pub const HEADER_LEN: usize = 6;
 /// Maximum payload size (16 MiB), limiting untrusted length claims.
 pub const MAX_PAYLOAD_LEN: usize = 16 * 1024 * 1024;
 
-impl std::fmt::Display for FrameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Empty => write!(f, "frame is empty"),
-            Self::UnsupportedVersion(v) => write!(f, "unsupported protocol version {v}"),
-            Self::TooLarge { len, max } => write!(f, "payload length {len} exceeds maximum {max}"),
-            Self::Truncated => write!(f, "stream ended with an incomplete frame"),
-        }
-    }
-}
-
-impl std::error::Error for FrameError {}
-
 /// Fixed-size stream header; the version byte always comes first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrameHeader {
@@ -166,6 +153,8 @@ impl FrameDecoder {
         if bytes.len() < HEADER_LEN {
             return Ok(None);
         }
+        // `push` already validated every complete header; any failure poisoned
+        // the decoder and was returned above, so this decode cannot fail.
         let header = FrameHeader::decode(bytes)?;
         let size = HEADER_LEN + header.payload_len as usize;
         if bytes.len() < size {
@@ -231,6 +220,34 @@ mod tests {
             assert_eq!(decoder.buffered_len(), 0);
             assert_eq!(decoder.next_frame(), Ok(None));
         }
+    }
+
+    #[test]
+    fn payload_length_boundary() {
+        let mut payload = vec![42; MAX_PAYLOAD_LEN];
+        let bytes = encode_stream_frame(9, &payload).unwrap();
+        assert_eq!(bytes.len(), HEADER_LEN + MAX_PAYLOAD_LEN);
+        let mut decoder = FrameDecoder::new();
+        decoder.push(&bytes);
+        assert_eq!(decoder.finish(), Ok(()));
+        assert_eq!(
+            decoder.next_frame(),
+            Ok(Some(Frame {
+                kind: 9,
+                payload: payload.clone(),
+            }))
+        );
+        assert_eq!(decoder.next_frame(), Ok(None));
+        assert_eq!(decoder.buffered_len(), 0);
+
+        payload.push(42);
+        assert_eq!(
+            encode_stream_frame(9, &payload),
+            Err(FrameError::TooLarge {
+                len: MAX_PAYLOAD_LEN as u64 + 1,
+                max: MAX_PAYLOAD_LEN as u64,
+            })
+        );
     }
 
     #[test]
