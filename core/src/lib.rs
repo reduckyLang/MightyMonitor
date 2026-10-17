@@ -1,15 +1,32 @@
 //! MightyMonitor core: protocol framing and platform traits (skeleton).
 
+/// Length-prefixed framing for byte streams.
+pub mod frame;
+
+pub use frame::{
+    encode_frame_into, encode_stream_frame, Frame, FrameDecoder, FrameHeader, HEADER_LEN,
+    MAX_PAYLOAD_LEN,
+};
+
 /// Current wire protocol version, always the first byte of a frame.
 pub const PROTOCOL_VERSION: u8 = 1;
 
 /// Errors from framing.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrameError {
     /// Frame has no bytes.
     Empty,
     /// Version byte is not supported.
     UnsupportedVersion(u8),
+    /// Payload length exceeds the permitted maximum.
+    TooLarge {
+        /// Rejected payload length in bytes.
+        len: u64,
+        /// Maximum allowed payload length in bytes.
+        max: u64,
+    },
+    /// Stream ended before a complete header or payload arrived.
+    Truncated,
 }
 
 /// Prefix a payload with the protocol version byte.
