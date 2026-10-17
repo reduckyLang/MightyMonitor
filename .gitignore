@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+*.pdb
+.idea/
+.vscode/
+*.log
+.env
+local.properties
+/android/build/
+/android/.gradle/

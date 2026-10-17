@@ -1,0 +1,13 @@
+MightyMonitor
+Copyright 2026 The MightyMonitor contributors
+
+Licensed under the Apache License, Version 2.0.
+
+Clean-room statement: this project contains no code, assets, branding or wire
+protocol from spacedesk or any other proprietary application. The wire
+protocol is our own design.
+
+Third-party open-source code studied or incorporated is recorded below, with
+license and what was used. Currently: none.
+(Candidates for study, license permitting: scrcpy - Apache-2.0,
+Weylus - AGPL-3.0 (study only, no copying), Sunshine - GPL-3.0 (study only).)
