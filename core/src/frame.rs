@@ -1,24 +1,31 @@
 //! Versioned, length-prefixed framing for TCP and other byte streams.
 
-use crate::{FrameError, PROTOCOL_VERSION};
+use crate::error::FrameError;
+
+/// Current wire protocol version, always the first byte of a frame.
+pub const PROTOCOL_VERSION: u8 = 1;
+
+/// Prefix a payload with the protocol version byte.
+pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(payload.len() + 1);
+    out.push(PROTOCOL_VERSION);
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Check the version byte and return the payload.
+pub fn decode_frame(frame: &[u8]) -> Result<&[u8], FrameError> {
+    match frame.split_first() {
+        None => Err(FrameError::Empty),
+        Some((&PROTOCOL_VERSION, rest)) => Ok(rest),
+        Some((&v, _)) => Err(FrameError::UnsupportedVersion(v)),
+    }
+}
 
 /// Size of a stream frame header in bytes.
 pub const HEADER_LEN: usize = 6;
 /// Maximum payload size (16 MiB), limiting untrusted length claims.
 pub const MAX_PAYLOAD_LEN: usize = 16 * 1024 * 1024;
-
-impl std::fmt::Display for FrameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Empty => write!(f, "frame is empty"),
-            Self::UnsupportedVersion(v) => write!(f, "unsupported protocol version {v}"),
-            Self::TooLarge { len, max } => write!(f, "payload length {len} exceeds maximum {max}"),
-            Self::Truncated => write!(f, "stream ended with an incomplete frame"),
-        }
-    }
-}
-
-impl std::error::Error for FrameError {}
 
 /// Fixed-size stream header; the version byte always comes first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -210,6 +217,22 @@ impl FrameDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_byte_first() {
+        let f = encode_frame(b"hi");
+        assert_eq!(f[0], PROTOCOL_VERSION);
+        assert_eq!(decode_frame(&f), Ok(&b"hi"[..]));
+    }
+
+    #[test]
+    fn rejects_bad_version_and_empty() {
+        assert_eq!(decode_frame(&[]), Err(FrameError::Empty));
+        assert_eq!(
+            decode_frame(&[99, 1]),
+            Err(FrameError::UnsupportedVersion(99))
+        );
+    }
 
     fn drain(decoder: &mut FrameDecoder, out: &mut Vec<Frame>) {
         while let Some(frame) = decoder.next_frame().unwrap() {
