@@ -31,19 +31,30 @@ pub enum TransportError {
 pub trait Transport: Send {
     /// Send one frame, preserving its kind and opaque payload.
     ///
+    /// `TcpTransport` copies the payload into a newly allocated encoded buffer
+    /// on every call. Its default 10-second write timeout means a max-size
+    /// 16 MiB frame needs roughly 1.6 MiB/s of sustained throughput to complete.
     /// After cancellation or a write timeout, drop the connection: a partial
     /// frame may already have been written.
     async fn send(&mut self, kind: u8, payload: &[u8]) -> Result<(), TransportError>;
 
     /// Receive one frame. Cancellation retains bytes already read for retry.
+    ///
+    /// On `Frame` or `Closed`, the TCP receive path keeps returning that error:
+    /// malformed input poisons the decoder, while EOF persists on the socket
+    /// (partial input at EOF repeatedly returns `Frame(Truncated)`). Drop the
+    /// connection after these errors.
     async fn recv(&mut self) -> Result<Frame, TransportError>;
 }
 
 /// TCP transport with an incremental decoder and operation deadlines.
 ///
 /// Connections enable TCP_NODELAY. Connect defaults to five seconds, writes to
-/// ten seconds, and reads have no deadline. Drop and reconnect after malformed
-/// frames, I/O failures, or interrupted writes; no automatic replay is performed.
+/// ten seconds, and reads have no deadline. Sending allocates a fresh encoded
+/// buffer and copies the payload on each call. With the default write timeout,
+/// a max-size 16 MiB frame requires about 1.6 MiB/s sustained throughput.
+/// Drop and reconnect after malformed frames, EOF, I/O failures, or interrupted
+/// writes; no automatic replay is performed.
 pub struct TcpTransport {
     stream: TcpStream,
     decoder: FrameDecoder,
@@ -114,6 +125,9 @@ impl TcpTransport {
 
 #[async_trait]
 impl Transport for TcpTransport {
+    /// Encode and send one frame, allocating a new buffer and copying `payload`.
+    /// With the default 10-second write timeout, a max-size 16 MiB frame needs
+    /// about 1.6 MiB/s of sustained throughput to complete.
     async fn send(&mut self, kind: u8, payload: &[u8]) -> Result<(), TransportError> {
         let bytes = encode_stream_frame(kind, payload)?;
         with_timeout(self.write_timeout, "write", async {
