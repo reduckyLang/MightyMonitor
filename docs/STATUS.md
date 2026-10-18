@@ -23,3 +23,5 @@
 2026-10-18: M1-6 ABR controller implemented on branch feat/m1-6-abr.
 
 2026-10-18: PR #17 review: added absolute RTT slack to tolerate LAN jitter and unified ABR feedback with message::NetStats.
+
+2026-10-18: M1-7 done: M1 wrap-up complete, feature-gated mock platform traits and TCP mock pipeline test added, CI doc job enabled on Linux and Windows, and protocol/contribution docs reviewed. M1 done.

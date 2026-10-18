@@ -78,6 +78,9 @@ kinds, and kind/variant mismatches return `MessageError`.
 messages; they are reserved for protocol extension/escape. All other unassigned
 kinds (including zero) are unknown and rejected by `from_frame_parts`.
 
+The framing version is validated by the framing layer. `Hello.proto_version` is
+a separate payload field; applications must check it during the handshake.
+
 `Role` is Host or Viewer. `Codec` is H264, Vp8, Vp9, Av1, or Raw.
 `InputEvent` is MouseMove { x: f32, y: f32 }, MouseButton { button: MouseButton,
 pressed: bool }, Scroll { dx: f32, dy: f32 }, Key { code: u32, pressed: bool }, or
@@ -120,7 +123,7 @@ Use the stream framing functions and `FrameDecoder` for byte streams.
 
 `Transport` is an asynchronous, object-safe, `Send` trait that sends a kind byte
 and opaque payload and receives `Frame` values. It can be used as
-`Box<dyn Transport>`. It does not interpret kinds or serialize messages; the
+`Box<dyn Transport>`. It does not interpret kinds or serialize messages;
 `Message::to_frame_parts` supplies the kind and payload for `send`;
 `Message::from_frame_parts` validates received frames.
 
