@@ -1,3 +1,6 @@
+/// Recoverable codec failure, preserving the backend error and its source.
+pub type CodecError = Box<dyn std::error::Error + Send + Sync>;
+
 /// Errors from framing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum FrameError {

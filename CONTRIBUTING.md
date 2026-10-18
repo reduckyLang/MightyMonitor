@@ -27,3 +27,12 @@ In PowerShell, set `$env:RUSTDOCFLAGS = "-D warnings"` before running the doc
 command. The optional core `mock` feature provides synthetic capture, a reversible
 codec, and a recording input injector; `--all-features` includes its TCP loopback
 pipeline test. The default build does not enable these mocks.
+
+On Linux, install the GStreamer development headers and runtime plugins before
+building or testing `codec-gst` (Linux only; empty on Windows and Android):
+
+```sh
+sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-ugly gstreamer1.0-libav
+```
