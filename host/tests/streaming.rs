@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use mightymonitor_core::{
-    Bytes, Capture, Codec, Encoder, Message, Role, TcpTransport, Transport, PROTOCOL_VERSION,
+    Bytes, Capture, Codec, CodecError, Encoder, Message, Role, TcpTransport, Transport,
+    PROTOCOL_VERSION,
 };
 use mightymonitor_host::{
     pipeline::{HostEncoder, Monitor, Pipeline},
@@ -21,10 +22,10 @@ struct DummyEncoder {
     size: usize,
 }
 impl Encoder for DummyEncoder {
-    fn encode(&mut self, raw: &[u8]) -> Result<Bytes, mightymonitor_core::CodecError> {
+    fn encode(&mut self, raw: &[u8]) -> Result<Bytes, CodecError> {
         Ok(raw.to_vec())
     }
-    fn set_bitrate_kbps(&mut self, _: u32) -> Result<(), mightymonitor_core::CodecError> {
+    fn set_bitrate_kbps(&mut self, _: u32) -> Result<(), CodecError> {
         Ok(())
     }
 }
@@ -54,6 +55,17 @@ async fn start(
     Monitor,
     tokio::task::JoinHandle<Result<(), Error>>,
 ) {
+    start_with_idle(size, resume, Duration::from_secs(30)).await
+}
+async fn start_with_idle(
+    size: usize,
+    resume: bool,
+    idle_timeout: Duration,
+) -> (
+    TcpTransport,
+    Monitor,
+    tokio::task::JoinHandle<Result<(), Error>>,
+) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let pipeline = Pipeline::new(
         FakeCapture(0),
@@ -75,6 +87,8 @@ async fn start(
                 height: 1,
                 fps: if size > 8 { 10 } else { 30 },
                 write_timeout: Duration::from_secs(3),
+                handshake_timeout: Duration::from_secs(5),
+                idle_timeout,
             },
         )
         .await
@@ -235,4 +249,112 @@ async fn keyframe_on_viewer_request() {
         }
     ));
     stop(viewer, host).await;
+}
+
+#[tokio::test]
+async fn rejects_invalid_and_missing_handshakes() {
+    for first in [
+        Some(Message::Hello {
+            proto_version: PROTOCOL_VERSION + 1,
+            device_name: "bad version".into(),
+            role: Role::Viewer,
+            capabilities: vec![],
+        }),
+        Some(Message::Hello {
+            proto_version: PROTOCOL_VERSION,
+            device_name: "wrong role".into(),
+            role: Role::Host,
+            capabilities: vec![],
+        }),
+        None,
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let host = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await?;
+            serve(
+                stream,
+                Pipeline::new(FakeCapture(0), DummyEncoder { size: 8 }, 30)?,
+                SessionConfig {
+                    session_id: 42,
+                    codec: Codec::Raw,
+                    width: 1,
+                    height: 1,
+                    fps: 30,
+                    write_timeout: Duration::from_secs(1),
+                    handshake_timeout: Duration::from_millis(100),
+                    idle_timeout: Duration::from_secs(30),
+                },
+            )
+            .await
+        });
+        let mut viewer = TcpTransport::connect(address).await.unwrap();
+        if let Some(message) = first {
+            send(&mut viewer, message).await;
+            assert!(matches!(
+                recv(&mut viewer).await,
+                Message::HelloAck {
+                    accepted: false,
+                    ..
+                }
+            ));
+        }
+        assert!(tokio::time::timeout(Duration::from_secs(2), host)
+            .await
+            .unwrap()
+            .unwrap()
+            .is_err());
+    }
+}
+
+#[tokio::test]
+async fn capture_panic_closes_pipeline() {
+    struct PanickingCapture;
+    impl Capture for PanickingCapture {
+        fn next_frame(&mut self) -> Option<Bytes> {
+            panic!("backend failed")
+        }
+    }
+    let mut pipeline = Pipeline::new(PanickingCapture, DummyEncoder { size: 8 }, 30).unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), pipeline.next(false))
+            .await
+            .unwrap()
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn silent_viewer_times_out_but_pings_reset_idle() {
+    let (mut viewer, _, mut host) = start_with_idle(8, false, Duration::from_millis(500)).await;
+    for nonce in 0..4 {
+        send(
+            &mut viewer,
+            Message::Ping {
+                nonce,
+                t_send_us: 0,
+            },
+        )
+        .await;
+        loop {
+            if matches!(recv(&mut viewer).await, Message::Pong { .. }) {
+                break;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(!host.is_finished());
+    }
+    // Continue draining video so a blocked TCP writer cannot explain termination.
+    let result = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            tokio::select! {
+                result = &mut host => break result.unwrap(),
+                _ = viewer.recv() => {}
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert!(result.unwrap_err().to_string().contains("idle timeout"));
 }

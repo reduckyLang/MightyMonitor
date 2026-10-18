@@ -89,3 +89,25 @@ remain unverified. Decode-to-present here means texture submission, not scanout.
 M2-4 PR #29 is still unmerged; usage, dependency and manual smoke steps are in
 VIEWER.md. Windows real decoding, input forwarding and negotiated colorimetry
 remain future work; M2 as a whole is not complete.
+
+2026-10-18: M2-4 post-main integration: updated host and test Encoder adapters to
+core's Result signatures. Pipeline::on_stats now returns Result; sessions log
+rejected live ABR changes and continue at the previous encoder setting, while
+initial bitrate failures remain fatal. Recovered poisoned host locks and added
+a capture-thread drop guard so backend panic closes/wakes the frame slot.
+Added configurable post-handshake idle timeout (--idle-timeout-secs, default 30s),
+renewed by received controls including Pings, and a stderr warning for resolved
+non-loopback binds without authentication/encryption. Existing tests already
+assert the constant max_queue_len == 1 bound. New tests cover bad Hello version,
+wrong role, handshake timeout, capture panic termination, and idle timeout/Ping
+renewal; existing Resume-first coverage retained. docs/HOST.md updated.
+Verified locally: cargo fmt --all -- --check; cargo clippy --workspace
+--all-targets -- -D warnings; cargo test --workspace; cargo build --workspace.
+All passed, including six host loopback/pipeline integration tests. The X11 smoke
+test remains ignored. Live desktop capture/viewing, Wi-Fi latency, hardware
+encoding and Windows build/runtime were not revalidated in this follow-up.
+Deferred review item (d): validation before pipeline/session resource creation
+requires restructuring the current API and CLI capture-dimension setup; invalid
+Hello version/role is rejected today, but after resources have been created.
+A capture backend that never returns can still retain its thread; idle timeout
+ends the session's wait, and in-progress writes remain bounded by write timeout.
