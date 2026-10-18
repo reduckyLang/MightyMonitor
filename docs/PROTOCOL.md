@@ -107,3 +107,31 @@ canceled or timed-out send may have written part of a frame: drop that connectio
 rather than retrying on it. Drop and reconnect after malformed input, socket
 errors, or EOF. Reconnection and any handshake, backoff, or replay policy belong
 to the caller; transport does not automatically reconnect or replay frames.
+
+## Adaptive bitrate
+
+`NetStats` carries receiver feedback: `rtt_ms: u32` (round-trip milliseconds),
+`loss_pct: f32` (packet loss percentage), and `recv_kbps: u32` (received kbit/s).
+These names and types match the planned typed Message module in M1-3, which will
+supersede/re-export this feedback type. The controller currently uses RTT and
+loss; received throughput is available for future policies.
+
+`AimdController` implements `BitrateController` with deterministic AIMD rules.
+Each valid sample updates the baseline to the minimum RTT observed. Loss strictly
+above `loss_threshold_pct`, or RTT strictly above baseline times
+`rtt_rise_factor`, causes a multiplicative decrease and resets the stability
+counter. Otherwise, `stable_samples_required` consecutive samples cause one
+additive increase and reset the counter. Decreases round to the nearest whole
+kbit/s. All targets remain within the configured bounds; unchanged targets return
+`None`. Non-finite loss or loss outside 0–100 is ignored and resets stability.
+There are no timers, sleeps, or random decisions; callers choose feedback cadence.
+
+`AimdConfig` defaults to `min_kbps = 500`, `max_kbps = 20000`,
+`start_kbps = 4000`, `increase_kbps = 250`, `decrease_factor = 0.7`,
+`loss_threshold_pct = 2.0`, `rtt_rise_factor = 1.5`, and
+`stable_samples_required = 3`. `AimdController::new` rejects invalid bounds,
+zero steps/counts, non-finite factors/thresholds, a decrease factor outside
+(0, 1), a loss threshold outside [0, 100], or an RTT factor at or below one.
+The initial target is clamped to the bounds. Initialize the encoder with
+`target_kbps()`; `adapt` then forwards changed targets to
+`Encoder::set_bitrate_kbps`, which must support calls mid-stream.

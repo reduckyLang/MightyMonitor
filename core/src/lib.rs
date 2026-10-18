@@ -2,6 +2,11 @@
 
 mod error;
 
+/// Adaptive bitrate control from receiver feedback.
+pub mod abr;
+
+pub use abr::{adapt, AimdConfig, AimdController, BitrateController, NetStats};
+
 /// Length-prefixed framing for byte streams.
 pub mod frame;
 
@@ -67,6 +72,7 @@ pub trait Encoder {
     /// Encode a raw frame.
     fn encode(&mut self, raw: &[u8]) -> Bytes;
     /// Adapt target bitrate in kbit/s (adaptive bitrate).
+    /// Must be callable mid-stream.
     fn set_bitrate_kbps(&mut self, kbps: u32);
 }
 
