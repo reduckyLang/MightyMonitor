@@ -1,6 +1,26 @@
 //! Versioned, length-prefixed framing for TCP and other byte streams.
 
-use crate::{FrameError, PROTOCOL_VERSION};
+use crate::error::FrameError;
+
+/// Current wire protocol version, always the first byte of a frame.
+pub const PROTOCOL_VERSION: u8 = 1;
+
+/// Prefix a payload with the protocol version byte.
+pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(payload.len() + 1);
+    out.push(PROTOCOL_VERSION);
+    out.extend_from_slice(payload);
+    out
+}
+
+/// Check the version byte and return the payload.
+pub fn decode_frame(frame: &[u8]) -> Result<&[u8], FrameError> {
+    match frame.split_first() {
+        None => Err(FrameError::Empty),
+        Some((&PROTOCOL_VERSION, rest)) => Ok(rest),
+        Some((&v, _)) => Err(FrameError::UnsupportedVersion(v)),
+    }
+}
 
 /// Size of a stream frame header in bytes.
 pub const HEADER_LEN: usize = 6;
@@ -199,6 +219,22 @@ impl FrameDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_byte_first() {
+        let f = encode_frame(b"hi");
+        assert_eq!(f[0], PROTOCOL_VERSION);
+        assert_eq!(decode_frame(&f), Ok(&b"hi"[..]));
+    }
+
+    #[test]
+    fn rejects_bad_version_and_empty() {
+        assert_eq!(decode_frame(&[]), Err(FrameError::Empty));
+        assert_eq!(
+            decode_frame(&[99, 1]),
+            Err(FrameError::UnsupportedVersion(99))
+        );
+    }
 
     fn drain(decoder: &mut FrameDecoder, out: &mut Vec<Frame>) {
         while let Some(frame) = decoder.next_frame().unwrap() {

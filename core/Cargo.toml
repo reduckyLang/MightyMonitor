@@ -3,13 +3,16 @@ name = "mightymonitor-core"
 description = "MightyMonitor protocol, framing and platform traits"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+serde.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
 async-trait = "0.1"
-thiserror = "2"
-tokio = { version = "1", features = ["rt", "net", "io-util", "time"] }
+tokio.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread", "net", "io-util", "time"] }
