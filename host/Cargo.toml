@@ -1,0 +1,19 @@
+[package]
+name = "mightymonitor-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mm-host"
+path = "src/main.rs"
+
+[dependencies]
+mightymonitor-core = { path = "../core" }
+tokio.workspace = true
+async-trait = "0.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+host-linux = { path = "../host-linux" }
+codec-gst = { path = "../codec-gst" }

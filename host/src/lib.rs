@@ -1,0 +1,7 @@
+//! Host capture, encoding and bounded TCP streaming.
+#![forbid(unsafe_code)]
+pub mod pipeline;
+pub mod session;
+
+/// Fallible host operations, including platform backend errors.
+pub type Error = Box<dyn std::error::Error + Send + Sync>;

@@ -929,6 +929,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mightymonitor-host"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "codec-gst",
+ "host-linux",
+ "mightymonitor-core",
+ "tokio",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

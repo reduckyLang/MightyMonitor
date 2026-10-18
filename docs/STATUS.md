@@ -33,3 +33,19 @@
 2026-10-18: M2-2 step B implemented: optional Linux PipeWire/Wayland capture with ashpd ScreenCast consent, mapped BGRx/RGBx to opaque BGRA conversion, stride/chunk validation, monotonic metadata, bounded frame queue and session cleanup. Default builds require no PipeWire libraries. Fake conversion tests run without the feature; interactive Wayland smoke test is ignored by default. Dedicated Ubuntu Rust 1.85 feature build/clippy/test job added. Live Wayland validation requires a desktop session.
 
 M2-2B validation: native dev libraries installed locally; fmt, default workspace clippy/tests/build, feature build/clippy and all-feature tests pass, including feature verification on Rust 1.85. Windows cross-target all-targets check passes; full cross-linking is unavailable locally because MinGW dlltool is absent. Interactive Wayland smoke remains unrun because this environment has no Wayland session.
+
+2026-10-18: M2-4 host streaming pipeline implemented on feat/m2-4-host-pipeline.
+Added the portable mightymonitor-host library and Linux mm-host binary using X11
+capture and GStreamer H.264, core split reader/writer sessions, Hello/Resume
+handshakes, Ping/Pong, NetStats-driven ABR, and forced keyframes on request and
+reconnect. A one-frame latest-capture slot drops replaced/stale frames; exposed
+metrics bound queue occupancy and measure capture-to-send-initiation age. Added
+two queue unit tests and the three loopback acceptance tests with fake capture
+and dummy encoding. Usage, CLI flags, architecture and resume/backpressure limits
+are documented in docs/HOST.md. No new third-party packages; reused Tokio (MIT)
+and async-trait (MIT OR Apache-2.0). Required workspace fmt, clippy with warnings
+denied, mock-enabled tests, rustdoc with warnings denied, and build all pass.
+Windows GNU cross-target all-targets cargo check also passes. Live X11-to-viewer
+H.264 streaming, Wi-Fi/end-to-end latency, hardware encoding, and Windows linking
+or runtime remain unverified; the existing X11 smoke test is ignored by default.
+The roadmap tracks M2 as a whole, so its completion status is unchanged.
