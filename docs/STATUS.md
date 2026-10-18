@@ -49,3 +49,5 @@ Windows GNU cross-target all-targets cargo check also passes. Live X11-to-viewer
 H.264 streaming, Wi-Fi/end-to-end latency, hardware encoding, and Windows linking
 or runtime remain unverified; the existing X11 smoke test is ignored by default.
 The roadmap tracks M2 as a whole, so its completion status is unchanged.
+
+2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.

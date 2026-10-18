@@ -1,5 +1,6 @@
 //! Synchronous, bounded, low-latency H.264 codecs. See docs/CODEC.md.
-#![cfg(not(windows))]
+#![forbid(unsafe_code)]
+#![cfg(target_os = "linux")]
 
 pub mod decoder;
 pub mod encoder;
@@ -31,14 +32,14 @@ impl Pipeline {
             .map_err(|_| error("expected pipeline"))?;
         let source = pipeline
             .by_name("input")
-            .unwrap()
+            .ok_or_else(|| error("missing pipeline input"))?
             .downcast::<AppSrc>()
-            .unwrap();
+            .map_err(|_| error("pipeline input is not appsrc"))?;
         let sink = pipeline
             .by_name("output")
-            .unwrap()
+            .ok_or_else(|| error("missing pipeline output"))?
             .downcast::<AppSink>()
-            .unwrap();
+            .map_err(|_| error("pipeline output is not appsink"))?;
         source.set_caps(Some(caps));
         let pipe = Self {
             pipeline,
@@ -63,7 +64,9 @@ impl Pipeline {
         // Poison until output arrives: a late sample must never be assigned to a later input.
         self.failed = true;
         let mut buffer = gst::Buffer::from_mut_slice(data);
-        let writable = buffer.get_mut().unwrap();
+        let writable = buffer
+            .get_mut()
+            .ok_or_else(|| error("input buffer is not writable"))?;
         writable.set_pts(gst::ClockTime::from_useconds(pts));
         writable.set_duration(duration.map(gst::ClockTime::from_useconds));
         self.source.push_buffer(buffer).map_err(error)?;
