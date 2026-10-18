@@ -3,6 +3,8 @@
 pub mod error;
 /// Length-prefixed framing for byte streams.
 pub mod frame;
+pub mod input;
+pub mod message;
 pub mod traits;
 
 pub use error::FrameError;
@@ -16,3 +18,6 @@ pub use frame::{
     FrameHeader, HEADER_LEN, MAX_PAYLOAD_LEN, PROTOCOL_VERSION,
 };
 pub use traits::{Bytes, Capture, Decoder, Encoder, InputInjector};
+
+pub use input::{InputEvent, MouseButton, TouchPhase};
+pub use message::{Codec, Message, MessageError, NetStats, Role};

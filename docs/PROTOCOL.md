@@ -15,8 +15,8 @@ provides message boundaries; it does not provide authentication or encryption.
 
 The header is exactly 6 bytes. `PROTOCOL_VERSION = 1`; receivers reject other
 versions. Every frame starts with its version byte, including frames after the
-first frame in a connection. The kind byte is reserved for message kinds defined
-in M1-3; `0` means reserved/unspecified for now. The framing layer preserves all
+first frame in a connection. The kind byte remains reserved; `0` means reserved/unspecified. Typed message
+variants are encoded inside the payload. The framing layer preserves all
 kind values without interpreting them.
 
 `MAX_PAYLOAD_LEN` is 16 MiB (16 × 1024 × 1024 bytes). This limit prevents an
@@ -86,7 +86,7 @@ Use the stream framing functions and `FrameDecoder` for byte streams.
 `Transport` is an asynchronous, object-safe, `Send` trait that sends a kind byte
 and opaque payload and receives `Frame` values. It can be used as
 `Box<dyn Transport>`. It does not interpret kinds or serialize messages; the
-Message-level API arrives with M1-3 integration.
+Callers serialize and decode `Message` payloads explicitly.
 
 `TcpTransport::new` wraps an accepted/connected Tokio TCP stream and enables
 TCP_NODELAY. `connect` resolves and connects with a five-second deadline;
@@ -107,3 +107,46 @@ canceled or timed-out send may have written part of a frame: drop that connectio
 rather than retrying on it. Drop and reconnect after malformed input, socket
 errors, or EOF. Reconnection and any handshake, backoff, or replay policy belong
 to the caller; transport does not automatically reconnect or replay frames.
+
+## Messages
+
+`Message::to_bytes` and `Message::from_bytes` encode only the frame payload;
+framing still supplies the version byte first. Transport remains frame-level.
+The wire configuration is bincode 1.3 with fixed-width integer encoding and
+little-endian byte order (`DefaultOptions` with `with_fixint_encoding` and
+`with_little_endian`). Enum discriminants are zero-based `u32` values in the
+listed order; string and vector lengths are `u64`. Changing variant order or
+these settings changes the wire format. Both directions use a
+`MAX_PAYLOAD_LEN` byte budget, and decoding rejects trailing bytes, malformed
+payloads, and unknown discriminants through `MessageError`.
+
+`Message` is `#[non_exhaustive]` for forward source compatibility: downstream
+matches need a wildcard arm. This does not make unknown wire variants decodable;
+protocol changes still require version coordination.
+
+| Variant | Fields | Notes |
+| --- | --- | --- |
+| `Hello` | `proto_version: u8`, `device_name: String`, `role: Role`, `capabilities: Vec<String>` | Role is `Host` or `Viewer`. |
+| `HelloAck` | `session_id: u64`, `accepted: bool` | Handshake response. |
+| `VideoConfig` | `codec: Codec`, `width: u32`, `height: u32`, `fps: u32` | Codec is `H264`, `Vp8`, `Vp9`, `Av1`, or `Raw`. |
+| `VideoFrame` | `seq: u64`, `timestamp_us: u64`, `keyframe: bool`, `data: Vec<u8>` | Encoded video data; timestamp in microseconds. |
+| `Input` | `InputEvent` | Remote mouse, scroll, key, or touch input; see below. |
+| `Ping` | `nonce: u64`, `t_send_us: u64` | Sender timestamp in microseconds. |
+| `Pong` | `nonce: u64`, `t_send_us: u64` | Echoes ping identifiers. |
+| `NetStats` | `NetStats { rtt_ms: u32, loss_pct: f32, recv_kbps: u32 }` | Round-trip milliseconds, loss percentage, receive kilobits per second. |
+| `Resume` | `session_id: u64`, `last_seq: u64` | Message definition only; no resume or reconnect behavior is implemented. |
+| `Bye` | `reason: String` | Session end reason. |
+
+`InputEvent` variants are ordered as follows:
+
+| Variant | Fields | Notes |
+| --- | --- | --- |
+| `MouseMove` | `x: f32`, `y: f32` | Normalized coordinates in `0..=1`. |
+| `MouseButton` | `button: MouseButton`, `pressed: bool` | Button is `Left`, `Right`, `Middle`, `Back`, or `Forward`. |
+| `Scroll` | `dx: f32`, `dy: f32` | Scroll deltas. |
+| `Key` | `code: u32`, `pressed: bool` | Key code and state. |
+| `Touch` | `id: u32`, `phase: TouchPhase`, `x: f32`, `y: f32` | Phase is `Start`, `Move`, `End`, or `Cancel`; coordinates normalized to `0..=1`. |
+
+Coordinate ranges and application semantics are caller contracts; decoding does
+not validate them. All listed types support serde serialization and cloning.
+Types containing floating-point fields implement `PartialEq` without `Eq`.
