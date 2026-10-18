@@ -58,3 +58,8 @@ Resume/session/sequence, post-reconnect frames, Closed and feedback cadence.
 Real H.264 host streaming, desktop presentation, Windows runtime and Wi-Fi latency
 remain manual validation work. Color conversion currently assumes limited-range
 BT.601 I420; negotiated colorimetry and hardware texture conversion are absent.
+
+See [ABR.md](ABR.md) for host feedback policy. Sequence gaps are not a packet-loss
+measurement: the host deliberately skips frames before writing. Current RTT also
+includes control scheduling and ordered TCP backlog, which is useful congestion
+feedback but is not a pure wire RTT.

@@ -88,3 +88,7 @@ and hardware encoding need separate desktop validation.
 The host adds no new third-party packages to the workspace lockfile: Tokio
 (MIT) and async-trait (MIT OR Apache-2.0) are reused, alongside the existing
 workspace backends. See CODEC.md for GStreamer/plugin licensing considerations.
+
+Adaptive bitrate policy, write-pressure feedback, simulation and limitations are
+specified in [ABR.md](ABR.md). Live bitrate rejection leaves the controller at its
+last accepted target so subsequent feedback can retry.
