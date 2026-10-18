@@ -134,14 +134,43 @@ caller with the same transport and its partial input intact. `send()` never
 replays application frames: after successful recovery it returns
 `SendOutcome::ReconnectedNotSent`. Some or all of the original send may already
 have reached the peer; application sequence numbers and replay rules must resolve
-that ambiguity. Cancellation of a send requires dropping the session because
-partial output may have been written. The transport never replays automatically.
+that ambiguity. Cancellation of an unsplit send drops its transport because
+partial output may have been written; the next operation recovers. The transport never replays automatically.
+
+`ReconnectingSession::split(self)` returns `SessionReader` and `SessionWriter`.
+The reader owns the transport, reconnect/backoff, and application-supplied
+`set_last_seq`; call its `connect_initial` if splitting before initial connection.
+Both halves are `Send` (`JitterSource` requires `Send`) and expose shared `state`
+and `take_events`. Draining events from either half consumes the same bounded
+history. The unsplit API remains available with its existing recovery behavior.
+
+The reader's `recv` acts as the command loop: keep polling it to service writes.
+A bounded channel (one pending command) carries writer requests. While connected,
+the reader selects between cancellation-safe transport receive and send requests;
+no mutex is held across receive, write, connect, or backoff. Writes serialize with
+receives at the transport, so a write in progress can delay receiving. The shared
+mutex protects only lifecycle metadata. Custom transports must preserve partial
+input when receive is cancelled, as required by `Transport::recv`.
+
+`SessionWriter::send(kind, payload, timeout)` applies the supplied deadline to
+both dispatch and writing. During reconnect it immediately returns
+`SendOutcome::NotConnected` and queues nothing; after exhaustion it returns
+`SessionError::GaveUp`. Requests crossing a disconnection are rejected rather
+than replayed on a replacement transport. A successful send returns `Sent`;
+write I/O errors/timeouts are returned directly and leave recovery to the reader.
+Cancellation or deadline expiry during an active write drops that transport;
+requests cancelled before writing are discarded. No application frame is
+replayed automatically. If the reader stops polling, sends remain bounded by
+their deadline; dropping the reader closes the command channel. Resume is fully
+written before the replacement transport becomes available to the writer.
 
 Retries use exponential backoff (100 ms initially, multiplier 2), symmetric
 20% jitter, and a hard five-second cap including jitter by default. The policy,
 seeded randomness, and attempt limit are configurable; the default retry budget
 is unlimited. A zero attempt limit gives up immediately after disconnection.
-Sleep uses Tokio time, allowing paused-time tests. Exhaustion is terminal for the
+Sleep uses Tokio time, allowing paused-time tests. Each scheduled attempt
+consumes retry budget, including a sleep cancelled before connecting. Backoff
+and budget reset only on the first received frame, never on Resume alone. Exhaustion is terminal for the
 session. Lifecycle events retain only the newest 64 entries; `take_events()`
 drains them, so callers needing a complete history should drain regularly.
 
