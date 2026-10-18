@@ -1,6 +1,6 @@
 //! Frame-level reconnect, explicit resume, and deterministic backoff.
 
-use crate::{Frame, TcpTransport, Transport, TransportError};
+use crate::{Frame, FrameError, TcpTransport, Transport, TransportError, MAX_PAYLOAD_LEN};
 use async_trait::async_trait;
 use std::{collections::VecDeque, time::Duration};
 
@@ -129,9 +129,9 @@ impl BackoffPolicy {
         self.initial = initial;
         self
     }
-    /// Set the hard delay cap, including jitter.
+    /// Set the hard delay cap, including jitter; values below 1 ms become 1 ms.
     pub fn with_max(mut self, max: Duration) -> Self {
-        self.max = max;
+        self.max = max.max(Duration::from_millis(1));
         self
     }
     /// Set exponential growth; nonfinite values or values below one become one.
@@ -206,7 +206,8 @@ impl<J: JitterSource> Iterator for Backoff<J> {
         // Fallible conversion also handles rounding at Duration::MAX.
         let delay = Duration::try_from_secs_f64(seconds)
             .unwrap_or(self.policy.max)
-            .min(self.policy.max);
+            .min(self.policy.max)
+            .max(Duration::from_millis(1));
         self.base = Duration::try_from_secs_f64(
             (self.base.as_secs_f64() * self.policy.multiplier).min(cap),
         )
@@ -260,7 +261,7 @@ pub enum SessionEvent {
     },
     /// Retry budget exhausted.
     GaveUp {
-        /// Attempts performed during this outage.
+        /// Attempts scheduled during this outage, including cancelled sleeps.
         attempts: u32,
     },
 }
@@ -290,8 +291,10 @@ pub enum SendOutcome {
 /// Reconnects frame transports and sends Resume first on every replacement.
 ///
 /// Callers maintain the last consumed sequence. Receives transparently recover;
-/// sends report recovery without replay. Canceling a send can leave partial output:
-/// drop the session in that case. Recovery cancellation retains its retry budget.
+/// sends report recovery without replay. Canceling a send drops its transport;
+/// the next operation recovers. Recovery cancellation retains its retry budget,
+/// including attempts scheduled before a cancelled sleep. Backoff resets only
+/// after receiving a frame, so a successful Resume write alone does not reset it.
 pub struct ReconnectingSession<C: Connector, J: JitterSource> {
     connector: C,
     backoff: Backoff<J>,
@@ -354,8 +357,9 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
     }
     fn disconnect(&mut self, error: &TransportError) {
         self.current = None;
-        self.backoff.reset();
-        self.state = SessionState::Reconnecting { attempt: 0 };
+        self.state = SessionState::Reconnecting {
+            attempt: self.backoff.attempts,
+        };
         self.emit(SessionEvent::Disconnected {
             reason: error.to_string(),
         });
@@ -404,7 +408,6 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
                 Ok(transport) => {
                     self.current = Some(transport);
                     self.state = SessionState::Connected;
-                    self.backoff.reset();
                     self.emit(SessionEvent::Connected);
                     self.emit(SessionEvent::Resumed {
                         last_seq: self.last_seq,
@@ -420,24 +423,40 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
     }
     /// Send once. After recovery return ReconnectedNotSent for caller-controlled retry.
     pub async fn send(&mut self, kind: u8, payload: &[u8]) -> Result<SendOutcome, SessionError> {
+        if payload.len() > MAX_PAYLOAD_LEN {
+            return Err(TransportError::Frame(FrameError::TooLarge {
+                len: payload.len() as u64,
+                max: MAX_PAYLOAD_LEN as u64,
+            })
+            .into());
+        }
         let recovering = self.started && self.current.is_none();
         self.ready().await?;
         if recovering {
             return Ok(SendOutcome::ReconnectedNotSent);
         }
-        let result = match self.current.as_mut() {
-            Some(transport) => transport.send(kind, payload).await,
-            None => return Err(SessionError::NotConnected),
+        let Some(mut transport) = self.current.take() else {
+            return Err(SessionError::NotConnected);
         };
-        match result {
-            Ok(()) => Ok(SendOutcome::Sent),
-            Err(TransportError::Timeout(op)) if op != "write" => {
-                Err(TransportError::Timeout(op).into())
+        self.state = SessionState::Reconnecting {
+            attempt: self.backoff.attempts,
+        };
+        match transport.send(kind, payload).await {
+            Ok(()) => {
+                self.current = Some(transport);
+                self.state = SessionState::Connected;
+                Ok(SendOutcome::Sent)
             }
-            Err(error) => {
+            Err(error @ (TransportError::Io(_) | TransportError::Timeout("write"))) => {
+                drop(transport);
                 self.disconnect(&error);
                 self.recover().await?;
                 Ok(SendOutcome::ReconnectedNotSent)
+            }
+            Err(error) => {
+                self.current = Some(transport);
+                self.state = SessionState::Connected;
+                Err(error.into())
             }
         }
     }
@@ -450,7 +469,10 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
                 None => return Err(SessionError::NotConnected),
             };
             match result {
-                Ok(frame) => return Ok(frame),
+                Ok(frame) => {
+                    self.backoff.reset();
+                    return Ok(frame);
+                }
                 Err(error @ TransportError::Timeout("read")) => return Err(error.into()),
                 Err(error) => {
                     self.disconnect(&error);
@@ -523,6 +545,144 @@ mod tests {
         assert!(Backoff::new(policy, SplitMix64::new(3))
             .take(100)
             .all(|d| d <= Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn backoff_never_returns_zero() {
+        struct Zero;
+        impl JitterSource for Zero {
+            fn next_unit(&mut self) -> f64 {
+                0.0
+            }
+        }
+        for policy in [
+            BackoffPolicy::default().with_initial(Duration::ZERO),
+            BackoffPolicy::default().with_jitter(1.0),
+            BackoffPolicy::default().with_max(Duration::ZERO),
+        ] {
+            assert!(Backoff::new(policy, Zero)
+                .take(10)
+                .all(|delay| delay >= Duration::from_millis(1)));
+        }
+    }
+
+    #[tokio::test]
+    async fn oversized_send_keeps_connection() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(vec![transport(&sent, vec![], false)], 2);
+        session.connect_initial().await.unwrap();
+        assert!(matches!(
+            session.send(1, &vec![0; MAX_PAYLOAD_LEN + 1]).await,
+            Err(SessionError::Transport(TransportError::Frame(
+                FrameError::TooLarge { .. }
+            )))
+        ));
+        assert_eq!(session.state(), SessionState::Connected);
+        assert_eq!(*calls.lock().unwrap(), 1);
+        assert!(sent.lock().unwrap().is_empty());
+        assert_eq!(session.send(1, b"ok").await.unwrap(), SendOutcome::Sent);
+        assert_eq!(session.take_events(), vec![SessionEvent::Connected]);
+    }
+
+    struct SendErrorTransport(Option<TransportError>);
+    #[async_trait]
+    impl Transport for SendErrorTransport {
+        async fn send(&mut self, _: u8, _: &[u8]) -> Result<(), TransportError> {
+            match self.0.take() {
+                Some(error) => Err(error),
+                None => std::future::pending().await,
+            }
+        }
+        async fn recv(&mut self) -> Result<Frame, TransportError> {
+            Err(TransportError::Closed)
+        }
+    }
+
+    #[tokio::test]
+    async fn local_send_errors_keep_transport() {
+        for error in [
+            TransportError::Frame(FrameError::Truncated),
+            TransportError::Timeout("read"),
+            TransportError::Closed,
+        ] {
+            let (mut session, calls) =
+                session(vec![Ok(Box::new(SendErrorTransport(Some(error))))], 2);
+            session.connect_initial().await.unwrap();
+            assert!(matches!(
+                session.send(1, b"x").await,
+                Err(SessionError::Transport(_))
+            ));
+            assert_eq!(session.state(), SessionState::Connected);
+            assert!(session.current.is_some());
+            assert_eq!(*calls.lock().unwrap(), 1);
+            assert_eq!(session.take_events(), vec![SessionEvent::Connected]);
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancelled_send_drops_transport_and_recovers() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                Ok(Box::new(SendErrorTransport(None))),
+                transport(&sent, vec![], false),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1), session.send(1, b"partial"))
+                .await
+                .is_err()
+        );
+        assert!(session.current.is_none());
+        assert_eq!(session.state(), SessionState::Reconnecting { attempt: 0 });
+        assert_eq!(
+            session.send(1, b"retry").await.unwrap(),
+            SendOutcome::ReconnectedNotSent
+        );
+        assert_eq!(*calls.lock().unwrap(), 2);
+        assert_eq!(sent.lock().unwrap()[0].kind, KIND_RESUME);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn received_frame_resets_reconnect_budget() {
+        let sent = Sent::default();
+        let frame = Frame {
+            kind: 1,
+            payload: vec![],
+        };
+        let (mut session, calls) = session(
+            vec![
+                transport(&sent, vec![], false),
+                transport(&sent, vec![Ok(frame.clone())], false),
+                transport(&sent, vec![Ok(frame.clone())], false),
+            ],
+            1,
+        );
+        session.connect_initial().await.unwrap();
+        assert_eq!(session.recv().await.unwrap(), frame);
+        assert_eq!(session.backoff.attempts, 0);
+        assert_eq!(session.recv().await.unwrap(), frame);
+        assert_eq!(session.backoff.attempts, 0);
+        assert_eq!(*calls.lock().unwrap(), 3);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn resume_without_received_frame_preserves_budget() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                transport(&sent, vec![], false),
+                transport(&sent, vec![], false),
+                transport(&sent, vec![], false),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        assert!(matches!(session.recv().await, Err(SessionError::GaveUp)));
+        assert_eq!(*calls.lock().unwrap(), 3);
+        assert_eq!(session.backoff.attempts, 2);
     }
 
     type Sent = Arc<Mutex<Vec<Frame>>>;
