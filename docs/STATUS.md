@@ -51,3 +51,29 @@ or runtime remain unverified; the existing X11 smoke test is ignored by default.
 The roadmap tracks M2 as a whole, so its completion status is unchanged.
 
 2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.
+
+2026-10-18: M2-6 desktop viewer implemented on feat/m2-6-viewer. Added
+mightymonitor-viewer / mm-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
+I420 decoding, RGB texture presentation, connection controls, lifecycle state,
+fps/payload bitrate/RTT overlay and logged decode-to-texture-submission latency.
+The GUI feature can be disabled for the headless generic core ViewerSession;
+its split ReconnectingSession reader/writer uses the acknowledged session id and
+last received sequence for Resume and waits for a keyframe after reconnect.
+Bounded ordered encoded input and a latest decoded-picture slot limit backlog.
+NetStats and matching Ping/Pong run at approximately one-second intervals.
+Windows compiles the GUI and displays an explicit unsupported decoder error.
+Added minimal TCP fake-host acceptance tests for reconnect/Resume/keyframe,
+feedback cadence, invalid configuration/Closed, and I420 conversion. Updated
+Linux CI GUI prerequisites and NOTICE. Also repaired inherited M2-4 call sites
+for M2-3's now-fallible Encoder trait, propagating bitrate failures.
+
+Validation: workspace fmt, clippy with warnings denied, tests, build, mock-feature
+tests, PipeWire-feature build/clippy, all-feature tests, rustdoc with warnings
+denied, Rust 1.85 all-targets workspace check and PipeWire-feature build,
+and Windows GNU cross-target
+all-targets clippy pass. Live desktop rendering, real host H.264 streaming,
+Wi-Fi recovery/latency, physical presentation timing and Windows linking/runtime
+remain unverified. Decode-to-present here means texture submission, not scanout.
+M2-4 PR #29 is still unmerged; usage, dependency and manual smoke steps are in
+VIEWER.md. Windows real decoding, input forwarding and negotiated colorimetry
+remain future work; M2 as a whole is not complete.

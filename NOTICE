@@ -41,3 +41,14 @@ GStreamer (codec-gst crate, H.264 codec)
 - Bundling GStreamer or any plugin with a release needs a separate license
   review first.
 - A future Windows or Android backend should avoid GPL components.
+
+Desktop viewer (egui/eframe)
+--------------------------
+- eframe/egui 0.31.1: MIT OR Apache-2.0, desktop UI and OpenGL textures.
+  https://github.com/emilk/egui
+- async-trait: MIT OR Apache-2.0, connector implementation; Tokio (MIT) reused.
+- New GUI transitive packages use permissive MIT/Apache/BSD/ISC/Zlib,
+  Unicode-3.0, BSL-1.0, CC0-1.0, OFL-1.1/Ubuntu-font-1.0 (fonts),
+  or other permissive alternatives recorded in
+  Cargo.lock and each package's license metadata. No GUI GPL/LGPL code is bundled.
+  GStreamer system runtime licensing remains as described above.
