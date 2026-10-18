@@ -1,49 +1,11 @@
 //! Frame-level reconnect, explicit resume, and deterministic backoff.
 
-use crate::{Frame, FrameError, TcpTransport, Transport, TransportError, MAX_PAYLOAD_LEN};
+use crate::{
+    Frame, FrameError, Message, MessageError, TcpTransport, Transport, TransportError,
+    MAX_PAYLOAD_LEN,
+};
 use async_trait::async_trait;
 use std::{collections::VecDeque, time::Duration};
-
-/// Provisional Resume kind; map to `Message::Resume` when M1-3 lands.
-pub const KIND_RESUME: u8 = 0xfe;
-
-/// Resume position supplied by the application, not inferred from opaque frames.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ResumeRequest {
-    /// Existing logical session identifier.
-    pub session_id: u64,
-    /// Last sequence successfully consumed by the application.
-    pub last_seq: u64,
-}
-
-/// Resume payload did not contain exactly 16 bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("resume payload must be 16 bytes (received {0})")]
-pub struct ResumePayloadError(pub usize);
-
-impl ResumeRequest {
-    /// Encode session ID followed by last sequence, both little-endian.
-    pub fn to_payload(self) -> [u8; 16] {
-        let mut bytes = [0; 16];
-        bytes[..8].copy_from_slice(&self.session_id.to_le_bytes());
-        bytes[8..].copy_from_slice(&self.last_seq.to_le_bytes());
-        bytes
-    }
-    /// Decode an exact 16-byte payload.
-    pub fn from_payload(bytes: &[u8]) -> Result<Self, ResumePayloadError> {
-        let bytes: &[u8; 16] = bytes
-            .try_into()
-            .map_err(|_| ResumePayloadError(bytes.len()))?;
-        let mut id = [0; 8];
-        let mut seq = [0; 8];
-        id.copy_from_slice(&bytes[..8]);
-        seq.copy_from_slice(&bytes[8..]);
-        Ok(Self {
-            session_id: u64::from_le_bytes(id),
-            last_seq: u64::from_le_bytes(seq),
-        })
-    }
-}
 
 /// Establish a fresh transport on each attempt.
 #[async_trait]
@@ -268,6 +230,9 @@ pub enum SessionEvent {
 /// Session operation failure.
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
+    /// Typed resume payload encoding failed.
+    #[error(transparent)]
+    Message(#[from] MessageError),
     /// Transport error that did not trigger recovery, including read timeouts.
     #[error(transparent)]
     Transport(#[from] TransportError),
@@ -320,6 +285,7 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
         }
     }
     /// Set the last sequence consumed by the caller, to request replay after it.
+    /// Defaults to zero; zero requests replay after sequence zero, with no sentinel semantics.
     pub fn set_last_seq(&mut self, last_seq: u64) {
         self.last_seq = last_seq;
     }
@@ -391,17 +357,13 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
             tokio::time::sleep(delay).await;
             let result = async {
                 let mut transport = self.connector.connect().await?;
-                transport
-                    .send(
-                        KIND_RESUME,
-                        &ResumeRequest {
-                            session_id: self.session_id,
-                            last_seq: self.last_seq,
-                        }
-                        .to_payload(),
-                    )
-                    .await?;
-                Ok::<_, TransportError>(transport)
+                let (kind, payload) = Message::Resume {
+                    session_id: self.session_id,
+                    last_seq: self.last_seq,
+                }
+                .to_frame_parts()?;
+                transport.send(kind, &payload).await?;
+                Ok::<_, SessionError>(transport)
             }
             .await;
             match result {
@@ -490,20 +452,16 @@ mod tests {
 
     #[test]
     fn resume_payload_roundtrip_and_bad_length() {
-        let request = ResumeRequest {
+        let request = Message::Resume {
             session_id: 0x0102030405060708,
             last_seq: u64::MAX,
         };
-        assert_eq!(&request.to_payload()[..8], &[8, 7, 6, 5, 4, 3, 2, 1]);
-        assert_eq!(
-            ResumeRequest::from_payload(&request.to_payload()),
-            Ok(request)
-        );
+        let (kind, payload) = request.to_frame_parts().unwrap();
+        assert_eq!(kind, 9);
+        assert_eq!(&payload[4..12], &[8, 7, 6, 5, 4, 3, 2, 1]);
+        assert_eq!(Message::from_frame_parts(kind, &payload).unwrap(), request);
         for length in [0, 8, 15, 17, 32] {
-            assert_eq!(
-                ResumeRequest::from_payload(&vec![0; length]),
-                Err(ResumePayloadError(length))
-            );
+            assert!(Message::from_frame_parts(kind, &vec![0; length]).is_err());
         }
     }
     #[test]
@@ -642,7 +600,7 @@ mod tests {
             SendOutcome::ReconnectedNotSent
         );
         assert_eq!(*calls.lock().unwrap(), 2);
-        assert_eq!(sent.lock().unwrap()[0].kind, KIND_RESUME);
+        assert_eq!(sent.lock().unwrap()[0].kind, 9);
     }
 
     #[tokio::test(start_paused = true)]
@@ -782,8 +740,13 @@ mod tests {
         assert_eq!(
             *sent.lock().unwrap(),
             vec![Frame {
-                kind: KIND_RESUME,
-                payload: [123u64.to_le_bytes(), 42u64.to_le_bytes()].concat()
+                kind: 9,
+                payload: Message::Resume {
+                    session_id: 123,
+                    last_seq: 42
+                }
+                .to_bytes()
+                .unwrap()
             }]
         );
         assert_eq!(session.state(), SessionState::Connected);
@@ -886,13 +849,13 @@ mod tests {
         assert_eq!(
             *sent.lock().unwrap(),
             vec![Frame {
-                kind: KIND_RESUME,
-                payload: ResumeRequest {
+                kind: 9,
+                payload: Message::Resume {
                     session_id: 123,
                     last_seq: 9
                 }
-                .to_payload()
-                .to_vec()
+                .to_bytes()
+                .unwrap()
             }]
         );
         assert_eq!(
