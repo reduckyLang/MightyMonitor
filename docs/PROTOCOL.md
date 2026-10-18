@@ -9,16 +9,14 @@ provides message boundaries; it does not provide authentication or encryption.
 | Offset | Size (bytes) | Field | Encoding |
 | --- | --- | --- | --- |
 | 0 | 1 | Version | Unsigned byte; always the first byte |
-| 1 | 1 | Kind/flags | Unsigned byte; see reconnect kind below |
+| 1 | 1 | Kind | Unsigned byte; see message kinds below |
 | 2 | 4 | Payload length | Unsigned 32-bit integer, little-endian |
 | 6 | Payload length | Payload | Opaque bytes |
 
-The header is exactly 6 bytes. `PROTOCOL_VERSION = 1`; receivers reject other
+The header is exactly 6 bytes. `PROTOCOL_VERSION = 2`; receivers reject other
 versions. Every frame starts with its version byte, including frames after the
-first frame in a connection. The kind byte is reserved for message kinds defined
-in M1-3, except the provisional Resume code documented below; `0` means
-reserved/unspecified for now. The framing layer preserves all
-kind values without interpreting them.
+first frame in a connection. The framing layer preserves all kind values without
+interpreting them; the typed message layer validates the kind and payload together.
 
 `MAX_PAYLOAD_LEN` is 16 MiB (16 × 1024 × 1024 bytes). This limit prevents an
 untrusted length claim from causing an arbitrarily large payload allocation
@@ -52,6 +50,41 @@ remains. It succeeds at a clean frame boundary, including when complete frames
 remain buffered for consumption. On a poisoned decoder it returns the original
 error. `buffered_len` counts bytes not yet consumed by `next_frame`.
 
+## Messages
+
+`Message` is a non-exhaustive typed enum. Payloads use bincode 1.3 with fixed-width
+integers, little-endian byte order, a 16 MiB size limit, and rejection of trailing
+bytes. The payload includes the enum's zero-based u32 discriminant (declaration
+order); it is distinct from the one-based frame kind. Variant order is part of
+the wire format. `to_bytes`/`from_bytes` handle payloads alone;
+`to_frame_parts`/`from_frame_parts` also handle the kind and verify it matches the
+decoded variant. Malformed payloads, unknown variants, unknown kinds, reserved
+kinds, and kind/variant mismatches return `MessageError`.
+
+| Kind id | Variant | Fields |
+| --- | --- | --- |
+| 1 | Hello | proto_version: u8, device_name: String, role: Role, capabilities: Vec<String> |
+| 2 | HelloAck | session_id: u64, accepted: bool |
+| 3 | VideoConfig | codec: Codec, width: u32, height: u32, fps: u32 |
+| 4 | VideoFrame | seq: u64, timestamp_us: u64, keyframe: bool, data: Vec<u8> |
+| 5 | Input | InputEvent |
+| 6 | Ping | nonce: u64, t_send_us: u64 |
+| 7 | Pong | nonce: u64, t_send_us: u64 |
+| 8 | NetStats | rtt_ms: u32, loss_pct: f32, recv_kbps: u32 |
+| 9 | Resume | session_id: u64, last_seq: u64 |
+| 10 | Bye | reason: String |
+
+`KIND_RESERVED_FE = 0xfe` and `KIND_RESERVED_FF = 0xff` are never assigned to
+messages; they are reserved for protocol extension/escape. All other unassigned
+kinds (including zero) are unknown and rejected by `from_frame_parts`.
+
+`Role` is Host or Viewer. `Codec` is H264, Vp8, Vp9, Av1, or Raw.
+`InputEvent` is MouseMove { x: f32, y: f32 }, MouseButton { button: MouseButton,
+pressed: bool }, Scroll { dx: f32, dy: f32 }, Key { code: u32, pressed: bool }, or
+Touch { id: u32, phase: TouchPhase, x: f32, y: f32 }. MouseButton is Left, Right,
+Middle, Back, or Forward; TouchPhase is Start, Move, End, or Cancel. Coordinates
+are normalized to `0..=1` by caller contract, without decode-time validation.
+
 ## Errors
 
 | Error | Meaning |
@@ -65,14 +98,15 @@ Errors implement `std::fmt::Display` and `std::error::Error`.
 
 ## Worked example
 
-A version 1 frame with kind 0 and payload `"hi"` is:
+A version 2 framing-only example with kind 0 and opaque payload `"hi"` is
+(kind 0 is not a typed message):
 
 ```text
-01 00 02 00 00 00 68 69
+02 00 02 00 00 00 68 69
 │  │  └─────────┘ └───┘
 │  │   length = 2  h  i
 │  kind = 0
-version = 1
+version = 2
 ```
 
 ## Legacy whole-buffer helpers
@@ -87,7 +121,8 @@ Use the stream framing functions and `FrameDecoder` for byte streams.
 `Transport` is an asynchronous, object-safe, `Send` trait that sends a kind byte
 and opaque payload and receives `Frame` values. It can be used as
 `Box<dyn Transport>`. It does not interpret kinds or serialize messages; the
-Message-level API arrives with M1-3 integration.
+`Message::to_frame_parts` supplies the kind and payload for `send`;
+`Message::from_frame_parts` validates received frames.
 
 `TcpTransport::new` wraps an accepted/connected Tokio TCP stream and enables
 TCP_NODELAY. `connect` resolves and connects with a five-second deadline;
@@ -111,18 +146,15 @@ to the caller; transport does not automatically reconnect or replay frames.
 
 ## Reconnect and resume
 
-Until M1-3 is integrated, Resume uses provisional frame kind `0xfe` (254).
-This code will be mapped to `Message::Resume` when the typed message API lands;
-applications must not treat this provisional allocation as a stable message table.
-Its payload is exactly 16 bytes, without serde or bincode:
-
-| Payload offset | Size | Field | Encoding |
-| --- | --- | --- | --- |
-| 0 | 8 | session_id | u64 little-endian |
-| 8 | 8 | last_seq | u64 little-endian |
+Resume is now `Message::Resume`, stable kind **9**, encoded with the same bincode
+settings as all typed messages. `PROTOCOL_VERSION` was bumped to **2** to finalize
+this wire format; version 1 peers are rejected. Resume is unauthenticated: bind it
+to pairing/authentication in a later milestone before trusting a session claim.
 
 After reconnect the client sends Resume first. The peer replays frames **after**
-`last_seq` for the identified logical session. The caller updates `set_last_seq`
+`last_seq` for the identified logical session. The initial `last_seq` is zero;
+`last_seq == 0` requests replay after sequence zero, not an unspecified-position
+sentinel. The session forwards this value without implementing peer-side replay. The caller updates `set_last_seq`
 only after consuming a frame; opaque frame payloads are never interpreted by the
 session. `Resumed` means the request was written, not acknowledged by the peer.
 The initial connection performs no Resume or application handshake automatically.
@@ -134,14 +166,50 @@ caller with the same transport and its partial input intact. `send()` never
 replays application frames: after successful recovery it returns
 `SendOutcome::ReconnectedNotSent`. Some or all of the original send may already
 have reached the peer; application sequence numbers and replay rules must resolve
-that ambiguity. Cancellation of a send requires dropping the session because
-partial output may have been written. The transport never replays automatically.
+that ambiguity. Cancellation of an unsplit send drops its transport because
+partial output may have been written; the next operation recovers. The transport never replays automatically.
+
+`ReconnectingSession::split(self)` returns `SessionReader` and `SessionWriter`.
+The reader owns the transport, reconnect/backoff, and application-supplied
+`set_last_seq`; call its `connect_initial` if splitting before initial connection.
+Both halves are `Send` (`JitterSource` requires `Send`) and expose shared `state`
+and `take_events`. Draining events from either half consumes the same bounded
+history. The unsplit API remains available with its existing recovery behavior.
+
+The reader's `recv` acts as the command loop: keep polling it to service writes.
+A bounded channel (one pending command) carries writer requests. While connected,
+the reader selects between cancellation-safe transport receive and send requests;
+no mutex is held across receive, write, connect, or backoff. Writes serialize with
+receives at the transport, so a write in progress can delay receiving. The shared
+mutex protects only lifecycle metadata. Custom transports must preserve partial
+input when receive is cancelled, as required by `Transport::recv`.
+
+`SessionWriter::send(kind, payload, timeout)` applies the supplied deadline to
+both dispatch and writing. During reconnect it immediately returns
+`SendOutcome::NotConnected` and queues nothing; after exhaustion it returns
+`SessionError::GaveUp`. Requests crossing a disconnection are rejected rather
+than replayed on a replacement transport. A successful send returns `Sent`;
+write I/O errors/timeouts are returned directly and leave recovery to the reader.
+Cancellation or deadline expiry during an active write drops that transport;
+requests cancelled before writing are discarded. No application frame is
+replayed automatically. If the reader stops polling, sends remain bounded by
+their deadline. Expiry before the reader starts the write (including waiting
+for channel capacity) returns `TransportError::Timeout("queue")`; expiry after
+the write starts returns `TransportError::Timeout("write")`. Both phases share
+one deadline. Dropping a pending `SessionReader::recv` during an inline write
+drops the transport and emits `Disconnected` with the `Closed` reason; the next
+receive recovers without replay. Cancelling while reading retains the transport,
+and cancelling recovery retains its retry budget. Dropping the reader closes
+the command channel. Resume is fully
+written before the replacement transport becomes available to the writer.
 
 Retries use exponential backoff (100 ms initially, multiplier 2), symmetric
 20% jitter, and a hard five-second cap including jitter by default. The policy,
 seeded randomness, and attempt limit are configurable; the default retry budget
 is unlimited. A zero attempt limit gives up immediately after disconnection.
-Sleep uses Tokio time, allowing paused-time tests. Exhaustion is terminal for the
+Sleep uses Tokio time, allowing paused-time tests. Each scheduled attempt
+consumes retry budget, including a sleep cancelled before connecting. Backoff
+and budget reset only on the first received frame, never on Resume alone. Exhaustion is terminal for the
 session. Lifecycle events retain only the newest 64 entries; `take_events()`
 drains them, so callers needing a complete history should drain regularly.
 
@@ -149,3 +217,34 @@ IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
 and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
 that literal address; hostname discovery via mDNS is a later milestone, M8.
+
+## Adaptive bitrate
+
+`NetStats` carries receiver feedback: `rtt_ms: u32` (round-trip milliseconds),
+`loss_pct: f32` (packet loss percentage), and `recv_kbps: u32` (received kbit/s).
+ABR uses `crate::message::NetStats`, also exported at the crate root. The controller
+currently uses RTT and loss; received throughput is available for future policies.
+
+`AimdController` implements `BitrateController` with deterministic AIMD rules.
+Each valid sample updates the baseline to the minimum RTT observed. Loss strictly
+above `loss_threshold_pct`, or RTT strictly above
+`max(baseline * rtt_rise_factor, baseline + rtt_slack_ms)` (computed in `f64`),
+causes a multiplicative decrease and resets the stability
+counter. Otherwise, `stable_samples_required` consecutive samples cause one
+additive increase and reset the counter. Decreases round to the nearest whole
+kbit/s. All targets remain within the configured bounds; unchanged targets return
+`None`. Non-finite loss or loss outside 0–100 is ignored and resets stability.
+There are no timers, sleeps, or random decisions; callers choose feedback cadence.
+
+`AimdConfig` defaults to `min_kbps = 500`, `max_kbps = 20000`,
+`start_kbps = 4000`, `increase_kbps = 250`, `decrease_factor = 0.7`,
+`loss_threshold_pct = 2.0`, `rtt_rise_factor = 1.5`, `rtt_slack_ms = 20`, and
+`stable_samples_required = 3`. `AimdController::new` rejects invalid bounds,
+zero steps/counts, non-finite factors/thresholds, a decrease factor outside
+(0, 1), a loss threshold outside [0, 100], or an RTT factor at or below one.
+The initial target is clamped to the bounds. Initialize the encoder with
+`target_kbps()`; `adapt` then forwards changed targets to
+`Encoder::set_bitrate_kbps`, which must support calls mid-stream.
+
+The absolute RTT slack tolerates small LAN jitter even with a zero or one millisecond
+baseline.

@@ -12,6 +12,7 @@ pub trait Encoder {
     /// Encode a raw frame.
     fn encode(&mut self, raw: &[u8]) -> Bytes;
     /// Adapt target bitrate in kbit/s (adaptive bitrate).
+    /// Must be callable mid-stream.
     fn set_bitrate_kbps(&mut self, kbps: u32);
 }
 
