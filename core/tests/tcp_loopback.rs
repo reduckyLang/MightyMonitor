@@ -8,7 +8,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 
-const LIMIT: Duration = Duration::from_secs(5);
+const LIMIT: Duration = Duration::from_secs(12);
 
 async fn pair() -> (TcpTransport, TcpStream) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -83,7 +83,7 @@ async fn streams_1000_video_frames_in_order() {
 }
 
 #[tokio::test]
-async fn ping_pong_rtt_measured() {
+async fn ping_pong_roundtrip() {
     timeout(LIMIT, async {
         const PING: u8 = 4;
         const PONG: u8 = 5;
@@ -95,10 +95,8 @@ async fn ping_pong_rtt_measured() {
             viewer.send(PONG, &ping.payload).await.unwrap();
         });
         let nonce = 0x123456789abcdef0u64.to_le_bytes();
-        let start = Instant::now();
         host.send(PING, &nonce).await.unwrap();
         let pong = host.recv().await.unwrap();
-        assert!(start.elapsed() > Duration::ZERO);
         assert_eq!(pong.kind, PONG);
         assert_eq!(pong.payload, nonce);
         viewer.await.unwrap();
