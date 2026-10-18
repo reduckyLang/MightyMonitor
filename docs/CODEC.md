@@ -1,7 +1,7 @@
 # H.264 codec (M2-3)
 
 `codec-gst` provides synchronous GStreamer H.264 encoding and decoding on
-non-Windows platforms with GStreamer >=1.20 (appsrc queue limits). The deterministic default is software x264/FFmpeg.
+Linux with GStreamer >=1.20 (appsrc queue limits). The deterministic default is software x264/FFmpeg.
 The gstreamer-rs crates are pinned to the 0.23 series (gstreamer 0.23.7,
 gstreamer-app 0.23.5, gstreamer-video 0.23.6), with Cargo.lock committed.
 The locked workspace is checked with Rust 1.85.0 as well as the repository's
@@ -16,10 +16,9 @@ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
 cargo test -p codec-gst -- --nocapture
 ```
 
-CI installs these packages on Ubuntu. Windows has no GStreamer dependency:
-both the crate's code/tests and its dependencies are gated with `not(windows)`.
-All ordinary Windows workspace commands still run, but the crate exposes no
-codec API there. A Windows viewer will need a subsequent Windows codec backend
+CI installs these packages on Ubuntu. Windows and Android have no GStreamer dependency:
+both the crate's code/tests and its dependencies are gated with `target_os = "linux"`.
+The crate compiles as an empty crate on other platforms. A Windows viewer will need a subsequent Windows codec backend
 or deliberate GStreamer packaging and removal of this gate.
 
 ## API and frame contract
@@ -58,14 +57,16 @@ timestamps preserve this caller metadata, independent of GStreamer's internal
 time offsets. Submit increasing timestamps. Each codec is used by one caller;
 the synchronous mutable methods allow only one outstanding input.
 
-The core `Encoder`/`Decoder` traits accept/return only bytes and cannot carry
-dimensions, timestamps or errors. Their adapters use construction-time settings,
-generate timestamps at the configured frame rate (30 fps for decoder), and
-panic on codec failure. Production pipeline code should use the fallible inherent
-methods. No core trait signature changed. Invalid frame lengths and bitrate
+The core `Encoder`/`Decoder` traits return `Result` with a core `CodecError`
+(boxed backend error, `Send + Sync`) for encoding, decoding and bitrate changes.
+The `adapt` helper also propagates bitrate errors. Adapters use construction-time
+settings and generate timestamps at the configured frame rate (30 fps for decoder).
+Use the inherent methods to carry dimensions and timestamps. Invalid frame lengths and bitrate
 values return errors before submission; pipeline errors/timeouts require
 recreating the codec so delayed output cannot be mistaken for a later frame.
-Output waits are bounded at three seconds. Pipelines transition to NULL on drop.
+`encode_frame` and `decode_frame` can block up to 3 seconds waiting for output.
+Decoder access units are limited to 16 MiB; output dimensions must be nonzero,
+even, and at most 8192 each. Output packing uses checked size and row arithmetic. Pipelines transition to NULL on drop.
 
 ## Low latency and hardware
 
@@ -105,6 +106,7 @@ change these figures; they are not end-to-end or Wi-Fi measurements.
 ## Licensing
 
 The gstreamer-rs bindings are MIT/Apache-2.0. The GStreamer runtime is LGPL.
+The `avdec_h264` decoder (libav/gst-libav) is LGPL, like the rest of the runtime.
 The `x264enc` element is GPL. MightyMonitor loads these libraries dynamically
 from the system and never bundles them. Bundling any of them needs a separate
 license review. A future Windows or Android backend should avoid GPL

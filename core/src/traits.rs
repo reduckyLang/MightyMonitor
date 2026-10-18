@@ -1,3 +1,5 @@
+use crate::CodecError;
+
 /// Raw encoded or captured frame bytes.
 pub type Bytes = Vec<u8>;
 
@@ -9,17 +11,17 @@ pub trait Capture {
 
 /// Video encoder (e.g. H.264).
 pub trait Encoder {
-    /// Encode a raw frame.
-    fn encode(&mut self, raw: &[u8]) -> Bytes;
+    /// Encode a raw frame, returning backend failures to the caller.
+    fn encode(&mut self, raw: &[u8]) -> Result<Bytes, CodecError>;
     /// Adapt target bitrate in kbit/s (adaptive bitrate).
-    /// Must be callable mid-stream.
-    fn set_bitrate_kbps(&mut self, kbps: u32);
+    /// Must be callable mid-stream; backend rejection is returned to the caller.
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<(), CodecError>;
 }
 
 /// Video decoder.
 pub trait Decoder {
-    /// Decode an encoded frame.
-    fn decode(&mut self, encoded: &[u8]) -> Bytes;
+    /// Decode an encoded frame, returning backend failures to the caller.
+    fn decode(&mut self, encoded: &[u8]) -> Result<Bytes, CodecError>;
 }
 
 /// Injects remote input events on the host.

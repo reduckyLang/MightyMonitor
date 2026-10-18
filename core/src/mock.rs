@@ -52,12 +52,13 @@ impl MockEncoder {
 }
 
 impl Encoder for MockEncoder {
-    fn encode(&mut self, raw: &[u8]) -> Bytes {
-        raw.iter().map(|byte| byte ^ 0xa5).collect()
+    fn encode(&mut self, raw: &[u8]) -> Result<Bytes, crate::CodecError> {
+        Ok(raw.iter().map(|byte| byte ^ 0xa5).collect())
     }
 
-    fn set_bitrate_kbps(&mut self, kbps: u32) {
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<(), crate::CodecError> {
         self.bitrate_kbps = kbps;
+        Ok(())
     }
 }
 
@@ -66,8 +67,8 @@ impl Encoder for MockEncoder {
 pub struct MockDecoder;
 
 impl Decoder for MockDecoder {
-    fn decode(&mut self, encoded: &[u8]) -> Bytes {
-        encoded.iter().map(|byte| byte ^ 0xa5).collect()
+    fn decode(&mut self, encoded: &[u8]) -> Result<Bytes, crate::CodecError> {
+        Ok(encoded.iter().map(|byte| byte ^ 0xa5).collect())
     }
 }
 

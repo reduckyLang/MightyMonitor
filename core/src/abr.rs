@@ -136,15 +136,17 @@ impl BitrateController for AimdController {
     }
 }
 
-/// Apply a changed controller target to the encoder and return that target.
+/// Apply a changed controller target, returning that target or the encoder error.
 pub fn adapt(
     encoder: &mut dyn Encoder,
     ctl: &mut dyn BitrateController,
     stats: &NetStats,
-) -> Option<u32> {
-    let target = ctl.on_stats(stats)?;
-    encoder.set_bitrate_kbps(target);
-    Some(target)
+) -> Result<Option<u32>, crate::CodecError> {
+    let Some(target) = ctl.on_stats(stats) else {
+        return Ok(None);
+    };
+    encoder.set_bitrate_kbps(target)?;
+    Ok(Some(target))
 }
 
 #[cfg(test)]
@@ -260,18 +262,40 @@ mod tests {
             targets: Vec<u32>,
         }
         impl Encoder for MockEncoder {
-            fn encode(&mut self, raw: &[u8]) -> crate::Bytes {
-                raw.to_vec()
+            fn encode(&mut self, raw: &[u8]) -> Result<crate::Bytes, crate::CodecError> {
+                Ok(raw.to_vec())
             }
-            fn set_bitrate_kbps(&mut self, kbps: u32) {
+            fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<(), crate::CodecError> {
                 self.targets.push(kbps);
+                Ok(())
             }
         }
         let mut encoder = MockEncoder::default();
         let mut ctl = AimdController::default();
-        assert_eq!(adapt(&mut encoder, &mut ctl, &stats(20, 0.0)), None);
-        let target = adapt(&mut encoder, &mut ctl, &stats(20, 10.0)).unwrap();
+        assert_eq!(
+            adapt(&mut encoder, &mut ctl, &stats(20, 0.0)).unwrap(),
+            None
+        );
+        let target = adapt(&mut encoder, &mut ctl, &stats(20, 10.0))
+            .unwrap()
+            .unwrap();
         assert_eq!(encoder.targets, vec![target]);
+    }
+
+    #[test]
+    fn adaptation_propagates_encoder_errors() {
+        struct RejectingEncoder;
+        impl Encoder for RejectingEncoder {
+            fn encode(&mut self, _: &[u8]) -> Result<crate::Bytes, crate::CodecError> {
+                Err(std::io::Error::other("encode rejected").into())
+            }
+            fn set_bitrate_kbps(&mut self, _: u32) -> Result<(), crate::CodecError> {
+                Err(std::io::Error::other("bitrate rejected").into())
+            }
+        }
+        let mut ctl = AimdController::default();
+        let err = adapt(&mut RejectingEncoder, &mut ctl, &stats(20, 10.0)).unwrap_err();
+        assert_eq!(err.to_string(), "bitrate rejected");
     }
 
     #[test]

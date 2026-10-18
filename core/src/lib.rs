@@ -17,7 +17,7 @@ pub mod frame;
 pub mod traits;
 
 pub use abr::{adapt, AimdConfig, AimdController, BitrateController};
-pub use error::FrameError;
+pub use error::{CodecError, FrameError};
 /// Asynchronous frame transports.
 pub mod transport;
 
