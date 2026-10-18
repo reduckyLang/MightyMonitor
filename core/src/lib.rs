@@ -1,6 +1,13 @@
 //! MightyMonitor core: protocol framing and platform traits (skeleton).
 
 pub mod error;
+pub mod input;
+pub mod message;
+
+pub use input::{InputEvent, MouseButton, TouchPhase};
+pub use message::{
+    Codec, Message, MessageError, NetStats, Role, KIND_RESERVED_FE, KIND_RESERVED_FF,
+};
 /// Length-prefixed framing for byte streams.
 pub mod frame;
 pub mod traits;
@@ -13,9 +20,9 @@ pub mod transport;
 pub mod reconnect;
 
 pub use reconnect::{
-    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, ResumePayloadError,
-    ResumeRequest, SendOutcome, SessionError, SessionEvent, SessionReader, SessionState,
-    SessionWriter, SplitMix64, TcpConnector, KIND_RESUME,
+    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, SendOutcome,
+    SessionError, SessionEvent, SessionReader, SessionState, SessionWriter, SplitMix64,
+    TcpConnector,
 };
 pub use transport::{TcpTransport, Transport, TransportError};
 

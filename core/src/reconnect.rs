@@ -1,54 +1,19 @@
 //! Frame-level reconnect, explicit resume, and deterministic backoff.
 
-use crate::{Frame, FrameError, TcpTransport, Transport, TransportError, MAX_PAYLOAD_LEN};
+use crate::{
+    Frame, FrameError, Message, MessageError, TcpTransport, Transport, TransportError,
+    MAX_PAYLOAD_LEN,
+};
 use async_trait::async_trait;
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 use tokio::sync::{mpsc, oneshot};
-
-/// Provisional Resume kind; map to `Message::Resume` when M1-3 lands.
-pub const KIND_RESUME: u8 = 0xfe;
-
-/// Resume position supplied by the application, not inferred from opaque frames.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ResumeRequest {
-    /// Existing logical session identifier.
-    pub session_id: u64,
-    /// Last sequence successfully consumed by the application.
-    pub last_seq: u64,
-}
-
-/// Resume payload did not contain exactly 16 bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("resume payload must be 16 bytes (received {0})")]
-pub struct ResumePayloadError(pub usize);
-
-impl ResumeRequest {
-    /// Encode session ID followed by last sequence, both little-endian.
-    pub fn to_payload(self) -> [u8; 16] {
-        let mut bytes = [0; 16];
-        bytes[..8].copy_from_slice(&self.session_id.to_le_bytes());
-        bytes[8..].copy_from_slice(&self.last_seq.to_le_bytes());
-        bytes
-    }
-    /// Decode an exact 16-byte payload.
-    pub fn from_payload(bytes: &[u8]) -> Result<Self, ResumePayloadError> {
-        let bytes: &[u8; 16] = bytes
-            .try_into()
-            .map_err(|_| ResumePayloadError(bytes.len()))?;
-        let mut id = [0; 8];
-        let mut seq = [0; 8];
-        id.copy_from_slice(&bytes[..8]);
-        seq.copy_from_slice(&bytes[8..]);
-        Ok(Self {
-            session_id: u64::from_le_bytes(id),
-            last_seq: u64::from_le_bytes(seq),
-        })
-    }
-}
 
 /// Establish a fresh transport on each attempt.
 #[async_trait]
@@ -273,6 +238,9 @@ pub enum SessionEvent {
 /// Session operation failure.
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
+    /// Typed resume payload encoding failed.
+    #[error(transparent)]
+    Message(#[from] MessageError),
     /// Transport error that did not trigger recovery, including read timeouts.
     #[error(transparent)]
     Transport(#[from] TransportError),
@@ -348,6 +316,7 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
         )
     }
     /// Set the last sequence consumed by the caller, to request replay after it.
+    /// Defaults to zero; zero requests replay after sequence zero, with no sentinel semantics.
     pub fn set_last_seq(&mut self, last_seq: u64) {
         self.last_seq = last_seq;
     }
@@ -430,17 +399,13 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
             tokio::time::sleep(delay).await;
             let result = async {
                 let mut transport = self.connector.connect().await?;
-                transport
-                    .send(
-                        KIND_RESUME,
-                        &ResumeRequest {
-                            session_id: self.session_id,
-                            last_seq: self.last_seq,
-                        }
-                        .to_payload(),
-                    )
-                    .await?;
-                Ok::<_, TransportError>(transport)
+                let (kind, payload) = Message::Resume {
+                    session_id: self.session_id,
+                    last_seq: self.last_seq,
+                }
+                .to_frame_parts()?;
+                transport.send(kind, &payload).await?;
+                Ok::<_, SessionError>(transport)
             }
             .await;
             match result {
@@ -528,6 +493,7 @@ struct SplitStatus {
     events: VecDeque<SessionEvent>,
 }
 struct SendCommand {
+    started: Arc<AtomicBool>,
     generation: u64,
     kind: u8,
     payload: Vec<u8>,
@@ -544,6 +510,22 @@ pub struct SessionReader<C: Connector, J: JitterSource> {
 pub struct SessionWriter {
     sender: mpsc::Sender<SendCommand>,
     shared: Arc<Mutex<SplitStatus>>,
+}
+// Armed only while the transport is owned by an inline write future.
+struct InlineWriteGuard<'a, C: Connector, J: JitterSource>(
+    Option<&'a mut ReconnectingSession<C, J>>,
+);
+impl<'a, C: Connector, J: JitterSource> InlineWriteGuard<'a, C, J> {
+    fn finish(mut self) -> &'a mut ReconnectingSession<C, J> {
+        self.0.take().unwrap()
+    }
+}
+impl<C: Connector, J: JitterSource> Drop for InlineWriteGuard<'_, C, J> {
+    fn drop(&mut self) {
+        if let Some(session) = self.0.take() {
+            session.disconnect(&TransportError::Closed);
+        }
+    }
 }
 impl<C: Connector, J: JitterSource> SessionReader<C, J> {
     /// Establish the initial connection, without Resume.
@@ -563,6 +545,11 @@ impl<C: Connector, J: JitterSource> SessionReader<C, J> {
         self.shared.lock().unwrap().events.drain(..).collect()
     }
     /// Receive with recovery, servicing writes while a transport is connected.
+    ///
+    /// Cancellation while reading retains the transport. Cancellation during an
+    /// inline write drops the transport and emits Disconnected with Closed as its
+    /// reason, since output may be partial. The next receive recovers without
+    /// replaying the interrupted command. Recovery retains its retry budget.
     pub async fn recv(&mut self) -> Result<Frame, SessionError> {
         loop {
             self.session.ready().await?;
@@ -575,25 +562,28 @@ impl<C: Connector, J: JitterSource> SessionReader<C, J> {
                             continue;
                         }
                         let mut transport = self.session.current.take().ok_or(SessionError::NotConnected)?;
+                        command.started.store(true, Ordering::SeqCst);
+                        let guard = InlineWriteGuard(Some(&mut self.session));
                         // Cancellation may leave partial output. Never restore this transport.
                         let result = tokio::select! {
                             result = transport.send(command.kind, &command.payload) => Some(result),
                             _ = command.reply.closed() => None,
                         };
+                        let session = guard.finish();
                         match result {
                             Some(Ok(())) => {
-                                self.session.current = Some(transport);
+                                session.current = Some(transport);
                                 let _ = command.reply.send(Ok(SendOutcome::Sent));
                             }
                             Some(Err(error @ (TransportError::Io(_) | TransportError::Timeout("write")))) => {
-                                self.session.disconnect(&error);
+                                session.disconnect(&error);
                                 let _ = command.reply.send(Err(error.into()));
                             }
                             Some(Err(error)) => {
-                                self.session.current = Some(transport);
+                                session.current = Some(transport);
                                 let _ = command.reply.send(Err(error.into()));
                             }
-                            None => self.session.disconnect(&TransportError::Closed),
+                            None => session.disconnect(&TransportError::Closed),
                         }
                     }
                 }
@@ -619,7 +609,9 @@ impl SessionWriter {
     }
     /// Send once, with a caller-supplied deadline covering dispatch and writing.
     /// The reader must be polling `recv`. Timeout/cancellation during a write
-    /// drops the transport; no application frame is replayed.
+    /// drops the transport; no application frame is replayed. Expiry before the
+    /// reader starts writing returns Timeout("queue"); expiry after dispatch
+    /// returns Timeout("write"). Both phases share the supplied deadline.
     pub async fn send(
         &mut self,
         kind: u8,
@@ -643,7 +635,9 @@ impl SessionWriter {
             SessionState::Connected => {}
         }
         let (reply, response) = oneshot::channel();
+        let started = Arc::new(AtomicBool::new(false));
         let command = SendCommand {
+            started: started.clone(),
             generation,
             kind,
             payload: payload.to_vec(),
@@ -657,7 +651,13 @@ impl SessionWriter {
             response.await.map_err(|_| SessionError::NotConnected)?
         })
         .await
-        .map_err(|_| SessionError::Transport(TransportError::Timeout("write")))?
+        .map_err(|_| {
+            SessionError::Transport(TransportError::Timeout(if started.load(Ordering::SeqCst) {
+                "write"
+            } else {
+                "queue"
+            }))
+        })?
     }
 }
 
@@ -754,13 +754,13 @@ mod tests {
             *new.lock().unwrap(),
             vec![
                 Frame {
-                    kind: KIND_RESUME,
-                    payload: ResumeRequest {
+                    kind: 9,
+                    payload: Message::Resume {
                         session_id: 123,
                         last_seq: 42
                     }
-                    .to_payload()
-                    .to_vec()
+                    .to_bytes()
+                    .unwrap()
                 },
                 Frame {
                     kind: 7,
@@ -776,7 +776,7 @@ mod tests {
         let sent = Sent::default();
         let (mut session, calls) = session(
             vec![
-                Ok(Box::new(SendErrorTransport(None))),
+                Ok(Box::new(BlockedTransport)),
                 Ok(Box::new(IdleTransport(sent.clone()))),
             ],
             2,
@@ -794,26 +794,111 @@ mod tests {
         tokio::task::yield_now().await;
         assert_eq!(writer.state(), SessionState::Connected);
         assert_eq!(*calls.lock().unwrap(), 2);
-        assert_eq!(sent.lock().unwrap()[0].kind, KIND_RESUME);
+        assert_eq!(sent.lock().unwrap()[0].kind, 9);
         task.abort();
+    }
+
+    struct BlockedTransport;
+    #[async_trait]
+    impl Transport for BlockedTransport {
+        async fn send(&mut self, _: u8, _: &[u8]) -> Result<(), TransportError> {
+            std::future::pending().await
+        }
+        async fn recv(&mut self) -> Result<Frame, TransportError> {
+            std::future::pending().await
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancelled_recv_during_inline_write_disconnects_and_recovers() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                Ok(Box::new(BlockedTransport)),
+                Ok(Box::new(IdleTransport(sent.clone()))),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        let writer_task = tokio::spawn(async move {
+            let result = writer.send(1, b"partial", Duration::from_secs(10)).await;
+            (writer, result)
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1), reader.recv())
+                .await
+                .is_err()
+        );
+        assert!(reader.session.current.is_none());
+        assert_eq!(reader.state(), SessionState::Reconnecting { attempt: 0 });
+        let (mut writer, result) = writer_task.await.unwrap();
+        assert!(matches!(result, Err(SessionError::NotConnected)));
+        assert_eq!(writer.state(), reader.state());
+        assert_eq!(
+            writer.take_events(),
+            vec![
+                SessionEvent::Connected,
+                SessionEvent::Disconnected {
+                    reason: TransportError::Closed.to_string()
+                },
+            ]
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(101), reader.recv())
+                .await
+                .is_err()
+        );
+        assert_eq!(writer.state(), SessionState::Connected);
+        assert_eq!(*calls.lock().unwrap(), 2);
+        let frames = sent.lock().unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(
+            Message::from_frame_parts(frames[0].kind, &frames[0].payload).unwrap(),
+            Message::Resume {
+                session_id: 123,
+                last_seq: 0
+            }
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn queue_timeouts_do_not_disconnect_or_write() {
+        let sent = Sent::default();
+        let (mut session, _) = session(vec![Ok(Box::new(IdleTransport(sent.clone())))], 2);
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        // First timeout leaves a cancelled command in the one-slot queue;
+        // the second must time out waiting for capacity.
+        for _ in 0..2 {
+            assert!(matches!(
+                writer.send(1, b"queued", Duration::from_millis(1)).await,
+                Err(SessionError::Transport(TransportError::Timeout("queue")))
+            ));
+            assert_eq!(writer.state(), SessionState::Connected);
+        }
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1), reader.recv())
+                .await
+                .is_err()
+        );
+        assert!(sent.lock().unwrap().is_empty());
+        assert_eq!(writer.take_events(), vec![SessionEvent::Connected]);
     }
 
     #[test]
     fn resume_payload_roundtrip_and_bad_length() {
-        let request = ResumeRequest {
+        let request = Message::Resume {
             session_id: 0x0102030405060708,
             last_seq: u64::MAX,
         };
-        assert_eq!(&request.to_payload()[..8], &[8, 7, 6, 5, 4, 3, 2, 1]);
-        assert_eq!(
-            ResumeRequest::from_payload(&request.to_payload()),
-            Ok(request)
-        );
+        let (kind, payload) = request.to_frame_parts().unwrap();
+        assert_eq!(kind, 9);
+        assert_eq!(&payload[4..12], &[8, 7, 6, 5, 4, 3, 2, 1]);
+        assert_eq!(Message::from_frame_parts(kind, &payload).unwrap(), request);
         for length in [0, 8, 15, 17, 32] {
-            assert_eq!(
-                ResumeRequest::from_payload(&vec![0; length]),
-                Err(ResumePayloadError(length))
-            );
+            assert!(Message::from_frame_parts(kind, &vec![0; length]).is_err());
         }
     }
     #[test]
@@ -952,7 +1037,7 @@ mod tests {
             SendOutcome::ReconnectedNotSent
         );
         assert_eq!(*calls.lock().unwrap(), 2);
-        assert_eq!(sent.lock().unwrap()[0].kind, KIND_RESUME);
+        assert_eq!(sent.lock().unwrap()[0].kind, 9);
     }
 
     #[tokio::test(start_paused = true)]
@@ -1092,8 +1177,13 @@ mod tests {
         assert_eq!(
             *sent.lock().unwrap(),
             vec![Frame {
-                kind: KIND_RESUME,
-                payload: [123u64.to_le_bytes(), 42u64.to_le_bytes()].concat()
+                kind: 9,
+                payload: Message::Resume {
+                    session_id: 123,
+                    last_seq: 42
+                }
+                .to_bytes()
+                .unwrap()
             }]
         );
         assert_eq!(session.state(), SessionState::Connected);
@@ -1196,13 +1286,13 @@ mod tests {
         assert_eq!(
             *sent.lock().unwrap(),
             vec![Frame {
-                kind: KIND_RESUME,
-                payload: ResumeRequest {
+                kind: 9,
+                payload: Message::Resume {
                     session_id: 123,
                     last_seq: 9
                 }
-                .to_payload()
-                .to_vec()
+                .to_bytes()
+                .unwrap()
             }]
         );
         assert_eq!(
