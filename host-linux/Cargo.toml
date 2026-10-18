@@ -1,0 +1,13 @@
+[package]
+name = "host-linux"
+description = "MightyMonitor Linux X11 screen capture"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+mightymonitor-core = { path = "../core" }
+thiserror.workspace = true
+x11rb = "0.13.2"

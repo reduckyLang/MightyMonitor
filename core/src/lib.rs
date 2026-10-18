@@ -5,6 +5,8 @@ pub mod abr;
 pub mod error;
 pub mod input;
 pub mod message;
+#[cfg(feature = "mock")]
+pub mod mock;
 
 pub use input::{InputEvent, MouseButton, TouchPhase};
 pub use message::{

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "bench", "codec-gst"]
+members = ["core", "host-linux", "bench", "codec-gst"]
 
 [workspace.package]
 version = "0.0.1"
