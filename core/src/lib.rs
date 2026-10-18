@@ -3,11 +3,18 @@
 /// Adaptive bitrate control from receiver feedback.
 pub mod abr;
 pub mod error;
+pub mod input;
+pub mod message;
+
+pub use input::{InputEvent, MouseButton, TouchPhase};
+pub use message::{
+    Codec, Message, MessageError, NetStats, Role, KIND_RESERVED_FE, KIND_RESERVED_FF,
+};
 /// Length-prefixed framing for byte streams.
 pub mod frame;
 pub mod traits;
 
-pub use abr::{adapt, AimdConfig, AimdController, BitrateController, NetStats};
+pub use abr::{adapt, AimdConfig, AimdController, BitrateController};
 pub use error::FrameError;
 /// Asynchronous frame transports.
 pub mod transport;
@@ -16,9 +23,8 @@ pub mod transport;
 pub mod reconnect;
 
 pub use reconnect::{
-    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, ResumePayloadError,
-    ResumeRequest, SendOutcome, SessionError, SessionEvent, SessionState, SplitMix64, TcpConnector,
-    KIND_RESUME,
+    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, SendOutcome,
+    SessionError, SessionEvent, SessionState, SplitMix64, TcpConnector,
 };
 pub use transport::{TcpTransport, Transport, TransportError};
 

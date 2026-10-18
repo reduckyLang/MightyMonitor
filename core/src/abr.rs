@@ -1,15 +1,6 @@
 //! Deterministic additive-increase, multiplicative-decrease bitrate adaptation.
 
-use crate::Encoder;
-
-/// Receiver feedback; will be superseded/re-exported from the typed Message module
-/// in M1-3. Field names and types are chosen to match that module.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct NetStats {
-    pub rtt_ms: u32,
-    pub loss_pct: f32,
-    pub recv_kbps: u32,
-}
+use crate::{message::NetStats, Encoder};
 
 /// Updates a target bitrate from receiver feedback.
 pub trait BitrateController {
@@ -29,8 +20,11 @@ pub struct AimdConfig {
     pub decrease_factor: f32,
     /// Congestion occurs when loss strictly exceeds this percentage.
     pub loss_threshold_pct: f32,
-    /// Congestion occurs when RTT strictly exceeds minimum observed RTT times this factor.
+    /// Relative RTT threshold multiplier, combined with [`Self::rtt_slack_ms`].
     pub rtt_rise_factor: f32,
+    /// Absolute RTT slack above the minimum observed RTT, in milliseconds (default 20).
+    /// Congestion requires RTT strictly above both the relative and absolute thresholds.
+    pub rtt_slack_ms: u32,
     /// Consecutive stable samples required for each increase.
     pub stable_samples_required: u32,
 }
@@ -45,6 +39,7 @@ impl Default for AimdConfig {
             decrease_factor: 0.7,
             loss_threshold_pct: 2.0,
             rtt_rise_factor: 1.5,
+            rtt_slack_ms: 20,
             stable_samples_required: 3,
         }
     }
@@ -115,9 +110,11 @@ impl BitrateController for AimdController {
             .baseline_rtt_ms
             .map_or(stats.rtt_ms, |rtt| rtt.min(stats.rtt_ms));
         self.baseline_rtt_ms = Some(baseline);
+        let baseline = f64::from(baseline);
+        let rtt_threshold = (baseline * f64::from(self.config.rtt_rise_factor))
+            .max(baseline + f64::from(self.config.rtt_slack_ms));
         let congested = stats.loss_pct > self.config.loss_threshold_pct
-            || f64::from(stats.rtt_ms)
-                > f64::from(baseline) * f64::from(self.config.rtt_rise_factor);
+            || f64::from(stats.rtt_ms) > rtt_threshold;
         let next = if congested {
             self.stable_samples = 0;
             (f64::from(self.target_kbps) * f64::from(self.config.decrease_factor)).round() as u32
@@ -177,6 +174,40 @@ mod tests {
     }
 
     #[test]
+    fn low_rtt_baselines_allow_slack_and_detect_congestion_above_it() {
+        for baseline in [0, 1] {
+            let mut ctl = AimdController::default();
+            assert_eq!(ctl.on_stats(&stats(baseline, 0.0)), None);
+            for rtt in 1..=baseline + 20 {
+                let previous = ctl.target_kbps();
+                ctl.on_stats(&stats(rtt, 0.0));
+                assert!(
+                    ctl.target_kbps() >= previous,
+                    "baseline={baseline}, rtt={rtt}"
+                );
+            }
+            assert!(ctl.target_kbps() > 4_000);
+            let previous = ctl.target_kbps();
+            assert_eq!(
+                ctl.on_stats(&stats(baseline + 21, 0.0)),
+                Some((f64::from(previous) * f64::from(0.7_f32)).round() as u32)
+            );
+            assert!(ctl.target_kbps() < previous);
+        }
+    }
+
+    #[test]
+    fn stable_lan_jitter_allows_increases() {
+        let mut ctl = AimdController::default();
+        for rtt in [2, 4, 2, 4, 2, 4] {
+            let previous = ctl.target_kbps();
+            ctl.on_stats(&stats(rtt, 0.0));
+            assert!(ctl.target_kbps() >= previous);
+        }
+        assert_eq!(ctl.target_kbps(), 4_500);
+    }
+
+    #[test]
     fn never_exceeds_min_max() {
         let mut ctl = AimdController::new(AimdConfig {
             min_kbps: 500,
@@ -201,7 +232,7 @@ mod tests {
     fn recovers_after_congestion_clears() {
         let mut ctl = AimdController::default();
         ctl.on_stats(&stats(20, 0.0));
-        assert!(ctl.on_stats(&stats(40, 0.0)).is_some());
+        assert!(ctl.on_stats(&stats(41, 0.0)).is_some());
         let reduced = ctl.target_kbps();
         assert_eq!(ctl.on_stats(&stats(20, 0.0)), None);
         assert_eq!(ctl.on_stats(&stats(20, 0.0)), None);

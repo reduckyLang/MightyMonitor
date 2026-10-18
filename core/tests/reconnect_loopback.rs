@@ -1,6 +1,6 @@
 use mightymonitor_core::{
-    encode_stream_frame, BackoffPolicy, ReconnectingSession, ResumeRequest, SplitMix64,
-    TcpConnector, TcpTransport, Transport, KIND_RESUME,
+    encode_stream_frame, BackoffPolicy, Message, ReconnectingSession, SplitMix64, TcpConnector,
+    TcpTransport, Transport,
 };
 use std::time::Duration;
 use tokio::{io::AsyncWriteExt, net::TcpListener};
@@ -26,10 +26,10 @@ async fn loopback_server_restart_reconnect() {
             let (stream, _) = listener.accept().await.unwrap();
             let mut peer = TcpTransport::new(stream).unwrap();
             let resume = peer.recv().await.unwrap();
-            assert_eq!(resume.kind, KIND_RESUME);
+            assert_eq!(resume.kind, 9);
             assert_eq!(
-                ResumeRequest::from_payload(&resume.payload).unwrap(),
-                ResumeRequest {
+                Message::from_frame_parts(resume.kind, &resume.payload).unwrap(),
+                Message::Resume {
                     session_id: 77,
                     last_seq: 3
                 }
