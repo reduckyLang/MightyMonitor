@@ -8,6 +8,23 @@ protocol from spacedesk or any other proprietary application. The wire
 protocol is our own design.
 
 Third-party open-source code studied or incorporated is recorded below, with
-license and what was used. Currently: none.
+license and what was used.
+
+Optional Linux Wayland capture dependencies:
+- ashpd 0.10.2: MIT, xdg-desktop-portal ScreenCast client.
+  https://github.com/bilelmoussaoui/ashpd
+- pipewire-rs 0.8.0 (pipewire, pipewire-sys, libspa, libspa-sys): MIT,
+  native PipeWire/SPA bindings. API usage follows upstream stream examples.
+  https://gitlab.freedesktop.org/pipewire/pipewire-rs
+- System PipeWire/SPA libraries: MIT, linked only with the pipewire feature.
+  https://pipewire.org
+These permissive licenses are compatible with this repository's Apache-2.0
+license. No cargo-deny policy file is currently present in this repository.
+The resolved transitive license expressions were also reviewed: MIT,
+Apache-2.0 (including LLVM-exception), BSD-2/3-Clause, ISC, and Unicode-3.0
+have compatible permissive terms. For multi-license expressions, a permissive
+MIT/Apache option is selected (no LGPL option is required).
+Transitive Rust dependencies and their exact versions are recorded in Cargo.lock.
+
 (Candidates for study, license permitting: scrcpy - Apache-2.0,
 Weylus - AGPL-3.0 (study only, no copying), Sunshine - GPL-3.0 (study only).)
