@@ -1,5 +1,7 @@
 //! MightyMonitor core: protocol framing and platform traits (skeleton).
 
+/// Adaptive bitrate control from receiver feedback.
+pub mod abr;
 pub mod error;
 pub mod input;
 pub mod message;
@@ -12,6 +14,7 @@ pub use message::{
 pub mod frame;
 pub mod traits;
 
+pub use abr::{adapt, AimdConfig, AimdController, BitrateController};
 pub use error::FrameError;
 /// Asynchronous frame transports.
 pub mod transport;
