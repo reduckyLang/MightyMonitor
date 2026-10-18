@@ -13,12 +13,12 @@ pub mod frame;
 /// Asynchronous frame transports.
 pub mod transport;
 
-pub use transport::{TcpTransport, Transport, TransportError};
-
 pub use frame::{
     encode_frame_into, encode_stream_frame, Frame, FrameDecoder, FrameHeader, HEADER_LEN,
     MAX_PAYLOAD_LEN,
 };
+
+pub use transport::{TcpTransport, Transport, TransportError};
 
 /// Current wire protocol version, always the first byte of a frame.
 pub const PROTOCOL_VERSION: u8 = 1;

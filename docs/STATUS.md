@@ -9,3 +9,4 @@
 2026-10-18: M1-2 review nits: isolated FrameError trait implementations, explained decoder validation, clarified poisoned-frame delivery, and added the 16 MiB payload boundary test.
 
 2026-10-18: M1-6 ABR controller implemented on branch feat/m1-6-abr.
+2026-10-18: M1-4 review nits: increased the loopback stream timeout, renamed the ping-pong roundtrip test, and documented send allocation, throughput, and sticky receive errors.
