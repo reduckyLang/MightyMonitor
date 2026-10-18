@@ -101,3 +101,11 @@ logged. Timing includes row packing, submission, encoding and output copy, but
 excludes synthetic frame generation. The engineering target is p50 <=10 ms;
 only a generous p50 <40 ms sanity bound is asserted. Content, CPU and contention
 change these figures; they are not end-to-end or Wi-Fi measurements.
+
+## Licensing
+
+The gstreamer-rs bindings are MIT/Apache-2.0. The GStreamer runtime is LGPL.
+The `x264enc` element is GPL. MightyMonitor loads these libraries dynamically
+from the system and never bundles them. Bundling any of them needs a separate
+license review. A future Windows or Android backend should avoid GPL
+components (use a hardware or permissively licensed encoder). See NOTICE.

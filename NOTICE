@@ -11,3 +11,14 @@ Third-party open-source code studied or incorporated is recorded below, with
 license and what was used. Currently: none.
 (Candidates for study, license permitting: scrcpy - Apache-2.0,
 Weylus - AGPL-3.0 (study only, no copying), Sunshine - GPL-3.0 (study only).)
+
+GStreamer (codec-gst crate, H.264 codec)
+----------------------------------------
+- The gstreamer-rs Rust bindings are licensed MIT/Apache-2.0.
+- The GStreamer runtime libraries are licensed LGPL-2.1-or-later.
+- The x264enc element (gst-plugins-ugly, libx264) is licensed GPL.
+- MightyMonitor loads these libraries dynamically from the system at run
+  time and never bundles or redistributes them.
+- Bundling GStreamer or any plugin with a release needs a separate license
+  review first.
+- A future Windows or Android backend should avoid GPL components.
