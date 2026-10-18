@@ -140,14 +140,18 @@ impl<E: HostEncoder> Pipeline<E> {
         self.encoder
             .as_mut()
             .ok_or("encoder unavailable")?
-            .set_bitrate_kbps(kbps);
+            .set_bitrate_kbps(kbps)
+            .map_err(|e| format!("set initial bitrate: {e:?}"))?;
         Ok(self)
     }
     pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) {
         use mightymonitor_core::BitrateController;
         if let Some(kbps) = self.abr.on_stats(stats) {
             if let Some(encoder) = &mut self.encoder {
-                encoder.set_bitrate_kbps(kbps);
+                // A rejected ABR change keeps the previous bitrate; streaming continues.
+                if let Err(e) = encoder.set_bitrate_kbps(kbps) {
+                    eprintln!("mm-host: bitrate change to {kbps} kbps rejected: {e:?}");
+                }
             }
         }
     }
