@@ -199,9 +199,11 @@ pub async fn serve<E: HostEncoder>(
             force = true;
             continue;
         }
+        let write_started = std::time::Instant::now();
         if writer.send(kind, &payload, config.write_timeout).await? != SendOutcome::Sent {
             return Err("viewer disconnected".into());
         }
+        pipeline.write_completed(write_started.elapsed());
         pipeline.sent();
     }
 }

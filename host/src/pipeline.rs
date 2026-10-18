@@ -83,7 +83,9 @@ pub struct Pipeline<E> {
     ready: Arc<Notify>,
     encoder: Option<E>,
     interval: Duration,
-    abr: mightymonitor_core::AimdController,
+    abr: crate::abr::Abr,
+    abr_clock: Instant,
+    blocked: bool,
 }
 pub struct Video {
     pub data: Bytes,
@@ -140,17 +142,14 @@ impl<E: HostEncoder> Pipeline<E> {
             ready,
             encoder: Some(encoder),
             interval,
-            abr: Default::default(),
+            abr: crate::abr::Abr::new(4_000, 500, 20_000)?,
+            abr_clock: Instant::now(),
+            blocked: false,
         })
     }
     /// Configure the ABR starting point to match the encoder's CLI bitrate.
     pub fn with_bitrate(mut self, kbps: u32) -> Result<Self, Error> {
-        self.abr = mightymonitor_core::AimdController::new(mightymonitor_core::AimdConfig {
-            min_kbps: kbps.min(500),
-            max_kbps: kbps.max(20_000),
-            start_kbps: kbps,
-            ..Default::default()
-        })?;
+        self.abr = crate::abr::Abr::new(kbps, kbps.min(500), kbps.max(20_000))?;
         self.encoder
             .as_mut()
             .ok_or("encoder unavailable")?
@@ -161,15 +160,19 @@ impl<E: HostEncoder> Pipeline<E> {
     /// Return a rejected bitrate update to the caller; the encoder retains its
     /// previous bitrate, so a live session can log the error and continue.
     pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) -> Result<(), Error> {
-        use mightymonitor_core::BitrateController;
-        if let Some(kbps) = self.abr.on_stats(stats) {
-            self.encoder
-                .as_mut()
-                .ok_or("encoder unavailable")?
-                .set_bitrate_kbps(kbps)
-                .map_err(|e| format!("bitrate change to {kbps} kbps rejected: {e:?}"))?;
-        }
+        self.abr
+            .apply(
+                self.encoder.as_mut().ok_or("encoder unavailable")?,
+                stats,
+                self.abr_clock.elapsed(),
+                self.blocked,
+            )
+            .map_err(|e| format!("bitrate update rejected: {e:?}"))?;
+        self.blocked = false;
         Ok(())
+    }
+    pub(crate) fn write_completed(&mut self, elapsed: Duration) {
+        self.blocked |= elapsed > Duration::from_millis(100);
     }
     pub fn monitor(&self) -> Monitor {
         Monitor(self.slot.clone())

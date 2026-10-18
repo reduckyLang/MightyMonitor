@@ -95,7 +95,13 @@ impl AimdController {
 
 impl Default for AimdController {
     fn default() -> Self {
-        Self::new(AimdConfig::default()).expect("default AIMD configuration is valid")
+        let config = AimdConfig::default();
+        Self {
+            target_kbps: config.start_kbps,
+            config,
+            baseline_rtt_ms: None,
+            stable_samples: 0,
+        }
     }
 }
 

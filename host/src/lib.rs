@@ -1,5 +1,6 @@
 //! Host capture, encoding and bounded TCP streaming.
 #![forbid(unsafe_code)]
+pub mod abr;
 pub mod pipeline;
 pub mod session;
 
