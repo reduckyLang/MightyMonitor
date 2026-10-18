@@ -112,21 +112,3 @@ Hello version/role is rejected today, but after resources have been created.
 A capture backend that never returns can still retain its thread; idle timeout
 ends the session's wait, and in-progress writes remain bounded by write timeout.
 
-2026-10-18: M2-5 host ABR extracted to host/src/abr.rs around core AIMD:
-one-second decision gate, two-sample recovery hysteresis, bounded 5 Mbps recovery
-steps, min/max clamps, congestion-qualified throughput cap and >100 ms completed
-write-pressure feedback. Encoder rejection preserves policy state. Existing viewer
-payload-throughput and matched Ping/Pong measurements retained; TCP loss remains
-unavailable (reported zero), and sequence gaps are not packet-loss measurements.
-Added virtual-clock 20 -> 4 -> 20 Mbps bandwidth-model acceptance coverage:
-bitrate 2,514 kbit/s within two seconds, 19,000 kbit/s within ten seconds after
-recovery, one queued raw frame, whole-run simulated p95 79 ms vs baseline 79 ms.
-Unit tests cover jitter, decision gating, clamps, rejection and recovery hysteresis.
-No new dependencies. FPS/resolution renegotiation remains unimplemented; delivered
-fps falls naturally under backpressure. docs/ABR.md records model assumptions and
-limits. Real Wi-Fi latency, kernel queue bounds, codec response and desktop
-presentation are unverified; this does not complete M2 end-to-end acceptance.
-Validation: cargo fmt --all -- --check; cargo clippy --workspace --all-targets
--- -D warnings; cargo test --workspace; cargo build --workspace all pass locally.
-Windows GNU cross-target workspace/all-targets cargo check also passes; Windows
-linking/runtime and live Linux host/viewer streaming were not exercised.
