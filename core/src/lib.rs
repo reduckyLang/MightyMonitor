@@ -6,6 +6,11 @@ pub mod frame;
 pub mod traits;
 
 pub use error::FrameError;
+/// Asynchronous frame transports.
+pub mod transport;
+
+pub use transport::{TcpTransport, Transport, TransportError};
+
 pub use frame::{
     decode_frame, encode_frame, encode_frame_into, encode_stream_frame, Frame, FrameDecoder,
     FrameHeader, HEADER_LEN, MAX_PAYLOAD_LEN, PROTOCOL_VERSION,

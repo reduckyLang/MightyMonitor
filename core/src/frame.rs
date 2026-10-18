@@ -173,6 +173,8 @@ impl FrameDecoder {
         if bytes.len() < HEADER_LEN {
             return Ok(None);
         }
+        // `push` already validated every complete header; any failure poisoned
+        // the decoder and was returned above, so this decode cannot fail.
         let header = FrameHeader::decode(bytes)?;
         let size = HEADER_LEN + header.payload_len as usize;
         if bytes.len() < size {
@@ -254,6 +256,34 @@ mod tests {
             assert_eq!(decoder.buffered_len(), 0);
             assert_eq!(decoder.next_frame(), Ok(None));
         }
+    }
+
+    #[test]
+    fn payload_length_boundary() {
+        let mut payload = vec![42; MAX_PAYLOAD_LEN];
+        let bytes = encode_stream_frame(9, &payload).unwrap();
+        assert_eq!(bytes.len(), HEADER_LEN + MAX_PAYLOAD_LEN);
+        let mut decoder = FrameDecoder::new();
+        decoder.push(&bytes);
+        assert_eq!(decoder.finish(), Ok(()));
+        assert_eq!(
+            decoder.next_frame(),
+            Ok(Some(Frame {
+                kind: 9,
+                payload: payload.clone(),
+            }))
+        );
+        assert_eq!(decoder.next_frame(), Ok(None));
+        assert_eq!(decoder.buffered_len(), 0);
+
+        payload.push(42);
+        assert_eq!(
+            encode_stream_frame(9, &payload),
+            Err(FrameError::TooLarge {
+                len: MAX_PAYLOAD_LEN as u64 + 1,
+                max: MAX_PAYLOAD_LEN as u64,
+            })
+        );
     }
 
     #[test]

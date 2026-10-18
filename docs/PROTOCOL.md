@@ -41,8 +41,10 @@ and occasional compaction avoid repeatedly copying a growing partial payload.
 A malformed version or oversized length poisons the decoder. Subsequent
 `next_frame` calls return the original error, further input is ignored, and the
 caller must drop the connection. Header errors are reported by `next_frame`
-because `push` has no return value. This applies even if earlier complete frames
-remain buffered in the same push.
+because `push` has no return value. Earlier complete frames still buffered when the error occurs are
+dropped from delivery, whether buffered by the same or an earlier `push`; they
+can no longer be retrieved. Their bytes remain counted by `buffered_len` until
+the decoder is dropped.
 
 At end-of-stream, `finish` returns `Truncated` if a partial header or payload
 remains. It succeeds at a clean frame boundary, including when complete frames
@@ -78,3 +80,30 @@ The existing `encode_frame` and `decode_frame` helpers remain available for now.
 Their format is only `[version][payload]`, without a kind byte or length. They
 require an externally known buffer boundary and cannot delimit TCP messages.
 Use the stream framing functions and `FrameDecoder` for byte streams.
+
+## Transport
+
+`Transport` is an asynchronous, object-safe, `Send` trait that sends a kind byte
+and opaque payload and receives `Frame` values. It can be used as
+`Box<dyn Transport>`. It does not interpret kinds or serialize messages; the
+Message-level API arrives with M1-3 integration.
+
+`TcpTransport::new` wraps an accepted/connected Tokio TCP stream and enables
+TCP_NODELAY. `connect` resolves and connects with a five-second deadline;
+`connect_with_timeout` accepts a custom deadline. Writes default to ten seconds,
+including `write_all` and flush. Reads have no deadline by default.
+`set_read_timeout` and `set_write_timeout` accept `Option<Duration>`; `None`
+disables the deadline. A receive deadline covers the entire frame, including
+all partial reads, so a trickling peer cannot extend it indefinitely.
+
+`TransportError::Io` wraps socket errors, `Frame` wraps framing failures,
+`Closed` means EOF at a frame boundary, and `Timeout` identifies the timed-out
+operation (`connect`, `read`, or `write`). EOF in a header or payload reports
+`Frame(Truncated)`. Buffered complete frames are received before clean EOF.
+Malformed versions and oversized lengths fail promptly and poison the decoder.
+
+A canceled or timed-out receive retains partial bytes and can be retried. A
+canceled or timed-out send may have written part of a frame: drop that connection
+rather than retrying on it. Drop and reconnect after malformed input, socket
+errors, or EOF. Reconnection and any handshake, backoff, or replay policy belong
+to the caller; transport does not automatically reconnect or replay frames.
