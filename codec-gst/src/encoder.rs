@@ -121,6 +121,7 @@ impl Encoder {
     pub fn backend(&self) -> &str {
         &self.backend
     }
+    /// May block for up to 3 seconds waiting for output.
     /// Input is tightly packed I420 (Y,U,V) or RGBA, without row padding.
     pub fn encode_frame(&mut self, raw: &[u8], timestamp_us: u64) -> Result<EncodedFrame> {
         let w = self.config.width as usize;
@@ -166,7 +167,11 @@ impl Encoder {
         if kbps == 0 || kbps > 1_000_000 {
             return Err(error("bitrate must be 1..=1000000 kbps"));
         }
-        let encoder = self.pipe.pipeline.by_name("encoder").unwrap();
+        let encoder = self
+            .pipe
+            .pipeline
+            .by_name("encoder")
+            .ok_or_else(|| error("missing encoder"))?;
         let property = encoder
             .find_property("bitrate")
             .ok_or_else(|| error("encoder has no bitrate property"))?;
@@ -188,9 +193,9 @@ impl Encoder {
             .pipe
             .pipeline
             .by_name("encoder")
-            .unwrap()
+            .ok_or_else(|| error("missing encoder"))?
             .static_pad("src")
-            .unwrap()
+            .ok_or_else(|| error("missing encoder source pad"))?
             .send_event(event)
         {
             Ok(())
@@ -200,13 +205,17 @@ impl Encoder {
     }
 }
 impl mightymonitor_core::traits::Encoder for Encoder {
-    fn encode(&mut self, raw: &[u8]) -> Vec<u8> {
+    fn encode(
+        &mut self,
+        raw: &[u8],
+    ) -> std::result::Result<Vec<u8>, mightymonitor_core::CodecError> {
         let pts = self.next_pts;
-        self.encode_frame(raw, pts)
-            .expect("GStreamer encode failed; use encode_frame for recoverable errors")
-            .data
+        Ok(self.encode_frame(raw, pts)?.data)
     }
-    fn set_bitrate_kbps(&mut self, kbps: u32) {
-        Encoder::set_bitrate_kbps(self, kbps).expect("invalid bitrate");
+    fn set_bitrate_kbps(
+        &mut self,
+        kbps: u32,
+    ) -> std::result::Result<(), mightymonitor_core::CodecError> {
+        Ok(Encoder::set_bitrate_kbps(self, kbps)?)
     }
 }

@@ -28,13 +28,13 @@ async fn mock_pipeline_capture_encode_send_decode() {
                 if let Some(first) = raw.first() {
                     assert_eq!(*first, seq as u8);
                 }
-                encoder.set_bitrate_kbps(4000 + seq as u32);
+                encoder.set_bitrate_kbps(4000 + seq as u32).unwrap();
                 assert_eq!(encoder.bitrate_kbps(), 4000 + seq as u32);
                 let message = Message::VideoFrame {
                     seq,
                     timestamp_us: seq * 16667,
                     keyframe: seq == 0,
-                    data: encoder.encode(&raw),
+                    data: encoder.encode(&raw).unwrap(),
                 };
                 let (kind, payload) = message.to_frame_parts().unwrap();
                 sender.send(kind, &payload).await.unwrap();
@@ -42,7 +42,9 @@ async fn mock_pipeline_capture_encode_send_decode() {
                 let received = Message::from_frame_parts(frame.kind, &frame.payload).unwrap();
                 assert_eq!(received, message);
                 match received {
-                    Message::VideoFrame { data, .. } => assert_eq!(decoder.decode(&data), raw),
+                    Message::VideoFrame { data, .. } => {
+                        assert_eq!(decoder.decode(&data).unwrap(), raw)
+                    }
                     other => panic!("expected VideoFrame, got {other:?}"),
                 }
             }

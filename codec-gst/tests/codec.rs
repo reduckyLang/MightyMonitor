@@ -1,4 +1,4 @@
-#![cfg(not(windows))]
+#![cfg(target_os = "linux")]
 use codec_gst::{
     decoder::Decoder,
     encoder::{Encoder, EncoderConfig, PixelFormat},
@@ -155,9 +155,13 @@ fn rgba_and_trait_adapters() {
     assert!(enc.encode_frame(&[], 0).is_err());
     assert!(enc.set_bitrate_kbps(0).is_err());
     let raw = [50, 100, 150, 255].repeat(66 * 34);
-    let packet = enc.encode(&raw);
+    assert!(enc.encode(&[]).is_err());
+    assert!(mightymonitor_core::Encoder::set_bitrate_kbps(&mut enc, 0).is_err());
+    let packet = enc.encode(&raw).unwrap();
     let mut dec = Decoder::new().unwrap();
-    assert_eq!(dec.decode(&packet).len(), 66 * 34 * 3 / 2);
+    assert!(dec.decode(&[]).is_err());
+    assert!(dec.decode(&vec![0; 16 * 1024 * 1024 + 1]).is_err());
+    assert_eq!(dec.decode(&packet).unwrap().len(), 66 * 34 * 3 / 2);
 }
 
 #[test]
