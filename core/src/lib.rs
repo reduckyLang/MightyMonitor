@@ -8,12 +8,20 @@ pub mod frame;
 /// Asynchronous frame transports.
 pub mod transport;
 
-pub use transport::{TcpTransport, Transport, TransportError};
+/// Reconnection policy and session lifecycle.
+pub mod reconnect;
 
 pub use frame::{
     encode_frame_into, encode_stream_frame, Frame, FrameDecoder, FrameHeader, HEADER_LEN,
     MAX_PAYLOAD_LEN,
 };
+
+pub use reconnect::{
+    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, ResumePayloadError,
+    ResumeRequest, SendOutcome, SessionError, SessionEvent, SessionState, SplitMix64, TcpConnector,
+    KIND_RESUME,
+};
+pub use transport::{TcpTransport, Transport, TransportError};
 
 /// Current wire protocol version, always the first byte of a frame.
 pub const PROTOCOL_VERSION: u8 = 1;

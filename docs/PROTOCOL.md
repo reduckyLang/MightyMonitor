@@ -9,14 +9,15 @@ provides message boundaries; it does not provide authentication or encryption.
 | Offset | Size (bytes) | Field | Encoding |
 | --- | --- | --- | --- |
 | 0 | 1 | Version | Unsigned byte; always the first byte |
-| 1 | 1 | Kind/flags | Unsigned byte; reserved |
+| 1 | 1 | Kind/flags | Unsigned byte; see reconnect kind below |
 | 2 | 4 | Payload length | Unsigned 32-bit integer, little-endian |
 | 6 | Payload length | Payload | Opaque bytes |
 
 The header is exactly 6 bytes. `PROTOCOL_VERSION = 1`; receivers reject other
 versions. Every frame starts with its version byte, including frames after the
 first frame in a connection. The kind byte is reserved for message kinds defined
-in M1-3; `0` means reserved/unspecified for now. The framing layer preserves all
+in M1-3, except the provisional Resume code documented below; `0` means
+reserved/unspecified for now. The framing layer preserves all
 kind values without interpreting them.
 
 `MAX_PAYLOAD_LEN` is 16 MiB (16 × 1024 × 1024 bytes). This limit prevents an
@@ -107,3 +108,44 @@ canceled or timed-out send may have written part of a frame: drop that connectio
 rather than retrying on it. Drop and reconnect after malformed input, socket
 errors, or EOF. Reconnection and any handshake, backoff, or replay policy belong
 to the caller; transport does not automatically reconnect or replay frames.
+
+## Reconnect and resume
+
+Until M1-3 is integrated, Resume uses provisional frame kind `0xfe` (254).
+This code will be mapped to `Message::Resume` when the typed message API lands;
+applications must not treat this provisional allocation as a stable message table.
+Its payload is exactly 16 bytes, without serde or bincode:
+
+| Payload offset | Size | Field | Encoding |
+| --- | --- | --- | --- |
+| 0 | 8 | session_id | u64 little-endian |
+| 8 | 8 | last_seq | u64 little-endian |
+
+After reconnect the client sends Resume first. The peer replays frames **after**
+`last_seq` for the identified logical session. The caller updates `set_last_seq`
+only after consuming a frame; opaque frame payloads are never interpreted by the
+session. `Resumed` means the request was written, not acknowledged by the peer.
+The initial connection performs no Resume or application handshake automatically.
+`connect_initial` makes one attempt and returns initial connection failures directly.
+
+`ReconnectingSession` drops connections on I/O, framing, EOF, and write timeout
+errors. `recv()` reconnects and continues receiving. Read timeouts return to the
+caller with the same transport and its partial input intact. `send()` never
+replays application frames: after successful recovery it returns
+`SendOutcome::ReconnectedNotSent`. Some or all of the original send may already
+have reached the peer; application sequence numbers and replay rules must resolve
+that ambiguity. Cancellation of a send requires dropping the session because
+partial output may have been written. The transport never replays automatically.
+
+Retries use exponential backoff (100 ms initially, multiplier 2), symmetric
+20% jitter, and a hard five-second cap including jitter by default. The policy,
+seeded randomness, and attempt limit are configurable; the default retry budget
+is unlimited. A zero attempt limit gives up immediately after disconnection.
+Sleep uses Tokio time, allowing paused-time tests. Exhaustion is terminal for the
+session. Lifecycle events retain only the newest 64 entries; `take_events()`
+drains them, so callers needing a complete history should drain regularly.
+
+IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
+and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
+within the connect timeout (five seconds by default). A numeric address remains
+that literal address; hostname discovery via mDNS is a later milestone, M8.
