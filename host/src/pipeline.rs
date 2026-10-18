@@ -140,16 +140,17 @@ impl<E: HostEncoder> Pipeline<E> {
         self.encoder
             .as_mut()
             .ok_or("encoder unavailable")?
-            .set_bitrate_kbps(kbps);
+            .set_bitrate_kbps(kbps)?;
         Ok(self)
     }
-    pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) {
+    pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) -> Result<(), Error> {
         use mightymonitor_core::BitrateController;
         if let Some(kbps) = self.abr.on_stats(stats) {
             if let Some(encoder) = &mut self.encoder {
-                encoder.set_bitrate_kbps(kbps);
+                encoder.set_bitrate_kbps(kbps)?;
             }
         }
+        Ok(())
     }
     pub fn monitor(&self) -> Monitor {
         Monitor(self.slot.clone())

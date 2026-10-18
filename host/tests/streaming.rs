@@ -21,10 +21,12 @@ struct DummyEncoder {
     size: usize,
 }
 impl Encoder for DummyEncoder {
-    fn encode(&mut self, raw: &[u8]) -> Bytes {
-        raw.to_vec()
+    fn encode(&mut self, raw: &[u8]) -> Result<Bytes, mightymonitor_core::CodecError> {
+        Ok(raw.to_vec())
     }
-    fn set_bitrate_kbps(&mut self, _: u32) {}
+    fn set_bitrate_kbps(&mut self, _: u32) -> Result<(), mightymonitor_core::CodecError> {
+        Ok(())
+    }
 }
 impl HostEncoder for DummyEncoder {
     fn encode_video(&mut self, raw: &[u8], _: u64, force: bool) -> Result<(Bytes, bool), Error> {

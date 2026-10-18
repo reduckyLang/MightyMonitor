@@ -24,11 +24,11 @@ mod linux {
     }
     struct Codec(GstEncoder);
     impl Encoder for Codec {
-        fn encode(&mut self, raw: &[u8]) -> Bytes {
+        fn encode(&mut self, raw: &[u8]) -> Result<Bytes, mightymonitor_core::CodecError> {
             self.0.encode(raw)
         }
-        fn set_bitrate_kbps(&mut self, kbps: u32) {
-            Encoder::set_bitrate_kbps(&mut self.0, kbps);
+        fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<(), mightymonitor_core::CodecError> {
+            Encoder::set_bitrate_kbps(&mut self.0, kbps)
         }
     }
     impl HostEncoder for Codec {

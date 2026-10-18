@@ -137,7 +137,7 @@ pub async fn serve<E: HostEncoder>(
                 Message::Resume { session_id, .. } if session_id == config.session_id => {
                     force = true
                 }
-                Message::NetStats(stats) => pipeline.on_stats(&stats),
+                Message::NetStats(stats) => pipeline.on_stats(&stats)?,
                 Message::Bye { .. } => return Ok(()),
                 Message::Pong { .. } => {}
                 _ => return Err("unexpected viewer message".into()),
