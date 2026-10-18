@@ -1,0 +1,12 @@
+[package]
+name = "bench"
+description = "TCP loopback latency measurement harness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mightymonitor-core = { path = "../core" }
+tokio.workspace = true

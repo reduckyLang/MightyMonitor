@@ -2,7 +2,7 @@
 
 Cross-cutting requirement for every milestone: it must work **wirelessly over Wi-Fi/LAN with no cable**, with adaptive bitrate and automatic reconnects. Android uses wireless adb (adb pair / adb connect over Wi-Fi) and Wi-Fi streaming.
 
-1. **Workspace, CI, core protocol.** Acceptance: workspace builds; CI green on Linux and Windows; versioned framing; platform traits compile; TCP loopback test passes; reconnect and bitrate-adaptation interfaces defined.
+1. [x] **Workspace, CI, core protocol (M1 done, 2026-10-18).** Acceptance: workspace builds; CI green on Linux and Windows; versioned framing; platform traits compile; TCP loopback test passes; reconnect and bitrate-adaptation interfaces defined.
 2. **Linux host to desktop viewer.** Acceptance: H.264 stream over Wi-Fi/LAN; latency measured and documented first; adaptive bitrate reacts to congestion; viewer reconnects after a network drop.
 3. **Windows host to desktop viewer.** Acceptance: WGC/DXGI capture, H.264, over LAN; adaptive bitrate and reconnect work.
 4. **Input back.** Acceptance: mouse/keyboard over the control channel; uinput on Linux, SendInput on Windows; input survives reconnect.

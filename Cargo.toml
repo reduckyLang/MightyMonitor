@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
+<<<<<<< HEAD
 members = ["core", "host-linux"]
+=======
+members = ["core", "bench"]
+>>>>>>> origin/main
 
 [workspace.package]
 version = "0.0.1"
