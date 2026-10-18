@@ -4,7 +4,7 @@
 mod linux {
     use codec_gst::encoder::{Encoder as GstEncoder, EncoderConfig, PixelFormat};
     use host_linux::{LinuxCapture, X11Capture};
-    use mightymonitor_core::{Bytes, Capture, Encoder};
+    use mightymonitor_core::{Bytes, Capture, CodecError, Encoder};
     use mightymonitor_host::{
         pipeline::{HostEncoder, Pipeline},
         session::{serve, SessionConfig},
@@ -24,11 +24,11 @@ mod linux {
     }
     struct Codec(GstEncoder);
     impl Encoder for Codec {
-        fn encode(&mut self, raw: &[u8]) -> Bytes {
+        fn encode(&mut self, raw: &[u8]) -> Result<Bytes, CodecError> {
             self.0.encode(raw)
         }
-        fn set_bitrate_kbps(&mut self, kbps: u32) {
-            Encoder::set_bitrate_kbps(&mut self.0, kbps);
+        fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<(), CodecError> {
+            Encoder::set_bitrate_kbps(&mut self.0, kbps)
         }
     }
     impl HostEncoder for Codec {
@@ -49,10 +49,11 @@ mod linux {
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
         let mut bitrate = 4000;
+        let mut idle_timeout_secs = 30;
         let mut args = std::env::args().skip(1);
         while let Some(flag) = args.next() {
             if flag == "--help" {
-                println!("mm-host [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS]");
+                println!("mm-host [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -60,13 +61,22 @@ mod linux {
                 "--bind" => bind = value,
                 "--fps" => fps = value.parse()?,
                 "--bitrate" => bitrate = value.parse()?,
+                "--idle-timeout-secs" => idle_timeout_secs = value.parse()?,
                 _ => return Err(format!("unknown flag: {flag}").into()),
             }
         }
-        if !(1..=240).contains(&fps) || !(1..=1_000_000).contains(&bitrate) {
-            return Err("invalid fps or bitrate".into());
+        if idle_timeout_secs == 0
+            || !(1..=240).contains(&fps)
+            || !(1..=1_000_000).contains(&bitrate)
+        {
+            return Err("invalid fps, bitrate or idle timeout".into());
         }
         let listener = tokio::net::TcpListener::bind(&bind).await?;
+        if !listener.local_addr()?.ip().is_loopback() {
+            eprintln!(
+                "WARNING: non-loopback bind exposes streaming without authentication or encryption"
+            );
+        }
         eprintln!("mm-host listening on {}", listener.local_addr()?);
         // One logical host session survives sequential viewer reconnections.
         let session_id = 1;
@@ -91,6 +101,8 @@ mod linux {
                 height,
                 fps,
                 write_timeout: Duration::from_secs(2),
+                handshake_timeout: Duration::from_secs(5),
+                idle_timeout: Duration::from_secs(idle_timeout_secs),
             };
             if let Err(error) = serve(stream, pipeline, config).await {
                 eprintln!("viewer session ended: {error}");

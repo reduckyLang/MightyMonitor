@@ -12,7 +12,10 @@ cargo run -p mightymonitor-host --bin mm-host -- --bind 127.0.0.1:5000 --fps 30 
 for a remote viewer). `--fps` accepts 1–240 (default 30). `--bitrate` is the
 initial H.264 target in kbit/s, 1–1000000 (default 4000); viewer NetStats updates
 adapt it through core's AIMD controller. `--help` prints usage. The protocol
-currently provides no authentication or encryption; use a trusted LAN.
+currently provides no authentication or encryption; use a trusted LAN. The host
+warns on stderr when the resolved listen address is non-loopback.
+`--idle-timeout-secs` sets the post-handshake viewer silence limit (default 30
+seconds, positive values only); Pings and other valid controls reset it.
 
 The executable captures the X11 root window, converts packed BGRA to RGBA, and
 uses codec-gst's low-latency H.264 encoder. It serves one viewer at a time and
@@ -25,6 +28,8 @@ The viewer sends Hello with the current protocol version and Viewer role. The
 host replies HelloAck followed by VideoConfig, then VideoFrame messages. Ping
 receives Pong with the same nonce and timestamp; Pong and NetStats are accepted.
 Bye ends a session. Invalid handshakes are rejected, with a five-second deadline.
+Invalid peers currently cause capture/encoder setup before handshake validation;
+moving validation ahead of resource creation remains a follow-up.
 See [PROTOCOL.md](PROTOCOL.md) for framing and typed payloads.
 
 The pipeline uses core Capture and Encoder through a HostEncoder extension for
@@ -60,10 +65,22 @@ connection rather than retrying a corrupt stream. Capture continues replacing
 the slot during writes. Control handling can wait for an in-progress write or
 encode, and its bounded eight-message channel disconnects a flooding viewer.
 Dropping the pipeline stops capture after its current backend call completes.
+A capture-thread panic closes the slot and wakes a waiting consumer; poisoned
+slot locks are recovered. A backend call that never returns remains a limitation.
+The idle deadline also bounds waiting for capture or encoding. Received Pings
+renew it during that wait; control replies can wait for encoding, and an
+in-progress write can delay timeout reporting until its write deadline.
+
+`Pipeline::on_stats` returns bitrate rejection errors. The session logs these
+and continues at the encoder's previous setting; initial bitrate rejection ends
+setup. AIMD keeps its requested target and may request another change on later
+feedback.
 
 Loopback integration tests use fake capture and a dummy encoder, requiring
 neither DISPLAY nor GStreamer plugins at runtime. They check normal streaming,
-slow-reader drops and freshness, Ping/Pong, and requested/resumed keyframes.
+slow-reader drops and freshness, Ping/Pong, requested/resumed keyframes, invalid
+Hello versions/roles, handshake silence, idle silence/Ping resets, and capture
+panic termination.
 Linux builds still require the native GStreamer development libraries because
 the real binary links codec-gst. Live X11/H.264 viewing, Wi-Fi delivery latency,
 and hardware encoding need separate desktop validation.

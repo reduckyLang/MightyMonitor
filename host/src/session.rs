@@ -8,7 +8,10 @@ use mightymonitor_core::{
     BackoffPolicy, Codec, Connector, Message, ReconnectingSession, Role, SendOutcome,
     SessionWriter, SplitMix64, TcpTransport, Transport, TransportError, PROTOCOL_VERSION,
 };
-use std::time::Duration;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::{net::TcpStream, sync::mpsc};
 
 #[derive(Clone, Debug)]
@@ -19,6 +22,9 @@ pub struct SessionConfig {
     pub height: u32,
     pub fps: u32,
     pub write_timeout: Duration,
+    pub handshake_timeout: Duration,
+    /// Maximum viewer silence after handshake; any valid control resets it.
+    pub idle_timeout: Duration,
 }
 /// A server accepts a replacement socket in its listener, rather than dialing
 /// the viewer. Disable core retries and never replay old video on replacement.
@@ -68,11 +74,15 @@ pub async fn serve<E: HostEncoder>(
     session.connect_initial().await?;
     let (mut reader, mut writer) = session.split();
     let (tx, mut controls) = mpsc::channel(8);
+    let activity = Arc::new(Mutex::new(tokio::time::Instant::now()));
+    let reader_activity = activity.clone();
     let _reader_task = ReaderTask(tokio::spawn(async move {
         while let Ok(frame) = reader.recv().await {
             let Ok(message) = Message::from_frame_parts(frame.kind, &frame.payload) else {
                 break;
             };
+            *reader_activity.lock().unwrap_or_else(|e| e.into_inner()) =
+                tokio::time::Instant::now();
             // A flooding viewer cannot allocate unbounded controls or stall the
             // reader command loop. Closing makes pending writes fail promptly.
             if tx.try_send(message).is_err() {
@@ -80,7 +90,7 @@ pub async fn serve<E: HostEncoder>(
             }
         }
     }));
-    let first = tokio::time::timeout(Duration::from_secs(5), controls.recv())
+    let first = tokio::time::timeout(config.handshake_timeout, controls.recv())
         .await?
         .ok_or("viewer closed during handshake")?;
     let mut seq = 0;
@@ -123,6 +133,7 @@ pub async fn serve<E: HostEncoder>(
     )
     .await?;
     let mut force = true;
+    *activity.lock().unwrap_or_else(|e| e.into_inner()) = tokio::time::Instant::now();
     loop {
         while let Ok(message) = controls.try_recv() {
             match message {
@@ -137,7 +148,13 @@ pub async fn serve<E: HostEncoder>(
                 Message::Resume { session_id, .. } if session_id == config.session_id => {
                     force = true
                 }
-                Message::NetStats(stats) => pipeline.on_stats(&stats),
+                Message::NetStats(stats) => {
+                    // A live bitrate rejection is recoverable: keep streaming at
+                    // the previous encoder setting. Initial setup errors are fatal.
+                    if let Err(error) = pipeline.on_stats(&stats) {
+                        eprintln!("mm-host: {error}");
+                    }
+                }
                 Message::Bye { .. } => return Ok(()),
                 Message::Pong { .. } => {}
                 _ => return Err("unexpected viewer message".into()),
@@ -146,7 +163,24 @@ pub async fn serve<E: HostEncoder>(
         if controls.is_closed() {
             return Err("viewer disconnected".into());
         }
-        let Some(video) = pipeline.next(force).await? else {
+        // Keep next() pinned across renewed deadlines: cancelling it on each
+        // Ping could lose the encoder while a blocking encode is in flight.
+        let video = {
+            let next = pipeline.next(force);
+            tokio::pin!(next);
+            loop {
+                let deadline =
+                    *activity.lock().unwrap_or_else(|e| e.into_inner()) + config.idle_timeout;
+                if tokio::time::Instant::now() >= deadline {
+                    return Err("viewer idle timeout".into());
+                }
+                match tokio::time::timeout_at(deadline, &mut next).await {
+                    Ok(result) => break result?,
+                    Err(_) => continue, // Reader may have renewed the deadline.
+                }
+            }
+        };
+        let Some(video) = video else {
             return Ok(());
         };
         force = false;

@@ -11,7 +11,7 @@ use tokio::sync::Notify;
 ///
 /// Implementations must honor `force` by emitting an independently decodable
 /// keyframe and report the actual encoded frame type. The core trait alone does
-/// not expose keyframe control or errors.
+/// not expose keyframe control.
 pub trait HostEncoder: Encoder + Send + 'static {
     fn encode_video(
         &mut self,
@@ -55,12 +55,25 @@ impl Slot {
         self.frame.take()
     }
 }
+// Closing on both normal return and unwind prevents a panicking backend from
+// leaving next() asleep forever. This also recovers any poisoned slot lock.
+struct CaptureGuard(Arc<Mutex<Slot>>, Arc<Notify>);
+impl Drop for CaptureGuard {
+    fn drop(&mut self) {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).closed = true;
+        self.1.notify_one();
+    }
+}
 /// A snapshot handle retains no additional frames.
 #[derive(Clone)]
 pub struct Monitor(Arc<Mutex<Slot>>);
 impl Monitor {
     pub fn snapshot(&self) -> Metrics {
-        self.0.lock().unwrap().metrics.clone()
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .metrics
+            .clone()
     }
 }
 /// Capture runs on a dedicated thread; dropping signals it to stop after its
@@ -95,19 +108,20 @@ impl<E: HostEncoder> Pipeline<E> {
         std::thread::Builder::new()
             .name("mm-capture".into())
             .spawn(move || {
+                let _guard = CaptureGuard(shared.clone(), notify.clone());
                 let clock = MonotonicClock::new();
                 loop {
                     let start = Instant::now();
-                    if shared.lock().unwrap().closed {
+                    if shared.lock().unwrap_or_else(|e| e.into_inner()).closed {
                         break;
                     }
                     let timestamp_us = clock.now_us();
                     let Some(data) = capture.next_frame() else {
-                        shared.lock().unwrap().closed = true;
+                        shared.lock().unwrap_or_else(|e| e.into_inner()).closed = true;
                         notify.notify_one();
                         break;
                     };
-                    let mut state = shared.lock().unwrap();
+                    let mut state = shared.lock().unwrap_or_else(|e| e.into_inner());
                     if state.closed {
                         break;
                     }
@@ -144,16 +158,18 @@ impl<E: HostEncoder> Pipeline<E> {
             .map_err(|e| format!("set initial bitrate: {e:?}"))?;
         Ok(self)
     }
-    pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) {
+    /// Return a rejected bitrate update to the caller; the encoder retains its
+    /// previous bitrate, so a live session can log the error and continue.
+    pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) -> Result<(), Error> {
         use mightymonitor_core::BitrateController;
         if let Some(kbps) = self.abr.on_stats(stats) {
-            if let Some(encoder) = &mut self.encoder {
-                // A rejected ABR change keeps the previous bitrate; streaming continues.
-                if let Err(e) = encoder.set_bitrate_kbps(kbps) {
-                    eprintln!("mm-host: bitrate change to {kbps} kbps rejected: {e:?}");
-                }
-            }
+            self.encoder
+                .as_mut()
+                .ok_or("encoder unavailable")?
+                .set_bitrate_kbps(kbps)
+                .map_err(|e| format!("bitrate change to {kbps} kbps rejected: {e:?}"))?;
         }
+        Ok(())
     }
     pub fn monitor(&self) -> Monitor {
         Monitor(self.slot.clone())
@@ -162,7 +178,7 @@ impl<E: HostEncoder> Pipeline<E> {
         loop {
             let notified = self.ready.notified();
             let (raw, closed) = {
-                let mut state = self.slot.lock().unwrap();
+                let mut state = self.slot.lock().unwrap_or_else(|e| e.into_inner());
                 (state.take(), state.closed)
             };
             let Some(raw) = raw else {
@@ -173,7 +189,11 @@ impl<E: HostEncoder> Pipeline<E> {
                 continue;
             };
             if raw.captured.elapsed() >= self.interval * 2 {
-                self.slot.lock().unwrap().metrics.dropped += 1;
+                self.slot
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .metrics
+                    .dropped += 1;
                 continue;
             }
             let mut encoder = self.encoder.take().ok_or("encoder unavailable")?;
@@ -195,7 +215,11 @@ impl<E: HostEncoder> Pipeline<E> {
                 return Err("encoder returned empty frame".into());
             }
             if video.captured.elapsed() >= self.interval * 2 {
-                self.slot.lock().unwrap().metrics.dropped += 1;
+                self.slot
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .metrics
+                    .dropped += 1;
                 force = true;
                 continue;
             }
@@ -203,7 +227,7 @@ impl<E: HostEncoder> Pipeline<E> {
         }
     }
     pub(crate) fn sending(&self, captured: Instant) -> bool {
-        let mut state = self.slot.lock().unwrap();
+        let mut state = self.slot.lock().unwrap_or_else(|e| e.into_inner());
         let age = captured.elapsed();
         if age >= self.interval * 2 {
             state.metrics.dropped += 1;
@@ -213,12 +237,16 @@ impl<E: HostEncoder> Pipeline<E> {
         true
     }
     pub(crate) fn sent(&self) {
-        self.slot.lock().unwrap().metrics.sent += 1;
+        self.slot
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .metrics
+            .sent += 1;
     }
 }
 impl<E> Drop for Pipeline<E> {
     fn drop(&mut self) {
-        let mut state = self.slot.lock().unwrap();
+        let mut state = self.slot.lock().unwrap_or_else(|e| e.into_inner());
         state.closed = true;
         state.frame = None;
         state.metrics.queue_len = 0;
