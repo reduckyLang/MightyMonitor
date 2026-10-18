@@ -23,3 +23,4 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo build --workspace
+      - run: cargo run -p bench --release -- --frames 100 --size 65536 --max-p99-ms 50

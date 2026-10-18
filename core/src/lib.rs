@@ -30,3 +30,7 @@ pub use frame::{
     FrameHeader, HEADER_LEN, MAX_PAYLOAD_LEN, PROTOCOL_VERSION,
 };
 pub use traits::{Bytes, Capture, Decoder, Encoder, InputInjector};
+
+/// Monotonic timestamps and clock offset estimation.
+pub mod clock;
+pub use clock::{MonotonicClock, OffsetEstimate, OffsetEstimator, TimeSource};
