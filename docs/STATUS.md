@@ -111,3 +111,5 @@ requires restructuring the current API and CLI capture-dimension setup; invalid
 Hello version/role is rejected today, but after resources have been created.
 A capture backend that never returns can still retain its thread; idle timeout
 ends the session's wait, and in-progress writes remain bounded by write timeout.
+
+2026-10-18: Deflaked the slow-viewer streaming test with bounded drop polling and frame reads, portable drop evidence, and generous send-age slack; retained one-frame queue bounds.
