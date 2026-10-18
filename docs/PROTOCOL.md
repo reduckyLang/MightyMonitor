@@ -166,14 +166,50 @@ caller with the same transport and its partial input intact. `send()` never
 replays application frames: after successful recovery it returns
 `SendOutcome::ReconnectedNotSent`. Some or all of the original send may already
 have reached the peer; application sequence numbers and replay rules must resolve
-that ambiguity. Cancellation of a send requires dropping the session because
-partial output may have been written. The transport never replays automatically.
+that ambiguity. Cancellation of an unsplit send drops its transport because
+partial output may have been written; the next operation recovers. The transport never replays automatically.
+
+`ReconnectingSession::split(self)` returns `SessionReader` and `SessionWriter`.
+The reader owns the transport, reconnect/backoff, and application-supplied
+`set_last_seq`; call its `connect_initial` if splitting before initial connection.
+Both halves are `Send` (`JitterSource` requires `Send`) and expose shared `state`
+and `take_events`. Draining events from either half consumes the same bounded
+history. The unsplit API remains available with its existing recovery behavior.
+
+The reader's `recv` acts as the command loop: keep polling it to service writes.
+A bounded channel (one pending command) carries writer requests. While connected,
+the reader selects between cancellation-safe transport receive and send requests;
+no mutex is held across receive, write, connect, or backoff. Writes serialize with
+receives at the transport, so a write in progress can delay receiving. The shared
+mutex protects only lifecycle metadata. Custom transports must preserve partial
+input when receive is cancelled, as required by `Transport::recv`.
+
+`SessionWriter::send(kind, payload, timeout)` applies the supplied deadline to
+both dispatch and writing. During reconnect it immediately returns
+`SendOutcome::NotConnected` and queues nothing; after exhaustion it returns
+`SessionError::GaveUp`. Requests crossing a disconnection are rejected rather
+than replayed on a replacement transport. A successful send returns `Sent`;
+write I/O errors/timeouts are returned directly and leave recovery to the reader.
+Cancellation or deadline expiry during an active write drops that transport;
+requests cancelled before writing are discarded. No application frame is
+replayed automatically. If the reader stops polling, sends remain bounded by
+their deadline. Expiry before the reader starts the write (including waiting
+for channel capacity) returns `TransportError::Timeout("queue")`; expiry after
+the write starts returns `TransportError::Timeout("write")`. Both phases share
+one deadline. Dropping a pending `SessionReader::recv` during an inline write
+drops the transport and emits `Disconnected` with the `Closed` reason; the next
+receive recovers without replay. Cancelling while reading retains the transport,
+and cancelling recovery retains its retry budget. Dropping the reader closes
+the command channel. Resume is fully
+written before the replacement transport becomes available to the writer.
 
 Retries use exponential backoff (100 ms initially, multiplier 2), symmetric
 20% jitter, and a hard five-second cap including jitter by default. The policy,
 seeded randomness, and attempt limit are configurable; the default retry budget
 is unlimited. A zero attempt limit gives up immediately after disconnection.
-Sleep uses Tokio time, allowing paused-time tests. Exhaustion is terminal for the
+Sleep uses Tokio time, allowing paused-time tests. Each scheduled attempt
+consumes retry budget, including a sleep cancelled before connecting. Backoff
+and budget reset only on the first received frame, never on Resume alone. Exhaustion is terminal for the
 session. Lifecycle events retain only the newest 64 entries; `take_events()`
 drains them, so callers needing a complete history should drain regularly.
 
@@ -181,3 +217,34 @@ IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
 and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
 that literal address; hostname discovery via mDNS is a later milestone, M8.
+
+## Adaptive bitrate
+
+`NetStats` carries receiver feedback: `rtt_ms: u32` (round-trip milliseconds),
+`loss_pct: f32` (packet loss percentage), and `recv_kbps: u32` (received kbit/s).
+ABR uses `crate::message::NetStats`, also exported at the crate root. The controller
+currently uses RTT and loss; received throughput is available for future policies.
+
+`AimdController` implements `BitrateController` with deterministic AIMD rules.
+Each valid sample updates the baseline to the minimum RTT observed. Loss strictly
+above `loss_threshold_pct`, or RTT strictly above
+`max(baseline * rtt_rise_factor, baseline + rtt_slack_ms)` (computed in `f64`),
+causes a multiplicative decrease and resets the stability
+counter. Otherwise, `stable_samples_required` consecutive samples cause one
+additive increase and reset the counter. Decreases round to the nearest whole
+kbit/s. All targets remain within the configured bounds; unchanged targets return
+`None`. Non-finite loss or loss outside 0–100 is ignored and resets stability.
+There are no timers, sleeps, or random decisions; callers choose feedback cadence.
+
+`AimdConfig` defaults to `min_kbps = 500`, `max_kbps = 20000`,
+`start_kbps = 4000`, `increase_kbps = 250`, `decrease_factor = 0.7`,
+`loss_threshold_pct = 2.0`, `rtt_rise_factor = 1.5`, `rtt_slack_ms = 20`, and
+`stable_samples_required = 3`. `AimdController::new` rejects invalid bounds,
+zero steps/counts, non-finite factors/thresholds, a decrease factor outside
+(0, 1), a loss threshold outside [0, 100], or an RTT factor at or below one.
+The initial target is clamped to the bounds. Initialize the encoder with
+`target_kbps()`; `adapt` then forwards changed targets to
+`Encoder::set_bitrate_kbps`, which must support calls mid-stream.
+
+The absolute RTT slack tolerates small LAN jitter even with a zero or one millisecond
+baseline.

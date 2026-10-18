@@ -5,7 +5,15 @@ use crate::{
     MAX_PAYLOAD_LEN,
 };
 use async_trait::async_trait;
-use std::{collections::VecDeque, time::Duration};
+use std::{
+    collections::VecDeque,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
+};
+use tokio::sync::{mpsc, oneshot};
 
 /// Establish a fresh transport on each attempt.
 #[async_trait]
@@ -43,7 +51,7 @@ impl Connector for TcpConnector {
 }
 
 /// Injectable source of uniform values in `[0, 1)`.
-pub trait JitterSource {
+pub trait JitterSource: Send {
     /// Return the next unit sample.
     fn next_unit(&mut self) -> f64;
 }
@@ -251,6 +259,8 @@ pub enum SendOutcome {
     /// Recovery succeeded, but the frame was not sent on the new connection.
     /// The original connection may have received some or all of it.
     ReconnectedNotSent,
+    /// No transport was available; nothing was queued or written.
+    NotConnected,
 }
 
 /// Reconnects frame transports and sends Resume first on every replacement.
@@ -269,6 +279,7 @@ pub struct ReconnectingSession<C: Connector, J: JitterSource> {
     state: SessionState,
     started: bool,
     events: VecDeque<SessionEvent>,
+    shared: Option<Arc<Mutex<SplitStatus>>>,
 }
 impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
     /// Create an unconnected session with explicit policy and RNG.
@@ -282,7 +293,27 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
             state: SessionState::Reconnecting { attempt: 0 },
             started: false,
             events: VecDeque::new(),
+            shared: None,
         }
+    }
+    /// Split into independently movable handles. Drive `reader.recv()` to service
+    /// writes; dropping either handle closes its channel. Requires no spawned actor.
+    pub fn split(mut self) -> (SessionReader<C, J>, SessionWriter) {
+        let shared = Arc::new(Mutex::new(SplitStatus {
+            state: self.state,
+            generation: 0,
+            events: std::mem::take(&mut self.events),
+        }));
+        self.shared = Some(shared.clone());
+        let (sender, commands) = mpsc::channel(1);
+        (
+            SessionReader {
+                session: self,
+                commands,
+                shared: shared.clone(),
+            },
+            SessionWriter { sender, shared },
+        )
     }
     /// Set the last sequence consumed by the caller, to request replay after it.
     /// Defaults to zero; zero requests replay after sequence zero, with no sentinel semantics.
@@ -298,6 +329,17 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
         self.events.drain(..).collect()
     }
     fn emit(&mut self, event: SessionEvent) {
+        if let Some(shared) = &self.shared {
+            let mut status = shared.lock().unwrap();
+            status.state = self.state;
+            if matches!(event, SessionEvent::Disconnected { .. }) {
+                status.generation += 1;
+            }
+            if status.events.len() == 64 {
+                status.events.pop_front();
+            }
+            status.events.push_back(event.clone());
+        }
         if self.events.len() == 64 {
             self.events.pop_front();
         }
@@ -445,10 +487,405 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
     }
 }
 
+struct SplitStatus {
+    generation: u64,
+    state: SessionState,
+    events: VecDeque<SessionEvent>,
+}
+struct SendCommand {
+    started: Arc<AtomicBool>,
+    generation: u64,
+    kind: u8,
+    payload: Vec<u8>,
+    reply: oneshot::Sender<Result<SendOutcome, SessionError>>,
+}
+
+/// Owns receive and recovery. Poll `recv` to service writer commands.
+pub struct SessionReader<C: Connector, J: JitterSource> {
+    session: ReconnectingSession<C, J>,
+    commands: mpsc::Receiver<SendCommand>,
+    shared: Arc<Mutex<SplitStatus>>,
+}
+/// Sends through the reader's current transport; never initiates recovery.
+pub struct SessionWriter {
+    sender: mpsc::Sender<SendCommand>,
+    shared: Arc<Mutex<SplitStatus>>,
+}
+// Armed only while the transport is owned by an inline write future.
+struct InlineWriteGuard<'a, C: Connector, J: JitterSource>(
+    Option<&'a mut ReconnectingSession<C, J>>,
+);
+impl<'a, C: Connector, J: JitterSource> InlineWriteGuard<'a, C, J> {
+    fn finish(mut self) -> &'a mut ReconnectingSession<C, J> {
+        self.0.take().unwrap()
+    }
+}
+impl<C: Connector, J: JitterSource> Drop for InlineWriteGuard<'_, C, J> {
+    fn drop(&mut self) {
+        if let Some(session) = self.0.take() {
+            session.disconnect(&TransportError::Closed);
+        }
+    }
+}
+impl<C: Connector, J: JitterSource> SessionReader<C, J> {
+    /// Establish the initial connection, without Resume.
+    pub async fn connect_initial(&mut self) -> Result<(), SessionError> {
+        self.session.connect_initial().await
+    }
+    /// Update the application-consumed position for the next Resume.
+    pub fn set_last_seq(&mut self, last_seq: u64) {
+        self.session.set_last_seq(last_seq);
+    }
+    /// Inspect the shared connection lifecycle.
+    pub fn state(&self) -> SessionState {
+        self.shared.lock().unwrap().state
+    }
+    /// Drain the shared, bounded event history.
+    pub fn take_events(&mut self) -> Vec<SessionEvent> {
+        self.shared.lock().unwrap().events.drain(..).collect()
+    }
+    /// Receive with recovery, servicing writes while a transport is connected.
+    ///
+    /// Cancellation while reading retains the transport. Cancellation during an
+    /// inline write drops the transport and emits Disconnected with Closed as its
+    /// reason, since output may be partial. The next receive recovers without
+    /// replaying the interrupted command. Recovery retains its retry budget.
+    pub async fn recv(&mut self) -> Result<Frame, SessionError> {
+        loop {
+            self.session.ready().await?;
+            tokio::select! {
+                command = self.commands.recv(), if !self.commands.is_closed() || !self.commands.is_empty() => {
+                    if let Some(mut command) = command {
+                        if command.reply.is_closed() { continue; }
+                        if command.generation != self.shared.lock().unwrap().generation {
+                            let _ = command.reply.send(Ok(SendOutcome::NotConnected));
+                            continue;
+                        }
+                        let mut transport = self.session.current.take().ok_or(SessionError::NotConnected)?;
+                        command.started.store(true, Ordering::SeqCst);
+                        let guard = InlineWriteGuard(Some(&mut self.session));
+                        // Cancellation may leave partial output. Never restore this transport.
+                        let result = tokio::select! {
+                            result = transport.send(command.kind, &command.payload) => Some(result),
+                            _ = command.reply.closed() => None,
+                        };
+                        let session = guard.finish();
+                        match result {
+                            Some(Ok(())) => {
+                                session.current = Some(transport);
+                                let _ = command.reply.send(Ok(SendOutcome::Sent));
+                            }
+                            Some(Err(error @ (TransportError::Io(_) | TransportError::Timeout("write")))) => {
+                                session.disconnect(&error);
+                                let _ = command.reply.send(Err(error.into()));
+                            }
+                            Some(Err(error)) => {
+                                session.current = Some(transport);
+                                let _ = command.reply.send(Err(error.into()));
+                            }
+                            None => session.disconnect(&TransportError::Closed),
+                        }
+                    }
+                }
+                result = self.session.current.as_mut().unwrap().recv() => {
+                    match result {
+                        Ok(frame) => { self.session.backoff.reset(); return Ok(frame); }
+                        Err(error @ TransportError::Timeout("read")) => return Err(error.into()),
+                        Err(error) => self.session.disconnect(&error),
+                    }
+                }
+            }
+        }
+    }
+}
+impl SessionWriter {
+    /// Inspect the shared connection lifecycle.
+    pub fn state(&self) -> SessionState {
+        self.shared.lock().unwrap().state
+    }
+    /// Drain the shared, bounded event history (also consumed by the reader).
+    pub fn take_events(&mut self) -> Vec<SessionEvent> {
+        self.shared.lock().unwrap().events.drain(..).collect()
+    }
+    /// Send once, with a caller-supplied deadline covering dispatch and writing.
+    /// The reader must be polling `recv`. Timeout/cancellation during a write
+    /// drops the transport; no application frame is replayed. Expiry before the
+    /// reader starts writing returns Timeout("queue"); expiry after dispatch
+    /// returns Timeout("write"). Both phases share the supplied deadline.
+    pub async fn send(
+        &mut self,
+        kind: u8,
+        payload: &[u8],
+        timeout: Duration,
+    ) -> Result<SendOutcome, SessionError> {
+        if payload.len() > MAX_PAYLOAD_LEN {
+            return Err(TransportError::Frame(FrameError::TooLarge {
+                len: payload.len() as u64,
+                max: MAX_PAYLOAD_LEN as u64,
+            })
+            .into());
+        }
+        let (state, generation) = {
+            let status = self.shared.lock().unwrap();
+            (status.state, status.generation)
+        };
+        match state {
+            SessionState::GaveUp => return Err(SessionError::GaveUp),
+            SessionState::Reconnecting { .. } => return Ok(SendOutcome::NotConnected),
+            SessionState::Connected => {}
+        }
+        let (reply, response) = oneshot::channel();
+        let started = Arc::new(AtomicBool::new(false));
+        let command = SendCommand {
+            started: started.clone(),
+            generation,
+            kind,
+            payload: payload.to_vec(),
+            reply,
+        };
+        tokio::time::timeout(timeout, async {
+            self.sender
+                .send(command)
+                .await
+                .map_err(|_| SessionError::NotConnected)?;
+            response.await.map_err(|_| SessionError::NotConnected)?
+        })
+        .await
+        .map_err(|_| {
+            SessionError::Transport(TransportError::Timeout(if started.load(Ordering::SeqCst) {
+                "write"
+            } else {
+                "queue"
+            }))
+        })?
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn jitter_source_and_session_are_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Box<dyn JitterSource>>();
+        assert_send::<ReconnectingSession<FakeConnector, SplitMix64>>();
+        assert_send::<SessionReader<FakeConnector, SplitMix64>>();
+        assert_send::<SessionWriter>();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn send_proceeds_while_recv_in_backoff() {
+        let (mut session, calls) = session(vec![transport(&Sent::default(), vec![], false)], 10);
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        let reader_task = tokio::spawn(async move { reader.recv().await });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(*calls.lock().unwrap(), 2); // First reconnect failed; second sleep pending.
+        let start = tokio::time::Instant::now();
+        let writer_task = tokio::spawn(async move {
+            let result = writer.send(1, b"no queue", Duration::from_secs(1)).await;
+            (writer, result)
+        });
+        let (mut writer, result) = writer_task.await.unwrap();
+        assert_eq!(result.unwrap(), SendOutcome::NotConnected);
+        assert_eq!(start.elapsed(), Duration::ZERO);
+        assert!(matches!(
+            writer.state(),
+            SessionState::Reconnecting { attempt: 2 }
+        ));
+        assert!(writer
+            .take_events()
+            .iter()
+            .any(|event| matches!(event, SessionEvent::ReconnectFailed { attempt: 1, .. })));
+        reader_task.abort();
+    }
+
+    struct IdleTransport(Sent);
+    #[async_trait]
+    impl Transport for IdleTransport {
+        async fn send(&mut self, kind: u8, payload: &[u8]) -> Result<(), TransportError> {
+            self.0.lock().unwrap().push(Frame {
+                kind,
+                payload: payload.to_vec(),
+            });
+            Ok(())
+        }
+        async fn recv(&mut self) -> Result<Frame, TransportError> {
+            std::future::pending().await
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn writer_uses_replacement_transport() {
+        let old = Sent::default();
+        let new = Sent::default();
+        let (mut session, _) = session(
+            vec![
+                transport(&old, vec![], false),
+                Ok(Box::new(IdleTransport(new.clone()))),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        session.set_last_seq(42);
+        let (mut reader, mut writer) = session.split();
+        let task = tokio::spawn(async move { reader.recv().await });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(writer.state(), SessionState::Connected);
+        tokio::spawn(async move {
+            assert_eq!(
+                writer
+                    .send(7, b"new", Duration::from_secs(1))
+                    .await
+                    .unwrap(),
+                SendOutcome::Sent
+            );
+        })
+        .await
+        .unwrap();
+        assert!(old.lock().unwrap().is_empty());
+        assert_eq!(
+            *new.lock().unwrap(),
+            vec![
+                Frame {
+                    kind: 9,
+                    payload: Message::Resume {
+                        session_id: 123,
+                        last_seq: 42
+                    }
+                    .to_bytes()
+                    .unwrap()
+                },
+                Frame {
+                    kind: 7,
+                    payload: b"new".to_vec()
+                }
+            ]
+        );
+        task.abort();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn split_cancelled_send_drops_transport() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                Ok(Box::new(BlockedTransport)),
+                Ok(Box::new(IdleTransport(sent.clone()))),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        let task = tokio::spawn(async move { reader.recv().await });
+        assert!(matches!(
+            writer.send(1, b"partial", Duration::from_millis(1)).await,
+            Err(SessionError::Transport(TransportError::Timeout("write")))
+        ));
+        tokio::task::yield_now().await;
+        assert!(matches!(writer.state(), SessionState::Reconnecting { .. }));
+        tokio::time::advance(Duration::from_millis(100)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(writer.state(), SessionState::Connected);
+        assert_eq!(*calls.lock().unwrap(), 2);
+        assert_eq!(sent.lock().unwrap()[0].kind, 9);
+        task.abort();
+    }
+
+    struct BlockedTransport;
+    #[async_trait]
+    impl Transport for BlockedTransport {
+        async fn send(&mut self, _: u8, _: &[u8]) -> Result<(), TransportError> {
+            std::future::pending().await
+        }
+        async fn recv(&mut self) -> Result<Frame, TransportError> {
+            std::future::pending().await
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancelled_recv_during_inline_write_disconnects_and_recovers() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                Ok(Box::new(BlockedTransport)),
+                Ok(Box::new(IdleTransport(sent.clone()))),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        let writer_task = tokio::spawn(async move {
+            let result = writer.send(1, b"partial", Duration::from_secs(10)).await;
+            (writer, result)
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1), reader.recv())
+                .await
+                .is_err()
+        );
+        assert!(reader.session.current.is_none());
+        assert_eq!(reader.state(), SessionState::Reconnecting { attempt: 0 });
+        let (mut writer, result) = writer_task.await.unwrap();
+        assert!(matches!(result, Err(SessionError::NotConnected)));
+        assert_eq!(writer.state(), reader.state());
+        assert_eq!(
+            writer.take_events(),
+            vec![
+                SessionEvent::Connected,
+                SessionEvent::Disconnected {
+                    reason: TransportError::Closed.to_string()
+                },
+            ]
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(101), reader.recv())
+                .await
+                .is_err()
+        );
+        assert_eq!(writer.state(), SessionState::Connected);
+        assert_eq!(*calls.lock().unwrap(), 2);
+        let frames = sent.lock().unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(
+            Message::from_frame_parts(frames[0].kind, &frames[0].payload).unwrap(),
+            Message::Resume {
+                session_id: 123,
+                last_seq: 0
+            }
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn queue_timeouts_do_not_disconnect_or_write() {
+        let sent = Sent::default();
+        let (mut session, _) = session(vec![Ok(Box::new(IdleTransport(sent.clone())))], 2);
+        session.connect_initial().await.unwrap();
+        let (mut reader, mut writer) = session.split();
+        // First timeout leaves a cancelled command in the one-slot queue;
+        // the second must time out waiting for capacity.
+        for _ in 0..2 {
+            assert!(matches!(
+                writer.send(1, b"queued", Duration::from_millis(1)).await,
+                Err(SessionError::Transport(TransportError::Timeout("queue")))
+            ));
+            assert_eq!(writer.state(), SessionState::Connected);
+        }
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1), reader.recv())
+                .await
+                .is_err()
+        );
+        assert!(sent.lock().unwrap().is_empty());
+        assert_eq!(writer.take_events(), vec![SessionEvent::Connected]);
+    }
 
     #[test]
     fn resume_payload_roundtrip_and_bad_length() {
