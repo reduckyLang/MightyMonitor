@@ -5,6 +5,8 @@ pub mod abr;
 pub mod error;
 pub mod input;
 pub mod message;
+#[cfg(feature = "mock")]
+pub mod mock;
 
 pub use input::{InputEvent, MouseButton, TouchPhase};
 pub use message::{
@@ -34,3 +36,7 @@ pub use frame::{
     FrameHeader, HEADER_LEN, MAX_PAYLOAD_LEN, PROTOCOL_VERSION,
 };
 pub use traits::{Bytes, Capture, Decoder, Encoder, InputInjector};
+
+/// Monotonic timestamps and clock offset estimation.
+pub mod clock;
+pub use clock::{MonotonicClock, OffsetEstimate, OffsetEstimator, TimeSource};

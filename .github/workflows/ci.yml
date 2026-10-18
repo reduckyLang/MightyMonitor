@@ -21,5 +21,27 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo test --workspace --features mightymonitor-core/mock
+      - run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
       - run: cargo build --workspace
+      - name: X11 capture smoke test
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          xvfb-run -a -s "-screen 0 1280x720x24" cargo test -p host-linux -- --ignored x11_capture_smoke
+      - run: cargo run -p bench --release -- --frames 100 --size 65536 --max-p99-ms 50
+
+  pipewire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y libpipewire-0.3-dev libspa-0.2-dev clang pkg-config
+      - run: cargo build --workspace --features pipewire --locked
+      - run: cargo clippy --workspace --all-targets --features pipewire --locked -- -D warnings
+      - run: cargo test --workspace --all-features --locked
