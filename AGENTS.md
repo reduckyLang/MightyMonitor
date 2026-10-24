@@ -16,7 +16,7 @@ plan and PR workflow. `docs/CROSS_DEVICE.md` defines the intended final behavior
   Keep historical log entries clearly historical. Use inline SVG for website icons.
 - Build each milestone on current upstream main. Before opening its PR, verify
   prerequisite PRs merged and account for squash merges; avoid overlapping PR chains.
-  Do not merge upstream PRs unless the user explicitly asks you to merge them.
+  Upstream PRs are squash-merged only after review and green required checks.
 - Run checks appropriate to the actual changes; do not run input-injection tests
   on the user's active desktop. Use an isolated X server. Portal consent stays
   under the user's control. Never enable Android accessibility or IME permissions
