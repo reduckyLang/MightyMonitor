@@ -86,3 +86,7 @@ LAN discovery library
   spin (MIT), fastrand (Apache-2.0 OR MIT), log (Apache-2.0 OR MIT). Exact resolved versions
   and platform dependencies are recorded in Cargo.lock. The discovery adapter
   and TXT schema are original MightyMonitor code.
+
+Discovery directly uses if-addrs 0.13.4 (MIT OR BSD-3-Clause), already used
+by mdns-sd, to enumerate local interface addresses and subnet prefixes.
+Source: https://github.com/messense/if-addrs

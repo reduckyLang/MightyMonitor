@@ -15,8 +15,53 @@ pub const MAX_RESULTS: usize = 64;
 fn error(e: impl std::fmt::Display) -> io::Error {
     io::Error::other(e.to_string())
 }
+/// Local interface address and CIDR prefix length.
+pub type LocalInterface = (IpAddr, u8);
+/// Enumerate local subnets without exposing interface identifiers.
+pub fn local_interfaces() -> io::Result<Vec<LocalInterface>> {
+    Ok(if_addrs::get_if_addrs()?
+        .into_iter()
+        .map(|interface| match interface.addr {
+            if_addrs::IfAddr::V4(v) => (IpAddr::V4(v.ip), v.prefixlen),
+            if_addrs::IfAddr::V6(v) => (IpAddr::V6(v.ip), v.prefixlen),
+        })
+        .collect())
+}
+/// Accept only private unicast routes on a local interface subnet.
+/// IPv4 link-local is allowed on-subnet; IPv6 link-local is excluded.
+pub fn address_allowed(candidate: IpAddr, interfaces: &[LocalInterface]) -> bool {
+    interfaces
+        .iter()
+        .any(|(local, prefix)| match (candidate, *local) {
+            (IpAddr::V4(ip), IpAddr::V4(local)) if *prefix <= 32 => {
+                if !(ip.is_private() || ip.is_link_local()) {
+                    return false;
+                }
+                let mask = u32::MAX.checked_shl(32 - u32::from(*prefix)).unwrap_or(0);
+                let ip = u32::from(ip);
+                ip & mask == u32::from(local) & mask && (*prefix >= 31 || ip | mask != u32::MAX)
+            }
+            (IpAddr::V6(ip), IpAddr::V6(local)) if *prefix <= 128 => {
+                let mask = u128::MAX.checked_shl(128 - u32::from(*prefix)).unwrap_or(0);
+                ip.octets()[0] & 0xfe == 0xfc && u128::from(ip) & mask == u128::from(local) & mask
+            }
+            _ => false,
+        })
+}
+fn backend_allows<B: Backend>(backend: &B, ip: IpAddr, interfaces: &[LocalInterface]) -> bool {
+    address_allowed(ip, interfaces) || (backend.allow_loopback_for_tests() && ip.is_loopback())
+}
 /// Small injectable lifecycle boundary. Implementations must bound event waits.
 pub trait Backend {
+    /// Injectable local interface snapshot; production uses OS enumeration.
+    fn local_interfaces(&self) -> io::Result<Vec<LocalInterface>> {
+        local_interfaces()
+    }
+    /// Explicit test fixture escape; production backends must leave this disabled.
+    fn allow_loopback_for_tests(&self) -> bool {
+        false
+    }
+
     /// Register the public route metadata and return the service name.
     fn register(&mut self, metadata: &Metadata, address: SocketAddr) -> io::Result<String>;
     /// Unregister a service, with a bounded wait.
@@ -49,6 +94,8 @@ pub enum Event {
 pub struct Mdns {
     daemon: ServiceDaemon,
     events: Option<mdns_sd::Receiver<ServiceEvent>>,
+    #[cfg(test)]
+    allow_loopback: bool,
 }
 impl Mdns {
     /// Create a daemon without starting advertisement or browsing.
@@ -56,14 +103,34 @@ impl Mdns {
         Ok(Self {
             daemon: ServiceDaemon::new().map_err(error)?,
             events: None,
+            #[cfg(test)]
+            allow_loopback: false,
         })
     }
 }
 impl Backend for Mdns {
+    #[cfg(test)]
+    fn allow_loopback_for_tests(&self) -> bool {
+        self.allow_loopback
+    }
+
     fn register(&mut self, metadata: &Metadata, address: SocketAddr) -> io::Result<String> {
-        if address.port() == 0 || address.ip().is_unspecified() || address.ip().is_multicast() {
+        let interfaces = self.local_interfaces()?;
+        if address.port() == 0 || !backend_allows(self, address.ip(), &interfaces) {
             return Err(error("Use a specific LAN bind address"));
         }
+        let interface = interfaces
+            .iter()
+            .find(|interface| address_allowed(address.ip(), &[**interface]))
+            .map(|(ip, _)| *ip)
+            .unwrap_or(address.ip());
+        self.daemon
+            .disable_interface(mdns_sd::IfKind::All)
+            .map_err(error)?;
+        self.daemon
+            .enable_interface(mdns_sd::IfKind::Addr(interface))
+            .map_err(error)?;
+        // ServiceInfo address auto-population remains disabled.
         let properties: std::collections::HashMap<_, _> = metadata.records().into_iter().collect();
         let info = ServiceInfo::new(
             SERVICE,
@@ -116,14 +183,11 @@ impl Backend for Mdns {
                 ) else {
                     return Ok(None);
                 };
+                let interfaces = self.local_interfaces()?;
                 let addresses = info
                     .get_addresses()
                     .iter()
-                    .filter(|ip| {
-                        !ip.is_unspecified()
-                            && !ip.is_multicast()
-                            && !matches!(ip,IpAddr::V6(v) if v.is_unicast_link_local())
-                    })
+                    .filter(|ip| backend_allows(self, **ip, &interfaces))
                     .take(8)
                     .map(|ip| SocketAddr::new(*ip, info.get_port()))
                     .collect::<Vec<_>>();
@@ -158,7 +222,13 @@ pub struct Advertisement<B: Backend> {
 impl<B: Backend> Advertisement<B> {
     /// Explicitly advertise metadata until the returned guard is dropped.
     pub fn start(mut backend: B, metadata: &Metadata, address: SocketAddr) -> io::Result<Self> {
-        let name = match backend.register(metadata, address) {
+        let registration = backend.local_interfaces().and_then(|interfaces| {
+            if address.port() == 0 || !backend_allows(&backend, address.ip(), &interfaces) {
+                return Err(error("Use a private on-subnet LAN bind address"));
+            }
+            backend.register(metadata, address)
+        });
+        let name = match registration {
             Ok(name) => name,
             Err(error) => {
                 backend.shutdown();
@@ -210,12 +280,22 @@ pub fn browse<B: Backend>(backend: &mut B, duration: Duration) -> io::Result<Vec
     if duration > Duration::from_secs(30) {
         return Err(error("Browse window too long"));
     }
+    let interfaces = backend.local_interfaces()?;
     backend.start_browse()?;
     let result = (|| {
         let end = Instant::now() + duration;
         let mut nearby = Nearby::default();
         while let Some(left) = end.checked_duration_since(Instant::now()) {
-            if let Some(event) = backend.next(left.min(Duration::from_millis(100)))? {
+            if let Some(mut event) = backend.next(left.min(Duration::from_millis(100)))? {
+                if let Event::Resolved(name, device) = &mut event {
+                    device.addresses.retain(|address| {
+                        address.port() != 0 && backend_allows(backend, address.ip(), &interfaces)
+                    });
+                    device.addresses.truncate(8);
+                    if device.addresses.is_empty() {
+                        event = Event::Removed(name.clone());
+                    }
+                }
                 nearby.apply(event, Instant::now());
             }
             nearby.expire(Instant::now());
@@ -233,7 +313,9 @@ mod tests {
     #[ignore = "Requires local multicast support; explicitly run on a test machine"]
     fn real_mdns_loopback() {
         let mut browser = Mdns::new().unwrap();
-        let advertiser = Mdns::new().unwrap();
+        browser.allow_loopback = true;
+        let mut advertiser = Mdns::new().unwrap();
+        advertiser.allow_loopback = true;
         for daemon in [&browser.daemon, &advertiser.daemon] {
             daemon.disable_interface(mdns_sd::IfKind::All).unwrap();
             daemon

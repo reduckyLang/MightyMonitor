@@ -281,3 +281,17 @@ integration tests pass; the real multicast loopback test remains ignored. The
 mdns-sd backend normalizes duplicate wire TXT keys before exposing them; duplicate
 rejection is verified at the pure-parser boundary (see DISCOVERY.md).
 Rust 1.85.0 discovery all-targets check also passes with the locked dependencies.
+
+
+## 2026-10-25 — discovery address and wire policy
+
+Added private on-subnet address filtering for registration and browsing, local
+interface enumeration and daemon interface restriction. Wire metadata derives
+from the core protocol version. Deterministic address-policy, fake-backend and
+registration rejection tests cover these boundaries. Physical multicast and
+cross-device acceptance remain unverified; this change is not a release.
+
+Validation: workspace formatting, discovery Clippy and rustdoc with warnings
+denied, nine discovery integration tests, Rust 1.85.0 all-targets discovery check,
+and workspace all-targets Clippy with JNI and warnings denied pass with locked
+dependencies. The real multicast loopback test remains ignored.

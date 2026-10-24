@@ -2138,6 +2138,7 @@ name = "mightymonitor-discovery"
 version = "0.0.1"
 dependencies = [
  "base64",
+ "if-addrs",
  "mdns-sd",
  "mightymonitor-core",
  "mightymonitor-security",

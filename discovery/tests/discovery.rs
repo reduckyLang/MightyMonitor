@@ -14,9 +14,17 @@ struct State {
     events: VecDeque<Event>,
     fail_register: bool,
     fail_next: bool,
+    strict_addresses: bool,
 }
 struct Fake(Arc<Mutex<State>>);
 impl Backend for Fake {
+    fn local_interfaces(&self) -> std::io::Result<Vec<LocalInterface>> {
+        Ok(vec![("192.168.10.1".parse().unwrap(), 24)])
+    }
+    fn allow_loopback_for_tests(&self) -> bool {
+        !self.0.lock().unwrap().strict_addresses
+    }
+
     fn register(&mut self, _: &Metadata, _: SocketAddr) -> std::io::Result<String> {
         if self.0.lock().unwrap().fail_register {
             return Err(std::io::Error::other("test registration failure"));
@@ -93,8 +101,13 @@ fn resolution_dedupe_removal_expiry_and_bounds() {
 }
 #[test]
 fn txt_strict_validation() {
-    assert_eq!(WIRE, mightymonitor_core::PROTOCOL_VERSION.to_string());
+    assert_eq!(*WIRE, mightymonitor_core::PROTOCOL_VERSION.to_string());
     let records = metadata().records();
+    assert_eq!(
+        records["wire"],
+        mightymonitor_core::PROTOCOL_VERSION.to_string()
+    );
+    let different = (u64::from(mightymonitor_core::PROTOCOL_VERSION) + 1).to_string();
     let mut bytes: Vec<_> = records
         .iter()
         .map(|(k, v)| (k.as_str(), v.as_bytes()))
@@ -105,7 +118,7 @@ fn txt_strict_validation() {
     bytes.push(("NAME", b"duplicate"));
     assert!(parse(bytes).is_err());
     for (key, value) in [
-        ("wire", b"999".as_slice()),
+        ("wire", different.as_bytes()),
         ("name", b"bad\nname"),
         ("id", b"not-hex"),
         ("name", &[255]),
@@ -199,7 +212,7 @@ fn rejects_injected_and_oversized_records_and_ids() {
         .map(|(k, v)| (k.as_str(), v.as_bytes()))
         .collect();
     for extra in [
-        vec![("wire=2", b"injected".as_slice())],
+        vec![("wire=invalid", b"injected".as_slice())],
         vec![("unknown", b"x".as_slice()), ("UNKNOWN", b"x".as_slice())],
         vec![("unknown", &[255][..])],
     ] {
@@ -231,4 +244,95 @@ fn failures_release_backend_resources() {
     }));
     assert!(browse(&mut Fake(state.clone()), Duration::from_millis(20)).is_err());
     assert!(!state.lock().unwrap().browsing);
+}
+
+#[test]
+fn address_policy_table() {
+    let interfaces = [
+        ("192.168.10.1".parse().unwrap(), 24),
+        ("169.254.2.1".parse().unwrap(), 24),
+        ("fd12:3456::1".parse().unwrap(), 64),
+    ];
+    for (ip, allowed) in [
+        ("127.0.0.1", false),
+        ("::1", false),
+        ("8.8.8.8", false),
+        ("2001:4860:4860::8888", false),
+        ("0.0.0.0", false),
+        ("::", false),
+        ("224.0.0.1", false),
+        ("ff02::1", false),
+        ("255.255.255.255", false),
+        ("192.168.10.255", false),
+        ("fe80::1", false),
+        ("169.254.3.1", false),
+        ("169.254.2.2", true),
+        ("192.168.11.2", false),
+        ("10.0.0.1", false),
+        ("172.16.0.1", false),
+        ("192.168.10.2", true),
+        ("fd12:3456::2", true),
+        ("fd12:3457::2", false),
+        ("fc00::1", false),
+    ] {
+        assert_eq!(
+            address_allowed(ip.parse().unwrap(), &interfaces),
+            allowed,
+            "{ip}"
+        );
+    }
+    assert!(!address_allowed("192.168.10.2".parse().unwrap(), &[]));
+}
+
+#[test]
+fn fake_browse_filters_addresses_and_drops_empty_devices() {
+    let state = Arc::new(Mutex::new(State {
+        strict_addresses: true,
+        ..State::default()
+    }));
+    for (name, addresses) in [
+        (
+            "mixed",
+            vec!["8.8.8.8:5000", "192.168.11.2:5000", "192.168.10.2:5000"],
+        ),
+        ("invalid", vec!["[::1]:5000", "[2001:db8::1]:5000"]),
+    ] {
+        let addresses = addresses.into_iter().map(|s| s.parse().unwrap()).collect();
+        state.lock().unwrap().events.push_back(Event::Resolved(
+            name.into(),
+            Device {
+                metadata: metadata(),
+                addresses,
+            },
+        ));
+    }
+    let devices = browse(&mut Fake(state), Duration::from_millis(20)).unwrap();
+    assert_eq!(devices.len(), 1);
+    assert_eq!(
+        devices[0].addresses,
+        vec!["192.168.10.2:5000".parse::<SocketAddr>().unwrap()]
+    );
+}
+
+#[test]
+fn registration_rejects_nonqualifying_routes() {
+    for address in [
+        "8.8.8.8:5000",
+        "192.168.11.2:5000",
+        "192.168.10.255:5000",
+        "0.0.0.0:5000",
+        "[fe80::1]:5000",
+    ] {
+        let state = Arc::new(Mutex::new(State::default()));
+        assert!(
+            Advertisement::start(Fake(state.clone()), &metadata(), address.parse().unwrap())
+                .is_err()
+        );
+        assert!(!state.lock().unwrap().registered);
+        assert!(state.lock().unwrap().shutdown);
+    }
+    let mut backend = Mdns::new().unwrap();
+    assert!(backend
+        .register(&metadata(), "127.0.0.1:5000".parse().unwrap())
+        .is_err());
 }

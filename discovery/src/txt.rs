@@ -5,7 +5,8 @@ pub const SERVICE: &str = "_mightymonitor._tcp.local.";
 /// Only keys emitted by the advertisement builder.
 pub const KEYS: [&str; 3] = ["name", "id", "wire"];
 /// Supported MightyMonitor wire version.
-pub const WIRE: &str = "2";
+pub static WIRE: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| mightymonitor_core::PROTOCOL_VERSION.to_string());
 /// Keep at most 40 safe ASCII characters, using a neutral fallback.
 pub fn sanitize_name(name: &str) -> String {
     let result: String = name
@@ -67,7 +68,7 @@ impl Metadata {
         [
             ("name", self.name.as_str()),
             ("id", self.id.as_str()),
-            ("wire", WIRE),
+            ("wire", WIRE.as_str()),
         ]
         .into_iter()
         .map(|(k, v)| (k.into(), v.into()))
@@ -104,7 +105,7 @@ pub fn parse<'a>(records: impl IntoIterator<Item = (&'a str, &'a [u8])>) -> io::
             return Err(invalid());
         }
     }
-    if fields.get("wire") != Some(&WIRE) {
+    if fields.get("wire") != Some(&WIRE.as_str()) {
         return Err(invalid());
     }
     let name = fields.get("name").ok_or_else(invalid)?;
