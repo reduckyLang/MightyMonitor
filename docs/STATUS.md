@@ -24,7 +24,7 @@
 - [x] (4, done by #22) `JitterSource` should be `Send`.
 - [x] (5, done on main: PROTOCOL.md states Resume is unauthenticated and clarifies `last_seq == 0`) PROTOCOL.md: state that Resume is unauthenticated (bind to pairing/auth later), clarify `last_seq == 0`, reword "Kind/flags".
 - [x] (6, done on main by M1-3: kinds 0xfe/0xff reserved, `PROTOCOL_VERSION` is 2) M1-3 should reserve kinds `0xfe` and `0xff`, and bump `PROTOCOL_VERSION` when the Resume kind is finalized.
-- [ ] (7) Add a server-side Resume handler.
+- [x] (7, implemented 2026-10-25; unit/loopback evidence) Server-side desktop TLS Resume binds random logical IDs to authenticated principals, checks revocation/sequence bounds and expires/evicts bounded entries. Explicit legacy plaintext remains unauthenticated.
 - [ ] (8) `lib.rs` hygiene: group `pub mod` lines then re-exports; add docs to `error.rs` and `traits.rs`.
 
 2026-10-18: M2-2 step A implemented: Linux-only host-linux crate, pure-Rust X11 GetImage capture with packed BGRA, monotonic frame metadata, optional pacing, fake-source unit tests, and Xvfb smoke coverage in CI. PipeWire portal capture remains the next PR.
@@ -265,3 +265,41 @@ main. Generated scenes now play as Mirror/Control/Extend chapters with camera
 travel, directional wipes and a synchronized timeline. The rejected floating
 window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
 handling are included. Local download and root Pages regressions pass.
+
+
+## 2026-10-25 — persistent desktop pairing and authenticated Resume
+
+Implemented persistent identity and bounded atomic paired-device storage in the
+security crate, TLS-exporter SAS confirmation on both devices, pinned paired
+viewing with constant-time secret authentication, local forget/forget-all, and
+host/security-helper CLI commands. Added persisted friendly names and display-only
+paired-device summaries, injectable-clock code-entry lockout/cooldown hooks and
+single-use expiring QR-offer pinning hooks. Code-entry transport, QR rendering,
+discovery wiring, GUI and Android pairing are not implemented here.
+
+Desktop TLS Resume now uses random logical IDs bound to authenticated paired or
+per-share private-link principals. The bounded registry rejects other peers,
+unknown/expired/evicted IDs, revoked credentials and future sequences before
+video. Fresh keyframes continue the server sequence without replaying input or
+historical video. Explicit plaintext compatibility remains unauthenticated.
+Automated loopback tests cover paired fake video and these authorization cases;
+unit tests cover store corruption/limits/permissions/restart/forget, names,
+code lockout and offer expiry/single use. Physical-device pairing, physical LAN
+recovery, Windows runtime and Android pairing are unverified. Not released.
+
+Validation passed on Linux with the shared Cargo target directory, one heavy
+build at a time:
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --workspace --all-targets --features android-bridge/jni --locked -- -D warnings`
+- `MM_REQUIRE_CODECS=1 cargo test --workspace --features android-bridge/jni --locked`
+  (147 passed; four existing desktop/portal tests ignored, including input tests
+  requiring isolated Xvfb; ignored tests are not acceptance evidence)
+- `cargo build --workspace --locked`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked`
+- `cargo +1.85.0 check --workspace --all-targets --locked`
+
+The Android bridge explicitly rejects paired endpoints until its pairing
+transport is implemented; existing private-link tests pass. No viewer/GUI,
+discovery, README or website feature changes are included. No new dependency
+packages or lockfile changes were required.

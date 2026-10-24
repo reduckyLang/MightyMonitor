@@ -27,6 +27,7 @@ codec-gst = { path = "../codec-gst" }
 enigo = { version = "=0.6.1", default-features = false, features = ["x11rb"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 socket2 = "0.6"
 mightymonitor-viewer = { path = "../viewer", default-features = false }
 

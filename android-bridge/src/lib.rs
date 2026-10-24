@@ -64,6 +64,13 @@ impl Client {
     /// Accept literal IP:port endpoints (including bracketed IPv6), avoiding
     /// unbounded DNS resolution on an Android UI call.
     pub fn connect(address: &str) -> io::Result<Self> {
+        // Persistent pairing is currently an asynchronous desktop capability.
+        if address.trim().starts_with("paired://") {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Paired endpoints are not supported by this client",
+            ));
+        }
         let address = Endpoint::parse(address, true)?;
         let shared = Arc::new(Shared {
             events: Mutex::new(VecDeque::new()),
@@ -226,6 +233,13 @@ fn connection(
             shared.stopped.clone(),
         )?),
         Endpoint::Legacy(_) => Connection::Plain(stream),
+        Endpoint::Paired { .. } => {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Paired endpoints are not supported by this client",
+            )
+            .into())
+        }
     };
     let first = match *session_id {
         Some(id) => Message::Resume {
