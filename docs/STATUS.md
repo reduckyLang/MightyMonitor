@@ -222,9 +222,9 @@ upstream main so it can merge independently of ongoing app/driver work. See
 website/DESIGN.md for design decisions and website/README.md for maintenance.
 
 
-2026-10-23 screen-playground identity and Pages root fix: the first linked-frame logo was replaced; the refined folded-screen M now has an editable SVG
-master under assets/brand and synchronized PNG/Windows ICO exports for the
-website, desktop/Linux packaging and Android. The website now renders original
+2026-10-23 screen-playground identity and Pages root fix: the first linked-frame
+logo was replaced; the refined folded-screen M now has an editable SVG master under
+assets/brand and synchronized PNG/Windows ICO exports for the website, desktop/Linux packaging and Android. The website now renders original
 3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
 content with a locally vendored MIT Three.js build (integrity/license recorded).
 A manual rearrangement control and pointer perspective replace continuous device
@@ -267,19 +267,24 @@ handling are included. Local download and root Pages regressions pass.
 
 ## 25 October 2026 — current snapshot
 
-`main` is at 357d22d with PRs #35-#49 merged (M1-M7 delivered to alpha level, plus
-Wayland sharing, remote control, secure pairing links, Android viewer/host, Linux and
-Windows installers and the website). Open work: draft PR #51 (P2, protocol v3 and
-core hygiene) and draft PR #52 (P1 part 1, mDNS discovery crate). Next-batch order,
-acceptance tests and assignments are in issue #50; the claimed-task table is in
-ROADMAP.md.
+`main` is at 357d22d with PRs #35-#49 merged. Merged work covers the protocol and
+transport core (M1), Linux and Windows desktop host/viewer (M2-M4), Android capture and
+Android viewer (M5-M6) at alpha level, plus Wayland sharing, remote control, secure
+pairing links, Linux and Windows installers and the website. M2-M6 evidence is
+loopback, Xvfb and emulator testing; physical Wi-Fi, Windows and phone acceptance is
+unverified. The browser viewer (M7) is not started (issue #8). Open work: draft PR #51
+(P2, protocol v3 and core hygiene) and draft PR #52 (P1 part 1, mDNS discovery crate).
+Next-batch order, acceptance tests and assignments are in issue #50; the claimed-task
+table is in ROADMAP.md.
 
 Not yet done: persistent device pairing and discovery UI (M8, in progress), Windows
 and X11 extended display (M9, spike not started), release publishing and signing
-(M10; `v0.1.0-alpha.1` is prepared but unpublished), physical-device acceptance on
-Windows 11 and phones, and the Simplicity track (S1-S8 in #50). Open reviewer
-follow-ups from #19: items (1), (7), (8), planned in P2. Supply-chain checks
-(`cargo-deny`, advisory for bincode 1.3) are planned in P3 and P2.
+(M10; a first release, `v0.0.1-alpha.1`, is planned and no tag or release exists),
+physical-device acceptance on Windows 11 and phones, and the Simplicity track (S1-S8
+in #50). Items (1), (7) and (8) from the #19 reviewer follow-ups are planned in P2;
+the #19 checklist on GitHub has no items ticked yet, so treat the earlier STATUS
+entries as the record for the rest. Supply-chain checks (`cargo-deny`, advisory for
+bincode 1.3) are planned in P3 and P2.
 
 Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
 milestone.

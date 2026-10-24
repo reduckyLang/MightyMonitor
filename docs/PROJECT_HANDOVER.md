@@ -180,7 +180,8 @@ multiple worktrees into one cargo target directory because stale output can misl
 Upstream: `reduckyLang/MightyMonitor`. Contributor forks are fine.
 Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
 Work happens on a branch with a PR to upstream; never push to `main`. A maintainer
-merges. Prefer `codex/` branch names. Do not discard local work.
+merges. Use a descriptive branch prefix such as `feat/`, `docs/`, `ci/` or `fix/`.
+Do not discard local work.
 
 The maintainer uses **squash merge**. This preserves the source but changes ancestry.
 PRs #40–45 needed synchronization when based on pre-squash feature history.

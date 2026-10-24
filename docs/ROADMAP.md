@@ -37,7 +37,8 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P3 CI/supply-chain + pre-release pipeline | VS Code Developer | planned: `ci/p3-supply-chain-prerelease` | #11 | P2, S1 (queue order) | queued, not started |
 | S3 Android plain-language pass | VS Code Developer | not started | #50 | P3 (queue order) | queued, not started |
 | S4 Windows installer 7 -> 3 clicks | VS Code Developer | not started | #50 | S3 (queue order) | queued, not started |
-| S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50 | none | in progress |
+| S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
+| Neutral workflow wording in AGENTS.md, handover and status | docs | `docs/neutral-wording` | PR #55 | none | open |
 | S5 Wire message catalog into viewer/host | Codex or VS Code Developer | not started | #50 | P1, S1 | after P1 |
 | S6 One-screen Home, zero-settings Share | Codex (ChatGPT Developer) | not started | #50 | P1, S5 | after S5 |
 | S7 Pair by code / QR + Nearby list | Codex (ChatGPT Developer) | not started | #50 | P1, S6 | after S6 |
@@ -47,7 +48,10 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P5 Extended display spike (X11 PoC, Windows design) | unassigned | not started | #10 | none | waiting / not started |
 | P6 Viewer batch | Codex (ChatGPT Developer) | not started | #50 | P1, P2 | after P1 + P2 |
 
-Release `v0.1.0-alpha.1` is prepared but unpublished; publishing and signing need
-maintainer action. Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up`
-mark issue state on GitHub. The legacy unencrypted option stays limited to debug
-builds, and the browser viewer (M7) keeps its roadmap position.
+A first release (`v0.0.1-alpha.1`, matching the installer and workspace versions) is
+planned; no tag or release exists yet, and publishing and signing are still open.
+Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up` mark issue state on
+GitHub. Legacy unencrypted viewing is an explicit opt-in (CLI plaintext mode and a
+viewer setting) and is not limited to debug builds; making it debug-only is planned
+in S3. Use it only on a trusted LAN. The browser viewer (M7) is not started and keeps
+its roadmap position.
