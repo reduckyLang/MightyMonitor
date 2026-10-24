@@ -239,3 +239,11 @@ is unchanged. Physical-device tests remain deferred by the user.
 Removed the rejected window-transfer animation and its playback controls.
 Mode buttons now switch between generated concept scenes. No continuous hero
 animation or render loop remains. Generated originals stay in local output.
+
+## 24 October 2026 — animated scene preview
+
+After PR #48 merged, added a separate website-only milestone on current upstream
+main. Generated scenes now play as Mirror/Control/Extend chapters with camera
+travel, directional wipes and a synchronized timeline. The rejected floating
+window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
+handling are included. Local download and root Pages regressions pass.

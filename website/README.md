@@ -59,10 +59,12 @@ See DESIGN.md for the frontend-design skill's design plan and critique. The icon
 ## Motion and artwork
 
 `dist/assets/artwork/` contains generated studio illustrations and prompt notes.
-`dist/artwork.js` switches the hero image when a visitor chooses Mirror, Control
-or Extend. There are no floating overlays, continuous animation, playback
-controls, WebGL dependency or external asset CDN. The initial workspace artwork
-remains visible without JavaScript. These are concept images, not app screenshots.
+`dist/artwork.js` plays a three-chapter animated scene sequence using local
+artwork. Each chapter lasts 6.5 seconds, with a camera move and directional wipe.
+Mirror, Control and Extend select chapters; Pause/Play controls the camera and
+clock. Offscreen/hidden scenes pause, and reduced motion disables autoplay.
+The initial workspace artwork remains visible without JavaScript. These are
+concept images, not app screenshots. No WebGL or external asset CDN is required.
 
 The editable app icon master is `../assets/brand/mightymonitor.svg`; see that
 folder's README for the design, provenance and synchronized export locations.

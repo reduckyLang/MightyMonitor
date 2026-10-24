@@ -11,8 +11,8 @@
     <title>MightyMonitor — Your screens. Better together.</title>
     <link rel="icon" href="assets/icon.svg" />
     <link rel="stylesheet" href="fonts.css" />
-    <link rel="stylesheet" href="styles.css?v=5" />
-    <script src="artwork.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=6" />
+    <script src="artwork.js?v=6" defer></script>
     <script src="app.js?v=4" defer></script>
   </head>
   <body class="motion-paused">
@@ -91,6 +91,14 @@
                 <span class="concept-label"
                   ><i></i> One connected workspace</span
                 >
+                <button
+                  class="film-toggle"
+                  type="button"
+                  aria-pressed="false"
+                  hidden
+                >
+                  Pause preview
+                </button>
               </div>
               <div class="artwork-stage" id="device-stage" data-mode="mirror">
                 <img
@@ -101,6 +109,9 @@
                   fetchpriority="high"
                   alt="Silver desktop, laptop and Android phone connected by a flowing green landscape. Concept artwork."
                 />
+              </div>
+              <div class="film-track" aria-hidden="true">
+                <span class="film-progress"></span>
               </div>
               <div class="desk-bottom">
                 <div
@@ -124,8 +135,8 @@
                     Extend
                   </button>
                 </div>
-                <p class="preview-label">Concept artwork</p>
-                <p id="concept-detail" aria-live="polite">
+                <p class="preview-label">Animated concept</p>
+                <p id="concept-detail">
                   Mirror a screen across your devices. Alpha software.
                 </p>
               </div>
