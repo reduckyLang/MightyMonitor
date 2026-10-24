@@ -1,0 +1,15 @@
+[package]
+name = "mightymonitor-discovery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mdns-sd = { version = "=0.13.11", default-features = false }
+
+[dev-dependencies]
+mightymonitor-security = { path = "../security" }
+base64 = "=0.22.1"
+mightymonitor-core = { path = "../core" }
+rcgen = { version = "=0.14.7", default-features = false, features = ["ring", "zeroize"] }

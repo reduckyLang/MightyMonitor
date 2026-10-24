@@ -76,3 +76,13 @@ Desktop remote input uses Enigo 0.6.1 (MIT), through its public keyboard/mouse
 API on Windows and X11. Wayland input uses the existing ashpd dependency and
 the system RemoteDesktop portal. Android accessibility/IME integration is original.
 https://github.com/enigo-rs/enigo
+
+LAN discovery library
+---------------------
+- mdns-sd 0.13.11 (Apache-2.0 OR MIT), used through its public DNS-SD API
+  with default features disabled: https://github.com/keepsimple1/mdns-sd
+- Notable transitive crates: flume (Apache-2.0 OR MIT), socket2
+  (Apache-2.0 OR MIT), mio (MIT), if-addrs (MIT OR BSD-3-Clause),
+  spin (MIT), fastrand (Apache-2.0 OR MIT), log (Apache-2.0 OR MIT). Exact resolved versions
+  and platform dependencies are recorded in Cargo.lock. The discovery adapter
+  and TXT schema are original MightyMonitor code.

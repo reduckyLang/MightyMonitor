@@ -265,3 +265,19 @@ main. Generated scenes now play as Mirror/Control/Extend chapters with camera
 travel, directional wipes and a synchronized timeline. The rejected floating
 window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
 handling are included. Local download and root Pages regressions pass.
+
+## 2026-10-25 — M8 part 1: discovery library
+
+Added standalone opt-in mDNS advertising and bounded on-demand browsing, strict
+TXT parsing, fake-backend lifecycle/dedupe/expiry tests and an ignored multicast
+loopback test. Credential-exclusion tests use a real session invitation. This is
+library implementation and unit-test evidence, not host/viewer integration or
+pairing. Real devices, Wi-Fi, Windows firewall and Android remain unverified;
+this work is not a release. See DISCOVERY.md.
+
+Validation: workspace formatting, Clippy with JNI and warnings denied, codec-required
+workspace tests, workspace build and rustdoc with warnings denied pass. Six discovery
+integration tests pass; the real multicast loopback test remains ignored. The
+mdns-sd backend normalizes duplicate wire TXT keys before exposing them; duplicate
+rejection is verified at the pure-parser boundary (see DISCOVERY.md).
+Rust 1.85.0 discovery all-targets check also passes with the locked dependencies.
