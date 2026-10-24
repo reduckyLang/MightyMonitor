@@ -224,7 +224,8 @@ website/DESIGN.md for design decisions and website/README.md for maintenance.
 
 2026-10-23 screen-playground identity and Pages root fix: the first linked-frame
 logo was replaced; the refined folded-screen M now has an editable SVG master under
-assets/brand and synchronized PNG/Windows ICO exports for the website, desktop/Linux packaging and Android. The website now renders original
+assets/brand and synchronized PNG/Windows ICO exports for the website,
+desktop/Linux packaging and Android. The website now renders original
 3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
 content with a locally vendored MIT Three.js build (integrity/license recorded).
 A manual rearrangement control and pointer perspective replace continuous device
