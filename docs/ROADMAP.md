@@ -24,7 +24,7 @@ Cross-cutting requirement for every milestone: it must work **wirelessly over Wi
 
 ## Current work / claimed tasks
 
-Snapshot of `main` = 357d22d (2026-10-25). Task definitions, acceptance tests and
+Snapshot dated 2026-10-25 (check `git log origin/main` for the current head). Task definitions, acceptance tests and
 ordering live in tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50);
 milestone issues are #2-#11 and reviewer follow-ups are in #19. Update this table
 through a small docs PR whenever a task is claimed, opened or merged.
@@ -35,10 +35,10 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P2 Protocol v3 + core hygiene | VS Code Developer | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
 | S1 User-message catalog (`ux/` crate) | VS Code Developer | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
 | P3 CI/supply-chain + pre-release pipeline | VS Code Developer | planned: `ci/p3-supply-chain-prerelease` | #11 | P2, S1 (queue order) | queued, not started |
-| S3 Android plain-language pass | VS Code Developer | not started | #50 | P3 (queue order) | queued, not started |
+| S3 Android plain-language pass (incl. Android legacy toggle debug-only) | VS Code Developer | not started | #50 | P3 (queue order) | queued, not started |
 | S4 Windows installer 7 -> 3 clicks | VS Code Developer | not started | #50 | S3 (queue order) | queued, not started |
 | S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
-| Neutral workflow wording in AGENTS.md, handover and status | docs | `docs/neutral-wording` | PR #55 | none | open |
+| Neutral workflow wording in handover and status | docs | `docs/neutral-wording` | PR #55 | none | merged |
 | S5 Wire message catalog into viewer/host | Codex or VS Code Developer | not started | #50 | P1, S1 | after P1 |
 | S6 One-screen Home, zero-settings Share | Codex (ChatGPT Developer) | not started | #50 | P1, S5 | after S5 |
 | S7 Pair by code / QR + Nearby list | Codex (ChatGPT Developer) | not started | #50 | P1, S6 | after S6 |
@@ -52,6 +52,7 @@ A first release (`v0.0.1-alpha.1`, matching the installer and workspace versions
 planned; no tag or release exists yet, and publishing and signing are still open.
 Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up` mark issue state on
 GitHub. Legacy unencrypted viewing is an explicit opt-in (CLI plaintext mode and a
-viewer setting) and is not limited to debug builds; making it debug-only is planned
-in S3. Use it only on a trusted LAN. The browser viewer (M7) is not started and keeps
+viewer setting) and is not limited to debug builds. S3 plans to make only the Android
+viewer's legacy toggle debug-only; no planned task changes the CLI plaintext mode or the
+desktop viewer setting. Use it only on a trusted LAN. The browser viewer (M7) is not started and keeps
 its roadmap position.

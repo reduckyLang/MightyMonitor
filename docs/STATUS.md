@@ -244,7 +244,7 @@ Do not claim this is deployed until the PR is merged and Pages finishes.
 
 ## 23 October 2026 — generated website artwork revision
 
-Replaced the rejected homemade devices and vague “make room” copy with five
+Replaced the earlier homemade devices and vague “make room” copy with five
 image-generated studio assets. The hero moves a separate transparent window
 between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
 Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
@@ -268,7 +268,7 @@ handling are included. Local download and root Pages regressions pass.
 
 ## 25 October 2026 — current snapshot
 
-`main` is at 357d22d with PRs #35-#49 merged. Merged work covers the protocol and
+As of 25 October 2026, PRs #35-#49 and #55 are merged on `main`. Merged work covers the protocol and
 transport core (M1), Linux and Windows desktop host/viewer (M2-M4), Android capture and
 Android viewer (M5-M6) at alpha level, plus Wayland sharing, remote control, secure
 pairing links, Linux and Windows installers and the website. M2-M6 evidence is
@@ -282,9 +282,11 @@ Not yet done: persistent device pairing and discovery UI (M8, in progress), Wind
 and X11 extended display (M9, spike not started), release publishing and signing
 (M10; a first release, `v0.0.1-alpha.1`, is planned and no tag or release exists),
 physical-device acceptance on Windows 11 and phones, and the Simplicity track (S1-S8
-in #50). Items (1), (7) and (8) from the #19 reviewer follow-ups are planned in P2;
-the #19 checklist on GitHub has no items ticked yet, so treat the earlier STATUS
-entries as the record for the rest. Supply-chain checks (`cargo-deny`, advisory for
+in #50). Of the #19 reviewer follow-ups, items (1) and (8) are planned in P2 and item (7)
+is partly planned there (the Resume handling already exists in the host session in
+`host/src/session.rs`; P2 adds documentation and a test hook). The #19 checklist on
+GitHub has no items ticked yet, so treat the earlier STATUS entries (e.g. items 3
+and 4) as the record for the rest. Supply-chain checks (`cargo-deny`, advisory for
 bincode 1.3) are planned in P3 and P2.
 
 Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every

@@ -1,6 +1,6 @@
 # MightyMonitor project handover
 
-Last reviewed: 25 October 2026 (main = 357d22d). This is the starting point for a new contributor
+Last reviewed: 25 October 2026. This is the starting point for a new contributor
 or AI assistant. Verify repository/release state before relying on this snapshot.
 
 ## Intended finished app
@@ -177,13 +177,14 @@ multiple worktrees into one cargo target directory because stale output can misl
 
 ## Repository and PR workflow
 
-Upstream: `reduckyLang/MightyMonitor`. Contributor forks are fine.
+Upstream: `reduckyLang/MightyMonitor`. Contributors may work from forks.
 Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
-Work happens on a branch with a PR to upstream; never push to `main`. A maintainer
-merges. Use a descriptive branch prefix such as `feat/`, `docs/`, `ci/` or `fix/`.
-Do not discard local work.
+Work happens on a branch with a PR to upstream. Never push to `main`; nobody
+pushes to `main` directly. PRs target upstream and are merged after review and
+green required checks. Use a descriptive branch prefix such as `feat/`, `docs/`,
+`ci/` or `fix/`. Do not discard local work.
 
-The maintainer uses **squash merge**. This preserves the source but changes ancestry.
+Upstream uses **squash merge**. This preserves the source but changes ancestry.
 PRs #40–45 needed synchronization when based on pre-squash feature history.
 Before each new PR:
 
@@ -247,7 +248,7 @@ Do not claim this is deployed until the PR is merged and Pages finishes.
 
 ## 23 October 2026 — generated website artwork revision
 
-Replaced the rejected homemade devices and vague “make room” copy with five
+Replaced the earlier homemade devices and vague “make room” copy with five
 image-generated studio assets. The hero moves a separate transparent window
 between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
 Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
