@@ -19,11 +19,11 @@ Optional Linux Wayland capture dependencies:
 - System PipeWire/SPA libraries: MIT, linked only with the pipewire feature.
   https://pipewire.org
 These permissive licenses are compatible with this repository's Apache-2.0
-license. No cargo-deny policy file is currently present in this repository.
-The resolved transitive license expressions were also reviewed: MIT,
-Apache-2.0 (including LLVM-exception), BSD-2/3-Clause, ISC, and Unicode-3.0
-have compatible permissive terms. For multi-license expressions, a permissive
-MIT/Apache option is selected (no LGPL option is required).
+license. Transitive Rust dependency licenses are verified in CI by cargo-deny
+(deny.toml). The resolved transitive license expressions were also reviewed:
+MIT, Apache-2.0 (including LLVM-exception), BSD-2/3-Clause, ISC, Zlib, and
+Unicode-3.0 have compatible permissive terms. For multi-license expressions,
+a permissive MIT/Apache option is selected (no LGPL option is required).
 Transitive Rust dependencies and their exact versions are recorded in Cargo.lock.
 
 (Candidates for study, license permitting: scrcpy - Apache-2.0,
@@ -31,6 +31,16 @@ Weylus - AGPL-3.0 (study only, no copying), Sunshine - GPL-3.0 (study only).)
 
 GStreamer (codec-gst crate, H.264 codec)
 ----------------------------------------
+Runtime components loaded dynamically from the user's system (never bundled
+or statically linked by this project):
+
+| Component                  | License           | Notes                                        |
+|----------------------------|-------------------|----------------------------------------------|
+| GStreamer runtime          | LGPL-2.1-or-later | System package; not redistributed            |
+| gst-libav (avdec_h264)     | LGPL              | libav/FFmpeg plugin; loaded dynamically      |
+| gst-plugins-ugly (x264enc) | GPL-2.0-or-later  | x264 encoder; loaded dynamically; Linux only |
+| PipeWire                   | MIT               | Optional; Wayland capture only               |
+
 - The gstreamer-rs Rust bindings are licensed MIT/Apache-2.0.
 - The GStreamer runtime libraries are licensed LGPL-2.1-or-later.
 - The avdec_h264 decoder (libav/gst-libav) is LGPL, like the rest of the

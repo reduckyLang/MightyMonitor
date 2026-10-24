@@ -2,8 +2,10 @@
 
 On Linux install the GStreamer development libraries and runtime plugins from
 [CODEC.md](CODEC.md), especially `gstreamer1.0-libav` (avdec_h264). The GUI uses
-OpenGL and X11 or Wayland; CI installs libxkbcommon-dev, libwayland-dev,
-libgl1-mesa-dev and libx11-dev. Run:
+OpenGL and X11 or Wayland; the required development libraries
+(`libgl1-mesa-dev`, `libx11-dev`, `libxkbcommon-dev`, `libwayland-dev`) are
+documented in [LINUX.md](LINUX.md). Run:
+
 
 ```sh
 cargo run -p mightymonitor-viewer --bin mm-viewer

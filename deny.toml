@@ -1,0 +1,63 @@
+# cargo-deny supply-chain policy
+# Run: cargo deny check
+# Checked in CI via EmbarkStudios/cargo-deny-action@v2.
+#
+# Note: GStreamer, libav (gst-libav) and x264 are loaded dynamically from the
+# user's system at run time and are never bundled or statically linked. They
+# are not Cargo dependencies and are not evaluated here. Bundling any of them
+# in a redistributable package requires a separate license review before that
+# package is published.
+
+[advisories]
+# Known vulnerabilities are always denied with version = 2.
+version = 2
+# Only direct workspace dependencies are checked for the "unmaintained" status;
+# unmaintained transitive crates are tracked upstream.
+unmaintained = "workspace"
+unsound = "all"
+yanked = "deny"
+
+# bincode 1.x is unmaintained (RUSTSEC-2025-0141). The workspace pins it for
+# wire-format stability and will migrate when a stable replacement is available.
+ignore = [
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1.x is pinned for wire-format stability; remove this exemption once bincode is replaced" },
+    { id = "RUSTSEC-2026-0009", reason = "time is pinned to =0.3.44 in security/Cargo.toml and is not used to parse RFC 2822 input; remove once the pin is raised to >=0.3.47" },
+]
+
+[licenses]
+version = 2
+# Permissive licenses acceptable for this workspace.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+]
+
+# Any license not listed in `allow` is denied, so GPL, LGPL and AGPL crates
+# fail the check. GPL/LGPL apply only to runtime libraries (GStreamer, libav,
+# x264) that are loaded dynamically from the system, not to any Cargo
+# dependency.
+
+# Default fonts embedded by egui (epaint_default_fonts) are under font licenses.
+exceptions = [
+    { crate = "epaint_default_fonts", allow = ["OFL-1.1", "Ubuntu-font-1.0"] },
+]
+
+[bans]
+# Warn on duplicate versions of the same crate; one version is preferred.
+multiple-versions = "warn"
+# Workspace path dependencies carry no version requirement and the workspace
+# crates are not marked `publish = false`, so wildcards only produce a warning.
+wildcards = "warn"
+
+[sources]
+# Only allow crates from crates.io.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

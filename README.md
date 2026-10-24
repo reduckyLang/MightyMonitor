@@ -74,6 +74,14 @@ the viewer. See [secure connection instructions](docs/SECURE_CONNECTIONS.md). Se
 ## License
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
+GStreamer, libav (gst-libav), and x264 are loaded dynamically from the user's
+system at run time. They are never bundled or statically linked by this project.
+The application itself is Apache-2.0. Supply-chain license compliance for Cargo
+dependencies is enforced in CI via `cargo deny` (see `deny.toml`). See
+[NOTICE](NOTICE) for the runtime components table and [docs/CODEC.md](docs/CODEC.md)
+for per-platform codec strategy.
+
+
 ## Linux alpha installer
 
 Debian/Ubuntu package generation and local installation instructions are in

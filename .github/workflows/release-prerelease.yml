@@ -1,0 +1,139 @@
+name: Release pre-release
+
+# Builds Linux DEB, Windows Setup, and Android APK, collects them with a
+# SHA256SUMS file, and uploads them as workflow artifacts.
+# When publish == true: creates a GitHub pre-release using only GITHUB_TOKEN
+# with contents: write scoped to that one job.
+#
+# The release is unsigned (Linux DEB, Windows EXE) and the Android APK is
+# debug-signed. These are pre-release/alpha artifacts only.
+# Run with publish=false and verify the artifacts before using publish=true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >
+          Version string, e.g. 0.1.0-alpha.1. Used as the package version and
+          the Git tag (v<version>) when publishing.
+        required: true
+        type: string
+      publish:
+        description: >
+          Set to true to create a GitHub pre-release from the collected
+          artifacts. Leave false to build and
+          inspect artifacts only.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Build Linux DEB
+    uses: ./.github/workflows/linux-installer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  windows:
+    name: Build Windows installer
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  android:
+    name: Build Android APK
+    uses: ./.github/workflows/android-viewer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  collect:
+    name: Collect artifacts and compute checksums
+    needs: [linux, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux DEB
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-linux-deb
+          path: dist/
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-windows-installer
+          path: dist/
+
+      - name: Download Android APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: android-viewer-apks
+          path: dist/
+
+      - name: Flatten Android APK and name it
+        env:
+          VERSION: ${{ inputs.version }}
+        working-directory: dist
+        run: |
+          apk=$(find . -name "app-debug.apk" | head -n 1)
+          test -n "$apk"
+          mv "$apk" "mightymonitor-${VERSION}-debug-signed.apk"
+          # Exclude the instrumentation test APK and leftover empty directories.
+          find . -name "app-debug-androidTest.apk" -delete
+          find . -mindepth 1 -type d -empty -delete
+
+      - name: Compute SHA256SUMS
+        working-directory: dist
+        run: |
+          find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -d '\n' sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mightymonitor-${{ inputs.version }}-prerelease
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub pre-release
+    if: ${{ inputs.publish == true }}
+    needs: [collect]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download collected artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-${{ inputs.version }}-prerelease
+          path: dist/
+
+      - name: Create GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          printf '%s\n' \
+            "## MightyMonitor v${VERSION} — Alpha pre-release" \
+            "" \
+            "**Status:** unsigned alpha. Do not use in production." \
+            "" \
+            "- Linux DEB: unsigned package built on Ubuntu 24.04." \
+            "- Windows Setup EXE: unsigned per-user installer." \
+            "- Android APK: debug-signed; sideload only. Not from the Play Store." \
+            "- No auto-update mechanism is present in this release." \
+            "" \
+            "Verify downloads using SHA256SUMS before installing." \
+            > /tmp/release-notes.md
+          gh release create "v${VERSION}" \
+            --repo "${REPO}" \
+            --prerelease \
+            --target "${SHA}" \
+            --title "MightyMonitor v${VERSION} (pre-release)" \
+            --notes-file /tmp/release-notes.md \
+            dist/*

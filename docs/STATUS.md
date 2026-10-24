@@ -1,6 +1,24 @@
 # Status
 
+## 25 October 2026 — CI supply-chain + pre-release pipeline (P3)
+
+Added `deny.toml` (cargo-deny policy: advisories deny, licenses allow
+permissive only, bans/sources crates.io). CI now runs `cargo deny check`
+via EmbarkStudios/cargo-deny-action@v2 in a dedicated `deny` job; the
+`pipewire` job's clippy command is upgraded to `--all-features`. The three
+installer workflows (`linux-installer.yml`, `windows-installer.yml`,
+`android-viewer.yml`) now expose a `workflow_call` trigger so the new
+`release-prerelease.yml` workflow can call them in parallel. That workflow
+builds all three installers, collects artifacts, writes `SHA256SUMS`, and
+optionally creates a GitHub pre-release (unsigned DEB, unsigned EXE,
+debug-signed APK, no auto-update). New docs: `docs/RELEASING.md` (publish
+procedure), updated `docs/INSTALLERS.md` (pre-release pipeline section),
+`docs/LINUX.md` (GUI build prerequisites moved from `docs/VIEWER.md`),
+`docs/CODEC.md` (platform codec strategy), updated `NOTICE` (runtime
+components table, cargo-deny in CI note). No Rust source changes.
+
 2026-10-18: repository bootstrapped (workspace, `core` skeleton, CI, docs, roadmap, issues). No milestone complete yet.
+
 
 2026-10-18: M1-2 stream framing + FrameDecoder + docs/PROTOCOL.md implemented on branch feat/m1-2-framing.
 

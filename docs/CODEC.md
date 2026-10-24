@@ -111,3 +111,37 @@ The `x264enc` element is GPL. MightyMonitor loads these libraries dynamically
 from the system and never bundles them. Bundling any of them needs a separate
 license review. A future Windows or Android backend should avoid GPL
 components (use a hardware or permissively licensed encoder). See NOTICE.
+
+## Platform codec strategy
+
+Each platform targets a codec path that avoids bundling GPL libraries and
+prefers system or hardware acceleration where available.
+
+### Linux
+
+x264 is the default software encoder, loaded as a GStreamer system plugin
+(`gst-plugins-ugly`). VAAPI (`vaapih264enc`) and NVENC (`nvh264enc`) are
+preferred when the `prefer_hardware=true` flag is set and the driver is
+present; the encoder falls back to x264 automatically. The decoder uses
+`avdec_h264` from `gst-libav`, loaded dynamically from the system.
+
+### Windows
+
+The current Windows path uses GStreamer for H.264 decoding (DXGI capture
+adapter). The preferred direction for a native Windows codec is
+**Windows Media Foundation H.264** (available as a system API, no
+additional libraries required) or the **Cisco OpenH264** runtime binary
+(BSD-2-Clause, available as a runtime download under Cisco's terms). This
+avoids the GPL x264 encoder on a platform where it is not installed by
+default. No GPL component should be bundled in the Windows installer.
+Implementing a Media Foundation or OpenH264 backend in the Windows codec
+path requires a code change and review before that change is included in
+any installer.
+
+### Android
+
+Android encoding and decoding use **MediaCodec**, the platform's built-in
+hardware codec API. No GStreamer dependency exists on Android; the
+`codec-gst` crate is gated to Linux only. MediaCodec is part of the Android
+SDK and does not require any additional library.
+
