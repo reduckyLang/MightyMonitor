@@ -21,3 +21,33 @@ Cross-cutting requirement for every milestone: it must work **wirelessly over Wi
 8. **mDNS discovery.** Acceptance: hosts advertise and viewers list devices automatically on LAN; wireless adb Android devices are discoverable and pairable without cable.
 9. **Virtual extended monitors (optional, per OS).** Acceptance: EVDI/compositor output on Linux, indirect display driver on Windows; streams wirelessly.
 10. **Polish, docs, installers, first release.** Acceptance: packaged installers, user docs, end-to-end wireless test matrix passes, tagged release.
+
+## Current work / claimed tasks
+
+Snapshot of `main` = 357d22d (2026-10-25). Task definitions, acceptance tests and
+ordering live in tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50);
+milestone issues are #2-#11 and reviewer follow-ups are in #19. Update this table
+through a small docs PR whenever a task is claimed, opened or merged.
+
+| Task | Owner role | Branch | Issue / PR | Depends on | Status |
+|---|---|---|---|---|---|
+| P1 M8 mDNS discovery + persistent pairing (3 PRs) | Codex (ChatGPT Developer) | `feat/m8a-discovery` (part 1) | #9, draft PR #52 | none | in progress |
+| P2 Protocol v3 + core hygiene | VS Code Developer | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
+| S1 User-message catalog (`ux/` crate) | VS Code Developer | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
+| P3 CI/supply-chain + pre-release pipeline | VS Code Developer | planned: `ci/p3-supply-chain-prerelease` | #11 | P2, S1 (queue order) | queued, not started |
+| S3 Android plain-language pass | VS Code Developer | not started | #50 | P3 (queue order) | queued, not started |
+| S4 Windows installer 7 -> 3 clicks | VS Code Developer | not started | #50 | S3 (queue order) | queued, not started |
+| S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50 | none | in progress |
+| S5 Wire message catalog into viewer/host | Codex or VS Code Developer | not started | #50 | P1, S1 | after P1 |
+| S6 One-screen Home, zero-settings Share | Codex (ChatGPT Developer) | not started | #50 | P1, S5 | after S5 |
+| S7 Pair by code / QR + Nearby list | Codex (ChatGPT Developer) | not started | #50 | P1, S6 | after S6 |
+| S8 Android nearby + QR | VS Code Developer or Codex | not started | #50 | S7, P1b | after S7 |
+| P1b Android discovery (NsdManager / wireless adb listing) | Codex (ChatGPT Developer) | not started | #9 | P1 | after P1 |
+| P4 Host session hardening + capture robustness | unassigned | not started | #50 | P2 | after P2 |
+| P5 Extended display spike (X11 PoC, Windows design) | unassigned | not started | #10 | none | waiting / not started |
+| P6 Viewer batch | Codex (ChatGPT Developer) | not started | #50 | P1, P2 | after P1 + P2 |
+
+Release `v0.1.0-alpha.1` is prepared but unpublished; publishing and signing need
+maintainer action. Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up`
+mark issue state on GitHub. The legacy unencrypted option stays limited to debug
+builds, and the browser viewer (M7) keeps its roadmap position.

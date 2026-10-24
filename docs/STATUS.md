@@ -200,8 +200,8 @@ streaming and removal require interactive system consent and remain unverified.
 No Windows display driver or X11 extension has been added.
 
 
-2026-10-19: Live KDE Wayland extension acceptance passed after the user granted
-system consent: a new virtual monitor appeared in KScreen, a secure desktop viewer
+2026-10-19: Live KDE Wayland extension acceptance passed after system consent
+was granted: a new virtual monitor appeared in KScreen, a secure desktop viewer
 decoded three real H.264 frames, managed-host Stop exited with status zero, and
 the virtual monitor disappeared with the original active display set restored.
 This test used loopback and view-only sharing. Layout/window movement, virtual
@@ -222,8 +222,7 @@ upstream main so it can merge independently of ongoing app/driver work. See
 website/DESIGN.md for design decisions and website/README.md for maintenance.
 
 
-2026-10-23 screen-playground identity and Pages root fix: the user rejected the
-first linked-frame logo; the refined folded-screen M now has an editable SVG
+2026-10-23 screen-playground identity and Pages root fix: the first linked-frame logo was replaced; the refined folded-screen M now has an editable SVG
 master under assets/brand and synchronized PNG/Windows ICO exports for the
 website, desktop/Linux packaging and Android. The website now renders original
 3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
@@ -250,7 +249,7 @@ between screens, with Mirror/Control/Extend paths and a clear Pause/Play control
 Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
 Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
 root Pages regression checks pass. Artwork is illustrative; app acceptance status
-is unchanged. Physical-device tests remain deferred by the user.
+is unchanged. Physical-device tests remain pending.
 
 ## Website refinement — 23 October 2026
 
@@ -265,3 +264,22 @@ main. Generated scenes now play as Mirror/Control/Extend chapters with camera
 travel, directional wipes and a synchronized timeline. The rejected floating
 window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
 handling are included. Local download and root Pages regressions pass.
+
+## 25 October 2026 — current snapshot
+
+`main` is at 357d22d with PRs #35-#49 merged (M1-M7 delivered to alpha level, plus
+Wayland sharing, remote control, secure pairing links, Android viewer/host, Linux and
+Windows installers and the website). Open work: draft PR #51 (P2, protocol v3 and
+core hygiene) and draft PR #52 (P1 part 1, mDNS discovery crate). Next-batch order,
+acceptance tests and assignments are in issue #50; the claimed-task table is in
+ROADMAP.md.
+
+Not yet done: persistent device pairing and discovery UI (M8, in progress), Windows
+and X11 extended display (M9, spike not started), release publishing and signing
+(M10; `v0.1.0-alpha.1` is prepared but unpublished), physical-device acceptance on
+Windows 11 and phones, and the Simplicity track (S1-S8 in #50). Open reviewer
+follow-ups from #19: items (1), (7), (8), planned in P2. Supply-chain checks
+(`cargo-deny`, advisory for bincode 1.3) are planned in P3 and P2.
+
+Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
+milestone.
