@@ -34,7 +34,7 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P1 M8 mDNS discovery + persistent pairing (3 PRs) | Codex (ChatGPT Developer) | `feat/m8a-discovery` (part 1) | #9, draft PR #52 | none | in progress |
 | P2 Protocol v3 + core hygiene | VS Code Developer | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
 | S1 User-message catalog (`ux/` crate) | VS Code Developer | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
-| P3 CI/supply-chain + pre-release pipeline | VS Code Developer | planned: `ci/p3-supply-chain-prerelease` | #11 | P2, S1 (queue order) | queued, not started |
+| P3 CI/supply-chain + pre-release pipeline | VS Code Developer | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; a manual unsigned pre-release `v0.1.0-alpha.1` already exists, this task adds the repeatable pipeline |
 | S3 Android plain-language pass (incl. Android legacy toggle debug-only) | VS Code Developer | not started | #50 | P3 (queue order) | queued, not started |
 | S4 Windows installer 7 -> 3 clicks | VS Code Developer | not started | #50 | S3 (queue order) | queued, not started |
 | S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
@@ -51,11 +51,12 @@ through a small docs PR whenever a task is claimed, opened or merged.
 A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/MightyMonitor/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
 with a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`, built from the existing
 manual CI builds. It was tested on emulators, Xvfb and one KDE session only; physical-device
-acceptance is pending. There is no stable release, and production signing is still open.
-Known follow-ups: the Windows installer file and version string is still `0.0.1-alpha.1`
+and Wi-Fi acceptance are unverified. There is no
+stable release, and production signing and a stable release are still open. Known
+follow-ups: the Windows installer file keeps the internal `0.0.1-alpha.1` name and version string
 (draft PR #56 adds a version input), and the `.deb` description text in
 `scripts/package-linux.py` is outdated (it describes an X11-only development prototype).
-Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up` mark issue state on
+Labels `claimed`, `blocked` and `follow-up` mark issue state on
 GitHub. Legacy unencrypted viewing is an explicit opt-in (CLI plaintext mode and a
 viewer setting) and is not limited to debug builds. S3 plans to make only the Android
 viewer's legacy toggle debug-only; no planned task changes the CLI plaintext mode or the

@@ -132,7 +132,7 @@ this file's evidence matrix current as work lands.
 - `docs/ROADMAP.md`, section "Current work / claimed tasks": task, owner role,
   branch, issue/PR link and status. Update it by docs PR after every claim or merge.
 - `docs/STATUS.md`: dated progress log; its last entry is the current snapshot.
-- GitHub labels: `claimed`, `blocked`, `needs-maintainer`, `follow-up`, `wireless`,
+- GitHub labels: `claimed`, `blocked`, `follow-up`, `wireless`,
   `simplicity`, `area:*`, `milestone-N`; GitHub milestones M1-M10 group the milestone issues.
 
 ## Quick start for a new contributor
