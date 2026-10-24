@@ -18,14 +18,15 @@ that the build succeeds and artifacts are correct before deciding to publish.
 1. Go to **Actions → Release pre-release** in the repository.
 2. Click **Run workflow**.
 3. Enter a `version` string following the pattern `MAJOR.MINOR.PATCH-alpha.N`,
-   e.g. `0.1.0-alpha.1`.
+   e.g. `0.1.0-alpha.2`. Use a version whose tag `v<version>` does not exist
+   yet; `0.1.0-alpha.1` is already released.
 4. Leave **publish** unchecked (default: false).
 5. Click **Run workflow**.
 
 The workflow calls `linux-installer.yml`, `windows-installer.yml`, and
 `android-viewer.yml` in parallel, then the `collect` job downloads all
 produced artifacts, renames the Android APK to include the version string
-(e.g. `mightymonitor-0.1.0-alpha.1-debug-signed.apk`), and computes
+(e.g. `mightymonitor-0.1.0-alpha.2-debug-signed.apk`), and computes
 `SHA256SUMS`. The resulting bundle is uploaded as a workflow artifact named
 `mightymonitor-<version>-prerelease`.
 
@@ -44,6 +45,11 @@ to a publish run.
 ## Publishing a pre-release (publish=true)
 
 Only proceed after verifying the artifact bundle (see above).
+
+A version whose tag already exists cannot be republished. The workflow's first
+job fails with a clear message if `v<version>` exists, for both verification
+and publish runs. To ship a fix, choose the next version (for example
+`0.1.0-alpha.3`). Existing tags and releases are never moved or overwritten.
 
 1. Run the workflow again with the same `version`.
 2. Check the **publish** checkbox (set to true).

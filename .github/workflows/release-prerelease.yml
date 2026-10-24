@@ -14,8 +14,9 @@ on:
     inputs:
       version:
         description: >
-          Version string, e.g. 0.1.0-alpha.1. Used as the package version and
-          the Git tag (v<version>) when publishing.
+          Version string, e.g. 0.1.0-alpha.2. The tag v<version> must not
+          already exist. Used as the package version and the Git tag when
+          publishing.
         required: true
         type: string
       publish:
@@ -31,20 +32,43 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    name: Check version and tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version and make sure the tag is unused
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::Version '${VERSION}' is not valid. Use MAJOR.MINOR.PATCH-alpha.N, for example 0.1.0-alpha.2."
+            exit 1
+          fi
+          if gh api "repos/${REPO}/git/ref/tags/v${VERSION}" > /dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists, so this version cannot be built or republished. Choose the next unused version."
+            exit 1
+          fi
+          echo "Tag v${VERSION} is unused."
+
   linux:
     name: Build Linux DEB
+    needs: [preflight]
     uses: ./.github/workflows/linux-installer.yml
     with:
       version: ${{ inputs.version }}
 
   windows:
     name: Build Windows installer
+    needs: [preflight]
     uses: ./.github/workflows/windows-installer.yml
     with:
       version: ${{ inputs.version }}
 
   android:
     name: Build Android APK
+    needs: [preflight]
     uses: ./.github/workflows/android-viewer.yml
     with:
       version: ${{ inputs.version }}
