@@ -48,8 +48,13 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P5 Extended display spike (X11 PoC, Windows design) | unassigned | not started | #10 | none | waiting / not started |
 | P6 Viewer batch | Codex (ChatGPT Developer) | not started | #50 | P1, P2 | after P1 + P2 |
 
-A first release (`v0.0.1-alpha.1`, matching the installer and workspace versions) is
-planned; no tag or release exists yet, and publishing and signing are still open.
+A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/MightyMonitor/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
+with a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`, built from the existing
+manual CI builds. It was tested on emulators, Xvfb and one KDE session only; physical-device
+acceptance is pending. There is no stable release, and production signing is still open.
+Known follow-ups: the Windows installer file and version string is still `0.0.1-alpha.1`
+(draft PR #56 adds a version input), and the `.deb` description text in
+`scripts/package-linux.py` is outdated (it describes an X11-only development prototype).
 Labels `claimed`, `blocked`, `needs-maintainer` and `follow-up` mark issue state on
 GitHub. Legacy unencrypted viewing is an explicit opt-in (CLI plaintext mode and a
 viewer setting) and is not limited to debug builds. S3 plans to make only the Android
