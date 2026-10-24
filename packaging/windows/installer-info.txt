@@ -1,19 +1,19 @@
 MightyMonitor for Windows 10 and 11 (64-bit) - early test version
 
-Show your screen on another device, or watch another device's screen on this PC, over your own home or office Wi-Fi. It is free, needs no account, and stays on your network.
+Share your screen with another device, or see another device's screen on this PC, over your own home or office Wi-Fi. It is free and needs no account.
 
 What Setup does
-- Installs MightyMonitor for your Windows account only. No administrator rights needed.
-- The first time, it downloads some video support. You need internet for this, and some extra disk space.
+- Installs MightyMonitor for your Windows account only. Setup does not need administrator rights.
+- The first time, it downloads video support. This is a large download, so you need internet and some free disk space.
 
 What Setup does not do
 - It does not start sharing. Sharing starts only when you press "Share this screen" in the app.
-- It does not change your firewall, install display drivers or let anyone control this PC.
+- It does not change your Windows security settings, add extra display software, or let anyone control this PC.
 
 First use
-- Windows may say it "protected your PC" because this early version is not signed yet. Choose "More info", then "Run anyway".
-- The first time you share, Windows may ask to allow network access. Choose "Allow" so your other device can connect.
-- Open MightyMonitor from the Start menu. Step-by-step help: https://github.com/reduckyLang/MightyMonitor/blob/main/docs/GETTING_STARTED.md
+- Windows may say it "protected your PC", because this early version is not signed yet. If you got Setup from the project, choose "More info", then "Run anyway".
+- The first time you share, Windows may ask if MightyMonitor can use your network. Keep "Private networks" ticked and choose "Allow access". Windows may ask for an administrator's password.
+- Open MightyMonitor from the Start menu. Help for each step: docs/GETTING_STARTED.md in the project, on GitHub.
 
 To remove it
 - Open Windows Settings, then Apps, and uninstall MightyMonitor.
@@ -21,5 +21,5 @@ To remove it
 
 Credits and licences
 - MightyMonitor is open source under the Apache License 2.0 (LICENSE and NOTICE are installed with the app).
-- The video support is GStreamer 1.28.8 from the official GStreamer project (gstreamer.freedesktop.org). Setup checks the download against a fixed SHA-256 checksum before installing it. GStreamer and its plug-ins keep their own licences (mainly LGPL, plus GPL for the H.264 encoder) and their own uninstall entry. It is not bundled inside this Setup file.
-- This is an early test version. It has not yet been tested on every kind of PC, and remote control and extra-screen features are still being developed.
+- The video support is GStreamer 1.28.8 from the GStreamer project (gstreamer.freedesktop.org). Setup checks the download against a fixed checksum. GStreamer and its plug-ins keep their own licences, mainly LGPL, plus GPL for the H.264 encoder. They have their own uninstall entry and are not bundled in this Setup file.
+- This is an early test version. It has not been tested on many PCs yet. Remote control and second-screen features are still being developed.

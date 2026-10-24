@@ -12,12 +12,13 @@ iOS are not currently targeted.
 
 ## Quick start
 
-Early alpha: installers are produced by the project's automated builds and a
-stable download is not published yet. With two devices on the same Wi-Fi:
+This is an early test version. Installers are on the project's
+[Releases page](https://github.com/reduckyLang/MightyMonitor/releases) as an
+unsigned pre-release. You need two devices on the same Wi-Fi.
 
 1. Install MightyMonitor on both devices (Windows, Linux or Android).
-2. On the device to show, open the app and press **Share this screen**, then **Copy connection link**.
-3. Send the link to the other device, open MightyMonitor there, paste it under **View a screen** and press **Connect**.
+2. On the device that shares its screen, open the app and press **Share this screen**, then press **Copy connection link**.
+3. Send the link to the other device, open MightyMonitor there, paste the link under **View a screen**, and press **Connect**.
 
 Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?](docs/HELP.md), [Glossary](docs/GLOSSARY.md).
 

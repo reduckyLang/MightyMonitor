@@ -2,51 +2,58 @@
 
 Short, plain explanations of words you may meet in MightyMonitor.
 
-**Share (show my screen)**: let another device see what is on this device's
-screen.
+**Share**: let another device see what is on this device's screen.
 
-**View (see another screen)**: look at another device's screen on this one.
+**See another screen** (shown in the app as **View a screen** today): look at
+another device's screen on this one.
 
-**Connection link**: a long private web-style address that one device creates
-when sharing starts. Paste it on the other device to connect. It works only
-while that sharing is running.
+**Connection link**: a long private text, a bit like a web address, that one <!-- jargon-ok -->
+device makes when it starts sharing. Paste it on the other device to connect.
+It works only while sharing is on. Keep it private: anyone who has it can see
+your screen.
 
-**QR code**: a square picture that holds the same link. Point a phone camera at
-it instead of typing or pasting.
+**QR code**: a square picture that holds the same link. Point a phone camera at <!-- jargon-ok -->
+it instead of typing or pasting. Not every phone camera can open it.
 
-**Connect / Disconnect**: start or end watching a shared screen.
+**Connect / Disconnect**: start or stop seeing a shared screen.
 
-**Stop sharing**: end sharing and make the old link stop working.
+**Stop sharing**: end sharing and make the old link stop working. <!-- jargon-ok -->
 
-**Same Wi-Fi (same network)**: both devices are joined to the same router, so
-they can find each other. A cable to that router counts too.
+**Same Wi-Fi (same network)**: both devices are connected to the same router, so
+they can reach each other. A cable to that router should also work.
 
-**Guest network**: a separate Wi-Fi name on many routers where devices cannot
-see each other. Avoid it for MightyMonitor.
+**Guest network**: a separate Wi-Fi name that many routers offer for
+visitors. It keeps devices apart from each other. Use your main Wi-Fi instead.
 
-**Firewall**: a built-in guard that blocks unknown programs from using the
-network. It may ask you to **Allow** MightyMonitor the first time you share.
+**Firewall**: a built-in guard that controls which programs other devices
+can connect to. It may ask you to **Allow** MightyMonitor the first time you
+share. Keep **Private networks** ticked.
 
-**VPN**: a program that sends your internet traffic through another place. It
-can stop devices in the same room from finding each other.
+**VPN**: a program that sends your internet traffic through another
+location. It can keep two devices in the same room from reaching each other.
+Turn it off while you use MightyMonitor.
 
 **SmartScreen / "Windows protected your PC"**: a Windows warning about programs
-from publishers it does not know. This early version is not signed yet.
-Choose **More info**, then **Run anyway** if you downloaded it from the project.
+from makers it does not know yet. This early version is not signed. If you
+downloaded it from the project, choose **More info**, then **Run anyway**. Do
+not do this for files from anywhere else.
 
-**Remote control**: letting the viewing device use the shared device's mouse,
-keyboard or touch. It is off unless the sharing device allows it.
+**Remote control**: letting the other device use this device's mouse, keyboard
+or touch screen. It is off until you turn it on.
 
-**Extra screen (extended display)**: using another device as an additional
-monitor instead of copying your screen. Still being developed.
+**Second screen** (also called an extended display): use another device as a
+second monitor, instead of copying your screen. Still being developed.
 
 **Mirror**: show exactly the same screen on the other device.
 
 **Wayland / X11**: two ways Linux desktops draw the screen. See
-[Can't connect?](HELP.md) if sharing does not start on Wayland.
+[Can't connect?](HELP.md) if sharing does not start on Wayland. If you see a
+choice between them on the sign-in screen, X11 or Xorg is the one where sharing
+works without extra setup.
 
 **Reconnect**: the app tries again by itself after a short network drop.
 
+<!-- technical-below -->
 ## Technical terms
 
 These appear in project documentation.

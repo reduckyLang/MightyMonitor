@@ -1,8 +1,9 @@
 # Can't connect?
 
-Work through these in order. Most problems are fixed by the first three.
+Try these in order. Test the connection after each one.
 
-## 1. Are both devices on the same Wi-Fi?
+<a id="same-wifi"></a>
+## 1. Check that both devices use the same Wi-Fi
 
 Both devices must be on the same Wi-Fi or network. Check the Wi-Fi name on each
 one. Things that often get in the way:
@@ -13,28 +14,32 @@ one. Things that often get in the way:
 - A phone using mobile data instead of Wi-Fi.
 - Public or hotel Wi-Fi, which often blocks devices from seeing each other.
 
-## 2. Allow MightyMonitor through the firewall
+<a id="network-permission"></a>
+## 2. Let MightyMonitor use the network
 
-The first time you share a screen, your computer may ask whether to allow
-MightyMonitor to use the network. Choose **Allow**. If you chose **Cancel** or
-**Block** by mistake, open your computer's firewall settings and allow
-MightyMonitor on private networks (see "Other messages" below).
-Then press **Stop sharing** and **Share this screen** again.
+The first time you share a screen, your computer may ask if MightyMonitor can
+use the network. Choose **Allow**. If you chose **Cancel** or **Block** by
+mistake, open your computer's firewall settings and allow MightyMonitor on
+private networks. Then press **Stop sharing** and press **Share this screen**
+again.
 
-## 3. Get a fresh link
+<a id="new-link"></a> <!-- jargon-ok -->
+## 3. Make a new link <!-- jargon-ok -->
 
-A link works only while that sharing is running. Press **Stop
-sharing**, then **Share this screen** to make a new link, copy it and paste it
-into the other device again. Paste the whole link, with no spaces before or
+A link works only while sharing is on. Press **Stop <!-- jargon-ok -->
+sharing**, then **Share this screen** to make a new link, copy it and paste it <!-- jargon-ok -->
+into the other device again. Paste the whole link, with no spaces before or <!-- jargon-ok -->
 after it.
 
-## 4. Restart
+<a id="restart"></a>
+## 4. Restart the app
 
 Close MightyMonitor on both devices and open it again. Open it after you are
 connected to Wi-Fi, because the app looks up your network when it starts.
 If it still does not work, restart your router, or both devices.
 
-## 5. Try a different connection
+<a id="steady-connection"></a>
+## 5. Get a steadier connection
 
 - Move the devices closer to the router, or switch to the faster 5 GHz Wi-Fi
   name if your router has one.
@@ -42,40 +47,41 @@ If it still does not work, restart your router, or both devices.
   Wi-Fi. Both devices still need to be on the same network.
 - Close other programs that use a lot of the network, such as large downloads.
 
+<a id="slow-picture"></a>
 ## Picture is slow or jumpy
 
-The app lowers picture quality by itself when the network is busy and
-reconnects after a short drop. For the smoothest picture, use a strong Wi-Fi
-signal and keep both devices close to the router.
+MightyMonitor lowers the picture quality on its own when the network is busy,
+and it tries again after a short drop. For a smoother picture, stay close to
+the router and pause big downloads.
 
-## Other messages
+<a id="other-messages"></a>
+## Other messages you may see
 
-- **Firewall list shows `mm-host`**: that is the screen-sharing part of
-  MightyMonitor. Allow it together with MightyMonitor.
+- **You see "mm-host" in your firewall list**: this is the screen-sharing part
+  of MightyMonitor. Allow it together with MightyMonitor.
 - **Sharing component missing**: reinstall MightyMonitor. The sharing part is
   installed together with the app.
 - **The video runtime is missing** (Windows): run the MightyMonitor installer
-  again and keep your internet connected while it finishes.
-- **The connection link is invalid or has expired**: get a new link as in step 3.
-- **Screen sharing currently requires Linux or Windows**: on other systems you
-  can still watch a screen, but not share one.
+  again and stay online until it finishes.
+- **The connection link is invalid or has expired**: make a new link as in step 3.
 - **Windows says it protected your PC**: this early version is not signed yet.
-  Choose **More info**, then **Run anyway**.
+  If you got the file from the project, choose **More info**, then **Run anyway**.
 
-## Linux: sharing does not start on Wayland
+<a id="linux-sharing"></a>
+<!-- technical-below -->
+## Linux: sharing does not start
 
-Many Linux desktops use Wayland. There, the system itself must let
-MightyMonitor capture the screen, using a service called PipeWire together with
-your desktop's screen-sharing (portal) component. If no window asks which
-screen to share, or sharing stops straight away:
+On many Linux desktops (those that use Wayland), the system must give
+permission before any app can capture the screen. This needs two parts:
+PipeWire and a screen-sharing add-on (called a portal) for your desktop. If no
+window asks which screen to share, or sharing stops straight away:
 
-1. Make sure PipeWire and the screen-sharing portal for your desktop are
-   installed. For example on Debian or Ubuntu with GNOME, install
-   `xdg-desktop-portal-gnome`; with KDE, `xdg-desktop-portal-kde`. Then log out
-   and back in.
-2. If it still fails, log out and, on the login screen, choose the **Xorg** or
-   **X11** session for your account. Sharing works there without any extra
-   permission window.
+1. Install PipeWire and the screen-sharing portal for your desktop. On Debian
+   or Ubuntu, GNOME needs `xdg-desktop-portal-gnome` and KDE needs
+   `xdg-desktop-portal-kde`. Then log out and log back in.
+2. If it still fails, log out. On the sign-in screen, choose the **Xorg** or
+   **X11** session (look for a gear icon), then sign in. Sharing works there
+   without a permission window.
 3. If a window asks which screen to share and you close it, sharing is cancelled
    on purpose. Press **Share this screen** again and choose a screen.
 
