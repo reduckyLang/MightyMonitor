@@ -151,11 +151,21 @@ to the caller; transport does not automatically reconnect or replay frames.
 
 Resume is now `Message::Resume`, stable kind **9**, encoded with the same bincode
 settings as all typed messages. `PROTOCOL_VERSION` was bumped to **2** to finalize
-this wire format; version 1 peers are rejected. Resume is unauthenticated: bind it
-to pairing/authentication in a later milestone before trusting a session claim.
+this wire format; version 1 peers are rejected. Desktop TLS Resume is bound to
+the authenticated transport principal: a paired device or a distinct per-share
+private-link principal. The host uses unpredictable 64-bit logical session IDs
+and a bounded registry (16 entries, five minutes since the last sent frame).
+Unknown, expired, evicted, revoked or other-principal IDs and `last_seq` beyond
+the server's highest sent/reserved sequence receive generic HelloAck rejection
+(session_id 0) followed by close, without video. A paired principal is rechecked
+against the persisted store, including after transport authentication. Explicit
+legacy plaintext mode retains unauthenticated Resume for compatibility.
+See SECURE_CONNECTIONS.md for pairing and authorization limits.
 
-After reconnect the client sends Resume first. The peer replays frames **after**
-`last_seq` for the identified logical session. The initial `last_seq` is zero;
+After reconnect the client sends Resume first. A replay-capable peer may replay frames **after**
+`last_seq` for the identified logical session. The desktop live-video host instead
+continues after its highest sent/reserved sequence and requests a fresh IDR;
+it does not replay historical frames. The initial `last_seq` is zero;
 `last_seq == 0` requests replay after sequence zero, not an unspecified-position
 sentinel. The session forwards this value without implementing peer-side replay. The caller updates `set_last_seq`
 only after consuming a frame; opaque frame payloads are never interpreted by the
