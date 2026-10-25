@@ -152,7 +152,16 @@ async fn reports_netstats_every_second() {
         let Message::Ping { nonce, t_send_us } = recv(&mut t).await else {
             panic!("expected ping")
         };
-        send(&mut t, Message::Pong { nonce, t_send_us }).await;
+        send(
+            &mut t,
+            Message::Pong {
+                nonce,
+                t_send_us,
+                t_peer_recv_us: t_send_us,
+                t_peer_send_us: t_send_us,
+            },
+        )
+        .await;
     }
     task.abort();
 }

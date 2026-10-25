@@ -1,4 +1,5 @@
-//! MightyMonitor core: protocol framing and platform traits (skeleton).
+//! MightyMonitor's typed wire protocol, stream framing, transport abstractions,
+//! adaptive bitrate controller, and reconnect lifecycle.
 
 /// Adaptive bitrate control from receiver feedback.
 pub mod abr;
@@ -10,7 +11,7 @@ pub mod mock;
 
 pub use input::{InputEvent, MouseButton, TouchPhase};
 pub use message::{
-    Codec, Message, MessageError, NetStats, Role, KIND_RESERVED_FE, KIND_RESERVED_FF,
+    pong_rtt_us, Codec, Message, MessageError, NetStats, Role, KIND_RESERVED_FE, KIND_RESERVED_FF,
 };
 /// Length-prefixed framing for byte streams.
 pub mod frame;

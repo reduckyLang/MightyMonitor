@@ -6,7 +6,7 @@ or AI assistant. Verify repository/release state before relying on this snapshot
 ## Intended finished app
 
 An original, clean-room Rust application for Windows 11, Linux and Android
-(the user's Android targets are 10, 11, 14 and 16). Devices on the same local
+(supported Android versions: 10, 11, 14 and 16). Devices on the same local
 network should share, view and optionally control screens in either direction:
 
 - Show a phone screen in a PC window and control it with keyboard/mouse.
@@ -30,8 +30,10 @@ extension *viewer*; a separate Android desktop is outside the initial scope.
 
 ## Verified state
 
-PRs #38–45 are merged upstream. #44 added remote control and concurrent desktop
-viewers; #45 added experimental Wayland extension. Check newer PRs before editing.
+PRs #35–49 are merged upstream. #44 added remote control and concurrent desktop
+viewers; #45 added experimental Wayland extension; #46–49 cover the website and
+branding. Open draft PRs #51 (protocol v3) and #52 (mDNS discovery crate) are in
+progress. Check newer PRs before editing.
 
 | Capability | Implementation and evidence | Remaining acceptance/limits |
 | --- | --- | --- |
@@ -101,7 +103,7 @@ ANDROID instructions in `android/README.md` before changing their features.
    sessions, rotation/scaling, focus, revocation, congestion and reconnection.
    Finish KDE virtual-monitor layout/input tests and another supported compositor.
    OS permission dialogs require the user; do independent work while waiting.
-2. **Discovery and pairing UX:** show nearby devices without broadcasting tokens
+2. **Discovery and pairing UX (in progress, task P1, #9):** show nearby devices without broadcasting tokens
    or treating nearby peers as trusted. Preserve explicit sharing/control consent.
    Plan certificate identity, pairing confirmation, revocation and persistence
    before replacing private links. Android discovery needs lifecycle/network tests.
@@ -125,6 +127,24 @@ ANDROID instructions in `android/README.md` before changing their features.
 Do not leave later milestones as unexplained "pending": implement what can be
 implemented, identify physical/hardware/signing dependencies precisely, and keep
 this file's evidence matrix current as work lands.
+
+## Where to find current tasks
+
+- Tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50):
+  ordered next tasks P1-P6, the Simplicity track (S1-S8), acceptance tests and
+  follow-up checklists. Milestone issues are #2-#11; reviewer follow-ups are #19.
+- `docs/ROADMAP.md`, section "Current work / claimed tasks": task, owner role,
+  branch, issue/PR link and status. Update it by docs PR after every claim or merge.
+- `docs/STATUS.md`: dated progress log; its last entry is the current snapshot.
+- GitHub labels: `claimed`, `blocked`, `follow-up`, `wireless`,
+  `simplicity`, `area:*`, `milestone-N`; GitHub milestones M1-M10 group the milestone issues.
+
+## Quick start for a new contributor
+
+1. Read this file, `AGENTS.md`, `CONTRIBUTING.md` and `docs/CROSS_DEVICE.md`.
+2. Run the checks in "Build and meaningful checks" below on a clean branch from `main`.
+3. Pick an unclaimed task from #50 (or ask in the issue), add a `claimed` comment with
+   your branch name, open a draft PR early, and keep ROADMAP/STATUS current.
 
 ## Build and meaningful checks
 
@@ -161,12 +181,14 @@ multiple worktrees into one cargo target directory because stale output can misl
 
 ## Repository and PR workflow
 
-Upstream: `reduckyLang/MightyMonitor`. User fork: `akasumitlamba/MightyMonitor`.
+Upstream: `reduckyLang/MightyMonitor`. Contributors may work from forks.
 Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
-User authorizes commits to their fork and milestone PRs to upstream; the user or
-maintainer merges them. Prefer `codex/` branch names. Do not discard local work.
+Work happens on a branch with a PR to upstream. Never push to `main`; nobody
+pushes to `main` directly. PRs target upstream and are merged after review and
+green required checks. Use a descriptive branch prefix such as `feat/`, `docs/`,
+`ci/` or `fix/`. Do not discard local work.
 
-The maintainer uses **squash merge**. This preserves the source but changes ancestry.
+Upstream uses **squash merge**. This preserves the source but changes ancestry.
 PRs #40–45 needed synchronization when based on pre-squash feature history.
 Before each new PR:
 
@@ -208,8 +230,8 @@ upstream main so it can merge independently of ongoing app/driver work. See
 website/DESIGN.md for design decisions and website/README.md for maintenance.
 
 
-2026-10-23 screen-playground identity and Pages root fix: the user rejected the
-first linked-frame logo; the refined folded-screen M now has an editable SVG
+2026-10-23 screen-playground identity and Pages root fix: the first linked-frame
+logo was replaced; the refined folded-screen M now has an editable SVG
 master under assets/brand and synchronized PNG/Windows ICO exports for the
 website, desktop/Linux packaging and Android. The website now renders original
 3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
@@ -230,13 +252,13 @@ Do not claim this is deployed until the PR is merged and Pages finishes.
 
 ## 23 October 2026 — generated website artwork revision
 
-Replaced the rejected homemade devices and vague “make room” copy with five
+Replaced the earlier homemade devices and vague “make room” copy with five
 image-generated studio assets. The hero moves a separate transparent window
 between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
 Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
 Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
 root Pages regression checks pass. Artwork is illustrative; app acceptance status
-is unchanged. Physical-device tests remain deferred by the user.
+is unchanged. Physical-device tests remain pending.
 
 ## Website refinement — 23 October 2026
 
