@@ -88,6 +88,7 @@ impl DeviceIdentity {
             Err(e) => Err(e),
         }
     }
+    #[cfg_attr(not(feature = "async"), allow(dead_code))]
     pub(crate) fn directory(&self) -> &Path {
         &self.directory
     }

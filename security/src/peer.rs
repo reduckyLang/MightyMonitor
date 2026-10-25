@@ -1,4 +1,6 @@
 //! Transport-established authority used to bind resumable host sessions.
+// Used only by the desktop `async` pairing paths; android-bridge builds without it.
+#![cfg_attr(not(feature = "async"), allow(dead_code))]
 use super::*;
 use std::path::PathBuf;
 

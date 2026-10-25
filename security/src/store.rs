@@ -1,4 +1,6 @@
 //! Bounded, private, atomically replaced device credentials. Corruption fails closed.
+// Used only by the desktop `async` pairing paths; android-bridge builds without it.
+#![cfg_attr(not(feature = "async"), allow(dead_code))]
 use super::*;
 use crate::pairing::Clock;
 use std::{
