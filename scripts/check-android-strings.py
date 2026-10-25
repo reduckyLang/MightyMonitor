@@ -37,6 +37,9 @@ def main():
             continue
         value = "".join(item.itertext())
         for word in BANNED:
+            # The product's own paste-a-link and copy-link labels may use "link" (keys prefixed link_).
+            if word == "link" and key.startswith("link_"):
+                continue
             pattern = re.escape(word) if word == "H.264" else rf"\b{re.escape(word)}\b"
             if re.search(pattern, value, re.IGNORECASE):
                 offending.append(key)

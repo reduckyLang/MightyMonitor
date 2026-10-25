@@ -5,12 +5,13 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.Locale;
 
+/** Maps raw error text to a plain message with one next step. Pure Java so it runs in JVM unit tests. */
 final class ErrorText {
     private static final String CONNECTION = "Couldn't connect. Make sure both devices are on the same Wi-Fi, then try again.";
     private static final String VIDEO = "The video could not be shown. Tap Connect to try again.";
-    private static final String CODE = "This code has expired or doesn't match. Ask the other device for a new code.";
+    private static final String LINK = "This connection link isn't valid or has expired. Ask the other device for a new link.";
     private static final String MISSING = "This app is missing a part. Reinstall MightyMonitor.";
-    private static final String PERMISSION = "Screen sharing was not allowed. Tap Show my screen and choose Start now.";
+    private static final String PERMISSION = "Screen sharing was not allowed. Tap Share, then Share this screen, and choose Start now.";
 
     private ErrorText() { }
 
@@ -26,18 +27,29 @@ final class ErrorText {
         if (rawMessage == null || rawMessage.trim().isEmpty()) return CONNECTION;
         String message = rawMessage.toLowerCase(Locale.ROOT);
         if (message.contains("screen sharing permission was not granted")) return PERMISSION;
+        if (message.contains("connection verification failed")
+                || message.contains("invalid connection link")
+                || message.contains("connection link is too long")
+                || message.contains("paste a mightymonitor connection link")
+                || message.contains("invalid sharing address")
+                || message.contains("invalid host identity")
+                || message.contains("viewing permission")
+                || message.contains("host rejected the session")
+                || message.contains("invalid link")
+                || message.contains("invalid invitation")
+                || message.contains("authentication")
+                || message.contains("pairing")
+                || message.contains("expired")
+                || message.matches(".*\\bpin\\b.*")) return LINK;
         if (message.contains("video arrived before configuration")
                 || message.contains("unsupported network event")
                 || message.contains("empty network event")
                 || message.contains("incomplete h.264 access unit")
                 || message.contains("invalid h.264 access unit")
+                || message.contains("invalid h.264 dimensions")
+                || message.contains("unsupported video format")
                 || message.contains("video access unit exceeds decoder capacity")) return VIDEO;
-        if (message.matches(".*\\bpin\\b.*") || message.contains("authentication") || message.contains("pairing")
-                || message.contains("expired") || message.contains("invalid invitation") || message.contains("invalid link")) return CODE;
         if (message.contains("native")) return MISSING;
-        if (message.contains("timed out") || message.contains("timeout") || message.contains("refused")
-                || message.contains("unreachable") || message.contains("no route")
-                || message.contains("connection reset") || message.contains("broken pipe")) return CONNECTION;
         return CONNECTION;
     }
 }

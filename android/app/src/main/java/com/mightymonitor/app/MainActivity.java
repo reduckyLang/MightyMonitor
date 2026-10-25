@@ -110,7 +110,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); sharePage.setVisibility(View.GONE); styleTab(viewTab, true); styleTab(shareTab, false); });
         shareTab.setOnClickListener(v -> { disconnect(getString(R.string.not_connected)); viewPage.setVisibility(View.GONE); sharePage.setVisibility(View.VISIBLE); styleTab(viewTab, false); styleTab(shareTab, true); });
         address = new EditText(this); address.setId(ADDRESS_ID); address.setSingleLine(true);
-        address.setHint(R.string.paste_hint);
+        address.setHint(R.string.link_paste_hint);
         address.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(512)});
         address.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO); address.setTextSize(16);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -170,14 +170,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         details = new Button(this); details.setText(R.string.details); styleButton(details, false); sharePage.addView(details);
         ownAddress = text("", 16, Color.rgb(30, 39, 35)); ownAddress.setTextIsSelectable(true); ownAddress.setVisibility(View.GONE); sharePage.addView(ownAddress);
         details.setOnClickListener(v -> { detailsExpanded = !detailsExpanded; ownAddress.setVisibility(detailsExpanded ? View.VISIBLE : View.GONE); details.setText(detailsExpanded ? R.string.hide_details : R.string.details); });
-        Button copyLink = new Button(this); copyLink.setText(R.string.copy_code); styleButton(copyLink, false); sharePage.addView(copyLink);
+        Button copyLink = new Button(this); copyLink.setText(R.string.link_copy); styleButton(copyLink, false); sharePage.addView(copyLink);
         copyLink.setOnClickListener(v -> {
             String link = ScreenShareService.invitation;
             if (link.isEmpty()) { shareStatus.setText(R.string.start_sharing_first); return; }
-            android.content.ClipData clip = android.content.ClipData.newPlainText(getString(R.string.clip_code_label), link);
+            android.content.ClipData clip = android.content.ClipData.newPlainText(getString(R.string.link_clip_label), link);
             if (android.os.Build.VERSION.SDK_INT >= 33) { android.os.PersistableBundle extras = new android.os.PersistableBundle(); extras.putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true); clip.getDescription().setExtras(extras); }
             getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
-            shareStatus.setText(R.string.code_copied);
+            shareStatus.setText(R.string.link_copied);
         });
         shareControl = new CheckBox(this); shareControl.setId(SHARE_CONTROL_ID); shareControl.setText(R.string.allow_phone_control); sharePage.addView(shareControl);
         shareControl.setOnCheckedChangeListener((v, enabled) -> {
@@ -252,7 +252,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void startViewing() {
         if (!surfaceReady) { status.setText(R.string.display_not_ready); return; }
-        if (!address.getText().toString().trim().startsWith("mightymonitor://") && !(trusted != null && trusted.isChecked())) { status.setText(R.string.paste_hint); return; }
+        if (!address.getText().toString().trim().startsWith("mightymonitor://") && !(trusted != null && trusted.isChecked())) { status.setText(R.string.link_paste_hint); return; }
         disconnect(getString(R.string.connecting));
         try {
             String endpoint = address.getText().toString().trim();

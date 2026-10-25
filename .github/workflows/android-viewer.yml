@@ -54,6 +54,7 @@ jobs:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
       - run: gradle -p android testDebugUnitTest
+      - run: gradle -p android assembleRelease
       - run: python3 scripts/check-android-strings.py
       - uses: actions/upload-artifact@v4
         with:

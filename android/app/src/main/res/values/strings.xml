@@ -1,8 +1,8 @@
 <resources>
     <string name="app_title">MightyMonitor</string>
-    <string name="view_tab">See another screen</string>
-    <string name="share_tab">Show my screen</string>
-    <string name="paste_hint">Paste the code from the other device</string>
+    <string name="view_tab">View</string>
+    <string name="share_tab">Share</string>
+    <string name="link_paste_hint">Paste the connection link</string>
     <string name="connect">Connect</string>
     <string name="disconnect">Disconnect</string>
     <string name="not_connected">Not connected</string>
@@ -24,11 +24,11 @@
     <string name="connect_wifi_first">Connect to Wi-Fi first</string>
     <string name="details">Details</string>
     <string name="hide_details">Hide details</string>
-    <string name="copy_code">Copy code</string>
+    <string name="link_copy">Copy connection link</string>
     <string name="start_sharing_first">Start sharing first</string>
-    <string name="code_copied">Code copied</string>
-    <string name="clip_code_label">MightyMonitor code</string>
-    <string name="allow_phone_control">Let the other device control this phone</string>
+    <string name="link_copied">Link copied</string>
+    <string name="link_clip_label">MightyMonitor connection link</string>
+    <string name="allow_phone_control">Allow remote control</string>
     <string name="phone_control_title">Turn on phone control</string>
     <string name="phone_control_message">Turn on phone control in your phone settings. It works only while you share your screen and allow it here.</string>
     <string name="open_settings">Open settings</string>
@@ -47,9 +47,4 @@
     <string name="notification_channel_name">Screen sharing</string>
     <string name="notification_title">Sharing your screen</string>
     <string name="notification_text">Tap Stop to end sharing</string>
-    <string name="err_permission">Screen sharing was not allowed. Tap Show my screen and choose Start now.</string>
-    <string name="err_video">The video could not be shown. Tap Connect to try again.</string>
-    <string name="err_connection">Couldn&apos;t connect. Make sure both devices are on the same Wi-Fi, then try again.</string>
-    <string name="err_code">This code has expired or doesn&apos;t match. Ask the other device for a new code.</string>
-    <string name="err_missing">This app is missing a part. Reinstall MightyMonitor.</string>
 </resources>
