@@ -5,8 +5,11 @@
 # A line that ends with "<!-- jargon-ok -->" is skipped (for the product's own
 # button names, such as "Copy connection link", until pairing without links ships).
 # Usage: scripts/check-jargon.sh   (run from anywhere; paths are relative to the repo root)
+# Only "set -u", not "set -e": grep exits non-zero when it finds no match, which
+# is the normal case here, and the script collects all findings in "status"
+# instead of stopping at the first one.
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 # file:number-of-leading-lines-to-check:strict (strict=1 also bans the words in STRICT_WORDS)
 TARGETS=(
@@ -24,7 +27,8 @@ ANY_WORDS='port|ports|codec|codecs|bitrate|kbit|kbit/s|kbps|fps|GStreamer|listen
 STRICT_WORDS='firewall|VPN'
 
 status=0
-tmp="/tmp/check-jargon.$$"
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT
 for target in "${TARGETS[@]}"; do
   IFS=: read -r file count strict <<< "$target"
   if [ ! -f "$file" ]; then

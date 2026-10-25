@@ -26,8 +26,8 @@ they can reach each other. A cable to that router should also work.
 visitors. It keeps devices apart from each other. Use your main Wi-Fi instead.
 
 **Firewall**: a built-in guard that controls which programs other devices
-can connect to. It may ask you to **Allow** MightyMonitor the first time you
-share. Keep **Private networks** ticked.
+can connect to. On Windows it may ask you to choose **Allow access** for
+MightyMonitor the first time you share. Keep **Private networks** ticked.
 
 **VPN**: a program that sends your internet traffic through another
 location. It can keep two devices in the same room from reaching each other.
@@ -49,7 +49,7 @@ second monitor, instead of copying your screen. Still being developed.
 **Wayland / X11**: two ways Linux desktops draw the screen. See
 [Can't connect?](HELP.md) if sharing does not start on Wayland. If you see a
 choice between them on the sign-in screen, X11 or Xorg is the one where sharing
-works without extra setup.
+should work without extra setup.
 
 **Reconnect**: the app tries again by itself after a short network drop.
 

@@ -18,10 +18,10 @@ one. Things that often get in the way:
 ## 2. Let MightyMonitor use the network
 
 The first time you share a screen, your computer may ask if MightyMonitor can
-use the network. Choose **Allow**. If you chose **Cancel** or **Block** by
-mistake, open your computer's firewall settings and allow MightyMonitor on
-private networks. Then press **Stop sharing** and press **Share this screen**
-again.
+use the network. On Windows, the choices are **Allow access** and **Cancel**.
+Choose **Allow access**. If you chose **Cancel** by mistake, open your
+computer's firewall settings and allow MightyMonitor on private networks. Then
+press **Stop sharing** and press **Share this screen** again.
 
 <a id="new-link"></a> <!-- jargon-ok -->
 ## 3. Make a new link <!-- jargon-ok -->
@@ -43,16 +43,16 @@ If it still does not work, restart your router, or both devices.
 
 - Move the devices closer to the router, or switch to the faster 5 GHz Wi-Fi
   name if your router has one.
-- If a device can use a cable to the router, try that. It is more steady than
-  Wi-Fi. Both devices still need to be on the same network.
+- If a device can use a cable to the router, you can try that. Both devices
+  still need to be on the same network.
 - Close other programs that use a lot of the network, such as large downloads.
 
 <a id="slow-picture"></a>
 ## Picture is slow or jumpy
 
-MightyMonitor lowers the picture quality on its own when the network is busy,
-and it tries again after a short drop. For a smoother picture, stay close to
-the router and pause big downloads.
+MightyMonitor is designed to lower the picture quality on its own when the
+network is busy, and to try again after a short drop. For a smoother picture,
+stay close to the router and pause big downloads.
 
 <a id="other-messages"></a>
 ## Other messages you may see
@@ -80,8 +80,8 @@ window asks which screen to share, or sharing stops straight away:
    or Ubuntu, GNOME needs `xdg-desktop-portal-gnome` and KDE needs
    `xdg-desktop-portal-kde`. Then log out and log back in.
 2. If it still fails, log out. On the sign-in screen, choose the **Xorg** or
-   **X11** session (look for a gear icon), then sign in. Sharing works there
-   without a permission window.
+   **X11** session (look for a gear icon), then sign in. Sharing should work
+   there, and it does not need a permission window.
 3. If a window asks which screen to share and you close it, sharing is cancelled
    on purpose. Press **Share this screen** again and choose a screen.
 

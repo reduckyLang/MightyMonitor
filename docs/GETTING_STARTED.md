@@ -1,8 +1,9 @@
 # Getting started
 
 MightyMonitor lets one device share its screen with another device over your
-own home or office Wi-Fi. It is free and needs no account. Your screen is sent
-only to devices on your network.
+own home or office Wi-Fi. It is free and needs no account. Your screen goes
+straight to the other device. It does not go through any cloud service.
+MightyMonitor is meant for your own home or office network.
 
 You need two devices on the **same Wi-Fi**. One device **shares** its screen.
 The other device **sees** it. Pick your device below. Each list takes you from
@@ -89,11 +90,17 @@ a setting in Accessibility.
 - Finding nearby devices automatically is planned. For now, you send a private
   link from one device to the other. On a guest or visitor Wi-Fi, devices may
   not be able to reach each other, so use your main Wi-Fi.
-- Using a device as a second screen is still being developed. Today it works
-  only on some Linux desktops.
+- Using a device as a second screen is still being developed. Today it is
+  experimental, on some Linux Wayland desktops (KDE tested).
+- The Android app file is only test-signed, so Android may warn about it. To
+  install a newer version, you may need to uninstall the old version first.
 
 <!-- technical-below -->
 ## More detail for technical readers
+
+Note: the viewer has a setting named "older alpha (unencrypted)". It turns
+encryption off. Leave it off unless you are connecting to an old test version
+on a network you trust.
 
 - [Private links and security](SECURE_CONNECTIONS.md)
 - [Installers](INSTALLERS.md), [Windows](WINDOWS.md), [Linux](LINUX.md)
