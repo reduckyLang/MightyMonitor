@@ -55,6 +55,10 @@ multiple-versions = "warn"
 # Workspace path dependencies carry no version requirement and the workspace
 # crates are not marked `publish = false`, so wildcards only produce a warning.
 wildcards = "warn"
+# Path dependencies are not wildcard requirements for crates marked
+# `publish = false`. The workspace crates are not marked that way yet, so
+# `wildcards = "deny"` would currently fail; tighten it once they are.
+allow-wildcard-paths = true
 
 [sources]
 # Only allow crates from crates.io.

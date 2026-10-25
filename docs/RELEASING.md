@@ -46,9 +46,18 @@ to a publish run.
 
 Only proceed after verifying the artifact bundle (see above).
 
+Releases can only be built and published from `main`: dispatch the workflow
+with **Use workflow from: main**. When dispatched from any other branch or tag,
+the `preflight` and `publish` jobs are skipped by an `if: github.ref ==
+'refs/heads/main'` condition, so the dependent build jobs are skipped too and
+nothing is built or published.
+
 A version whose tag already exists cannot be republished. The workflow's first
-job fails with a clear message if `v<version>` exists, for both verification
-and publish runs. To ship a fix, choose the next version (for example
+job fails with a clear message if the tag `v<version>` or a release for it
+(including a draft) exists, for both verification and publish runs. Only an
+HTTP 404 from the tag lookup is treated as "unused"; any other API error fails
+the job. The `publish` job repeats the check immediately before creating the
+release. To ship a fix, choose the next version (for example
 `0.1.0-alpha.3`). Existing tags and releases are never moved or overwritten.
 
 1. Run the workflow again with the same `version`.
@@ -66,6 +75,26 @@ The resulting release is marked as a **pre-release**. The release notes state:
 - The Windows EXE is **unsigned**.
 - The Android APK is **debug-signed** (sideload only; not from the Play Store).
 - There is **no auto-update** mechanism.
+- The builds have not yet been tested on physical devices or across real Wi-Fi
+  networks.
+- Windows Setup downloads the official GStreamer runtime (including the x264 and
+  libav plugins) at install time; the runtime is not part of the installer.
+
+## Version caveats
+
+- **Debian version sorting.** In a `.deb`, the first `-` splits the upstream
+  version from the Debian revision, so `0.1.0-alpha.2` is upstream `0.1.0` with
+  revision `alpha.2`. That version sorts **after** `0.1.0` (and after
+  `0.1.0-alpha.1`), whereas `0.1.0~alpha.2` sorts **before** `0.1.0`. A package
+  built from the workflow version `0.1.0-alpha.N` therefore sorts above a later
+  `0.1.0` final package; a final `0.1.0` would not upgrade it. A tilde form
+  (`0.1.0~alpha.N`) sorts below the final release. The Linux workflow's own
+  default version uses the tilde form. Choose the DEB version scheme before
+  publishing a final release. `dpkg --compare-versions` shows the ordering.
+- **Android versionName.** The APK's `versionName` and `versionCode` come from
+  the Gradle build (`android/app/build.gradle`), not from the workflow `version`
+  input. The input only names the APK file and the release; it does not change
+  the version reported by Android or its upgrade ordering.
 
 ## Signing status
 

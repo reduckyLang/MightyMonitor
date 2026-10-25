@@ -22,7 +22,7 @@ These packages are in addition to the GStreamer development libraries listed in
 [docs/CODEC.md](CODEC.md) and the PipeWire libraries listed below. See
 [docs/VIEWER.md](VIEWER.md) for viewer usage and smoke-test instructions.
 
-
+## X11 capture
 
 `X11Capture::open(display)` connects to the requested display (`None` uses
 `DISPLAY`) and captures the default screen's root window with xproto GetImage
@@ -49,7 +49,7 @@ grab start frequency by sleeping between attempts; zero and the default are
 unpaced. `last_grab_duration()` includes the source grab and pixel conversion,
 including failed attempts, but excludes pacing sleep.
 
-## Smoke test
+## X11 capture smoke test
 
 With an existing X11 session:
 
