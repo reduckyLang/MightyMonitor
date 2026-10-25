@@ -364,3 +364,13 @@ bincode 1.3) are planned in P3 and P2.
 
 Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
 milestone.
+
+## 2026-10-25 — paired reconnect pin regression tests
+
+`host/tests/paired_pin.rs` covers the paired reconnect path: a pin that no longer
+matches the stored credential fails without dialing; a host presenting a different
+key fails with an authentication error after exactly one attempt and completes no
+handshake; and a host key that changes during recovery makes the reconnecting
+session give up without further attempts or any plaintext fallback. Loopback only;
+no physical-device or Wi-Fi evidence. The Android bridge clippy job passes after
+gating desktop-only pairing items on the `async` feature.
