@@ -2,6 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:label="MightyMonitor" android:icon="@drawable/mightymonitor" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
         <service android:name=".ScreenShareService" android:foregroundServiceType="mediaProjection" android:exported="false" />
         <service android:name=".RemoteControlService" android:label="MightyMonitor control" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">

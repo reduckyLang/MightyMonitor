@@ -42,6 +42,8 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - run: gradle -p android testDebugUnitTest
+      - run: python3 scripts/check-android-strings.py
       - uses: actions/upload-artifact@v4
         with:
           name: android-viewer-apks
@@ -96,6 +98,8 @@ jobs:
           script: |
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
+            # Notification permission exists on API 33+ only; pre-grant it so the share flow reaches the screen-capture consent in tests.
+            adb shell pm grant com.mightymonitor.app android.permission.POST_NOTIFICATIONS || true
             # Isolated emulator acceptance: preauthorize only our test service/IME.
             # The shipped app never writes these settings and always requires the user's system grant.
             # Grant accessibility inside instrumentation after its process restart.
