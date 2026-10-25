@@ -53,7 +53,7 @@ def main():
     offending_files = []
     for path in main_sources.rglob("*"):
         # Only hand-written sources count; skip CI-built native libraries in jniLibs.
-        if path.is_file() and "jniLibs" not in path.relative_to(main_sources).parts:
+        if path.is_file() and not path.is_relative_to(main_sources / "jniLibs"):
             try:
                 content = path.read_bytes()
             except OSError as error:

@@ -55,6 +55,14 @@ jobs:
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
       - run: gradle -p android testDebugUnitTest
       - run: gradle -p android assembleRelease
+      - name: Release build has no legacy toggle
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
+          AAPT2=$(ls "${ANDROID_HOME:-/nonexistent}"/build-tools/*/aapt2 2>/dev/null | tail -n 1 || true)
+          if [ -z "$AAPT2" ]; then echo "aapt2 not found; skipping release resource check"; exit 0; fi
+          "$AAPT2" dump resources "$APK" > /tmp/release-resources.txt
+          if grep -q adv_legacy_toggle /tmp/release-resources.txt; then echo "debug-only string present in release"; exit 1; fi
+          if grep -A3 'bool/legacy_toggle' /tmp/release-resources.txt | grep -qi true; then echo "legacy_toggle is true in release"; exit 1; fi
       - run: python3 scripts/check-android-strings.py
       - uses: actions/upload-artifact@v4
         with:
