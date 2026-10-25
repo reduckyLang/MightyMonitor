@@ -10,6 +10,18 @@ Built in Rust, with local connections and no cloud accounts. Wi-Fi is the primar
 connection method; wired networking is part of the planned experience. macOS and
 iOS are not currently targeted.
 
+## Quick start
+
+This is an early test version. Installers are on the project's
+[Releases page](https://github.com/reduckyLang/MightyMonitor/releases) as an
+unsigned pre-release. You need two devices on the same Wi-Fi.
+
+1. Install MightyMonitor on both devices (Windows, Linux or Android).
+2. On the device that shares its screen, open the app and press **Share this screen**, then press **Copy connection link**.
+3. Send the link to the other device, open MightyMonitor there, paste the link under **View a screen**, and press **Connect**.
+
+Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?](docs/HELP.md), [Glossary](docs/GLOSSARY.md).
+
 ## Goals
 - Share a screen between Linux, Windows and Android (host to viewer, any direction).
 - View an Android phone on a PC and control it from the PC.
