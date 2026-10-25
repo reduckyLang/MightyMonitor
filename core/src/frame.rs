@@ -3,7 +3,7 @@
 use crate::error::FrameError;
 
 /// Current wire protocol version, always the first byte of a frame.
-pub const PROTOCOL_VERSION: u8 = 2;
+pub const PROTOCOL_VERSION: u8 = 3;
 
 /// Prefix a payload with the protocol version byte.
 pub fn encode_frame(payload: &[u8]) -> Vec<u8> {

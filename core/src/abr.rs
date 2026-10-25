@@ -1,6 +1,10 @@
 //! Deterministic additive-increase, multiplicative-decrease bitrate adaptation.
 
 use crate::{message::NetStats, Encoder};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
 
 /// Updates a target bitrate from receiver feedback.
 pub trait BitrateController {
@@ -25,6 +29,8 @@ pub struct AimdConfig {
     /// Absolute RTT slack above the minimum observed RTT, in milliseconds (default 20).
     /// Congestion requires RTT strictly above both the relative and absolute thresholds.
     pub rtt_slack_ms: u32,
+    /// Age beyond which an RTT sample no longer contributes to the minimum baseline.
+    pub baseline_window: Duration,
     /// Consecutive stable samples required for each increase.
     pub stable_samples_required: u32,
 }
@@ -40,24 +46,27 @@ impl Default for AimdConfig {
             loss_threshold_pct: 2.0,
             rtt_rise_factor: 1.5,
             rtt_slack_ms: 20,
+            baseline_window: Duration::from_secs(30),
             stable_samples_required: 3,
         }
     }
 }
 
-/// AIMD state with a minimum-observed RTT baseline and sample-count hysteresis.
+/// AIMD state with an aging minimum-RTT baseline and sample-count hysteresis.
 #[derive(Debug, Clone)]
 pub struct AimdController {
     config: AimdConfig,
     target_kbps: u32,
-    baseline_rtt_ms: Option<u32>,
+    origin: Instant,
+    baseline_samples: VecDeque<(Duration, u32)>,
     stable_samples: u32,
 }
 
 impl AimdController {
-    /// Rejects zero/inverted bounds, zero steps/sample counts, non-finite floats,
-    /// decrease factors outside `(0, 1)`, loss thresholds outside `[0, 100]`, and
-    /// RTT factors at or below one. Clamps the starting bitrate to the bounds.
+    /// Rejects zero/inverted bounds, zero steps/sample counts/baseline windows,
+    /// non-finite floats, decrease factors outside `(0, 1)`, loss thresholds
+    /// outside `[0, 100]`, and RTT factors at or below one. Clamps the starting
+    /// bitrate to the bounds.
     pub fn new(config: AimdConfig) -> Result<Self, &'static str> {
         if config.min_kbps == 0 || config.min_kbps > config.max_kbps {
             return Err("bitrate bounds must be positive and ordered");
@@ -79,10 +88,14 @@ impl AimdController {
         if !config.rtt_rise_factor.is_finite() || config.rtt_rise_factor <= 1.0 {
             return Err("RTT rise factor must be finite and greater than one");
         }
+        if config.baseline_window.is_zero() {
+            return Err("RTT baseline window must be positive");
+        }
         Ok(Self {
             target_kbps: config.start_kbps.clamp(config.min_kbps, config.max_kbps),
             config,
-            baseline_rtt_ms: None,
+            origin: Instant::now(),
+            baseline_samples: VecDeque::new(),
             stable_samples: 0,
         })
     }
@@ -99,7 +112,8 @@ impl Default for AimdController {
         Self {
             target_kbps: config.start_kbps,
             config,
-            baseline_rtt_ms: None,
+            origin: Instant::now(),
+            baseline_samples: VecDeque::new(),
             stable_samples: 0,
         }
     }
@@ -107,20 +121,33 @@ impl Default for AimdController {
 
 impl BitrateController for AimdController {
     fn on_stats(&mut self, stats: &NetStats) -> Option<u32> {
+        self.update(stats, self.origin.elapsed())
+    }
+}
+
+impl AimdController {
+    /// Process feedback at a caller-supplied monotonic time.
+    pub fn on_stats_at(&mut self, stats: &NetStats, now: Duration) -> Option<u32> {
+        self.update(stats, now)
+    }
+
+    /// Determine congestion using the same aging RTT baseline as `on_stats_at`.
+    pub fn is_congested_at(&mut self, stats: &NetStats, now: Duration) -> bool {
+        if !valid_loss(stats.loss_pct) {
+            return false;
+        }
+        let baseline = self.baseline(stats.rtt_ms, now);
+        self.congested(stats, baseline)
+    }
+
+    fn update(&mut self, stats: &NetStats, now: Duration) -> Option<u32> {
         // Invalid loss feedback cannot establish stability or alter the RTT baseline.
-        if !stats.loss_pct.is_finite() || !(0.0..=100.0).contains(&stats.loss_pct) {
+        if !valid_loss(stats.loss_pct) {
             self.stable_samples = 0;
             return None;
         }
-        let baseline = self
-            .baseline_rtt_ms
-            .map_or(stats.rtt_ms, |rtt| rtt.min(stats.rtt_ms));
-        self.baseline_rtt_ms = Some(baseline);
-        let baseline = f64::from(baseline);
-        let rtt_threshold = (baseline * f64::from(self.config.rtt_rise_factor))
-            .max(baseline + f64::from(self.config.rtt_slack_ms));
-        let congested = stats.loss_pct > self.config.loss_threshold_pct
-            || f64::from(stats.rtt_ms) > rtt_threshold;
+        let baseline = self.baseline(stats.rtt_ms, now);
+        let congested = self.congested(stats, baseline);
         let next = if congested {
             self.stable_samples = 0;
             (f64::from(self.target_kbps) * f64::from(self.config.decrease_factor)).round() as u32
@@ -140,6 +167,29 @@ impl BitrateController for AimdController {
             Some(next)
         }
     }
+
+    fn baseline(&mut self, rtt_ms: u32, now: Duration) -> u32 {
+        self.baseline_samples.retain(|(sampled_at, _)| {
+            now.saturating_sub(*sampled_at) <= self.config.baseline_window
+        });
+        self.baseline_samples.push_back((now, rtt_ms));
+        self.baseline_samples
+            .iter()
+            .map(|(_, sample)| *sample)
+            .min()
+            .unwrap_or(rtt_ms)
+    }
+
+    fn congested(&self, stats: &NetStats, baseline: u32) -> bool {
+        let baseline = f64::from(baseline);
+        let rtt_threshold = (baseline * f64::from(self.config.rtt_rise_factor))
+            .max(baseline + f64::from(self.config.rtt_slack_ms));
+        stats.loss_pct > self.config.loss_threshold_pct || f64::from(stats.rtt_ms) > rtt_threshold
+    }
+}
+
+fn valid_loss(loss_pct: f32) -> bool {
+    loss_pct.is_finite() && (0.0..=100.0).contains(&loss_pct)
 }
 
 /// Apply a changed controller target, returning that target or the encoder error.
@@ -165,6 +215,15 @@ mod tests {
             loss_pct,
             recv_kbps: 4_000,
         }
+    }
+
+    #[test]
+    fn abr_baseline_ages_out() {
+        let mut ctl = AimdController::default();
+        assert_eq!(ctl.on_stats_at(&stats(10, 0.0), Duration::ZERO), None);
+        let now = Duration::from_secs(30) + Duration::from_millis(1);
+        assert!(!ctl.is_congested_at(&stats(100, 0.0), now));
+        assert_eq!(ctl.on_stats_at(&stats(100, 0.0), now), None);
     }
 
     #[test]
@@ -337,6 +396,10 @@ mod tests {
             },
             AimdConfig {
                 rtt_rise_factor: 1.0,
+                ..AimdConfig::default()
+            },
+            AimdConfig {
+                baseline_window: Duration::ZERO,
                 ..AimdConfig::default()
             },
         ] {

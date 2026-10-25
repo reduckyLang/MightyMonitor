@@ -2,8 +2,10 @@
 
 Viewer NetStats -> Pipeline::on_stats -> host::abr::Abr -> core AIMD ->
 Encoder::set_bitrate_kbps. The policy accepts a caller-supplied monotonic time,
-with at most one decision per second. It preserves the minimum RTT baseline,
-uses core's 20 ms / 1.5x RTT slack and 2% loss threshold, and requires two healthy
+with at most one decision per second. It preserves the minimum RTT baseline over
+a rolling 30-second window (configured by `AimdConfig::baseline_window`), so an
+isolated low sample eventually ages out. It uses core's 20 ms / 1.5x RTT slack
+and 2% loss threshold, and requires two healthy
 reports per additive recovery step (at most 5,000 kbit/s per step). Bounds default
 to 500–20,000 kbit/s; CLI starting values outside that range extend the bounds.
 Congestion reduces by core's 0.7 factor, additionally capped at 90% of measured
