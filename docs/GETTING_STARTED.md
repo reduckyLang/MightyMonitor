@@ -84,9 +84,8 @@ a setting in Accessibility.
   or close the app, start sharing again to get a new link.
 - Anyone who has the link can see your screen while sharing is on. Send it only
   to the person you want to share with.
-- The connection is encrypted and goes only to devices on your own network.
-- Wi-Fi is what we have tested most. A cable to the same router should also
-  work.
+- The connection is encrypted by default. Use it only on a network you trust.
+- Both Wi-Fi and a cable to the same router should work.
 - Finding nearby devices automatically is planned. For now, you send a private
   link from one device to the other. On a guest or visitor Wi-Fi, devices may
   not be able to reach each other, so use your main Wi-Fi.
