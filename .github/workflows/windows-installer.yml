@@ -1,6 +1,17 @@
 name: Build Windows installer
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Installer version label
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      version:
+        description: Installer version label
+        required: true
+        type: string
   push:
     branches: ['codex/wayland-sharing', 'codex/windows-installer', 'codex/remote-control', main]
     paths: ['packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
@@ -20,10 +31,14 @@ jobs:
       - run: cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
       - name: Build per-user setup executable
         shell: pwsh
+        env:
+          INSTALLER_VERSION: ${{ inputs.version }}
         run: |
           $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $compiler)) { throw 'The runner must provide Inno Setup 6; refusing an unverified compiler download.' }
-          & $compiler packaging/windows/mightymonitor.iss
+          $isccArgs = @()
+          if ($env:INSTALLER_VERSION) { $isccArgs += "/DAppVersion=$env:INSTALLER_VERSION" }
+          & $compiler @isccArgs packaging/windows/mightymonitor.iss
           if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
       - name: Install, verify the private runtime, and uninstall
         shell: pwsh

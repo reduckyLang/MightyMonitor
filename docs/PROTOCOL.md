@@ -13,7 +13,7 @@ provides message boundaries; it does not provide authentication or encryption.
 | 2 | 4 | Payload length | Unsigned 32-bit integer, little-endian |
 | 6 | Payload length | Payload | Opaque bytes |
 
-The header is exactly 6 bytes. `PROTOCOL_VERSION = 2`; receivers reject other
+The header is exactly 6 bytes. `PROTOCOL_VERSION = 3`; receivers reject other
 versions. Every frame starts with its version byte, including frames after the
 first frame in a connection. The framing layer preserves all kind values without
 interpreting them; the typed message layer validates the kind and payload together.
@@ -52,8 +52,9 @@ error. `buffered_len` counts bytes not yet consumed by `next_frame`.
 
 ## Messages
 
-`Message` is a non-exhaustive typed enum. Payloads use bincode 1.3 with fixed-width
-integers, little-endian byte order, a 16 MiB size limit, and rejection of trailing
+`Message` is a non-exhaustive typed enum. Payloads use bincode 2's serde
+`config::legacy()` configuration, byte-compatible with the prior bincode 1.3
+fixed-width integer encoding, with a 16 MiB size limit and rejection of trailing
 bytes. The payload includes the enum's zero-based u32 discriminant (declaration
 order); it is distinct from the one-based frame kind. Variant order is part of
 the wire format. `to_bytes`/`from_bytes` handle payloads alone;
@@ -69,17 +70,22 @@ kinds, and kind/variant mismatches return `MessageError`.
 | 4 | VideoFrame | seq: u64, timestamp_us: u64, keyframe: bool, data: Vec<u8> |
 | 5 | Input | InputEvent |
 | 6 | Ping | nonce: u64, t_send_us: u64 |
-| 7 | Pong | nonce: u64, t_send_us: u64 |
+| 7 | Pong | nonce: u64, t_send_us: u64, t_peer_recv_us: u64, t_peer_send_us: u64 |
 | 8 | NetStats | rtt_ms: u32, loss_pct: f32, recv_kbps: u32 |
 | 9 | Resume | session_id: u64, last_seq: u64 |
 | 10 | Bye | reason: String |
+| 11 | HelloAckV2 | session_id: u64, accepted: bool, control_available: bool |
+| 12 | ControlRequest | enabled: bool |
+| 13 | ControlStatus | enabled: bool |
+| 14 | KeyframeRequest | no fields |
 
 `KIND_RESERVED_FE = 0xfe` and `KIND_RESERVED_FF = 0xff` are never assigned to
 messages; they are reserved for protocol extension/escape. All other unassigned
 kinds (including zero) are unknown and rejected by `from_frame_parts`.
 
 The framing version is validated by the framing layer. `Hello.proto_version` is
-a separate payload field; applications must check it during the handshake.
+a separate payload field and must equal 3; a different version is rejected with
+an explicit unsupported-version error.
 
 `Role` is Host or Viewer. `Codec` is H264, Vp8, Vp9, Av1, or Raw.
 `InputEvent` is MouseMove { x: f32, y: f32 }, MouseButton { button: MouseButton,
@@ -87,6 +93,13 @@ pressed: bool }, Scroll { dx: f32, dy: f32 }, Key { code: u32, pressed: bool }, 
 Touch { id: u32, phase: TouchPhase, x: f32, y: f32 }. MouseButton is Left, Right,
 Middle, Back, or Forward; TouchPhase is Start, Move, End, or Cancel. Coordinates
 are normalized to `0..=1` by caller contract, without decode-time validation.
+
+Pong echoes the Ping nonce and sender timestamp. `t_peer_recv_us` and
+`t_peer_send_us` are the responder's monotonic microsecond timestamps at receipt
+and immediately before sending. The measured RTT is
+`(t_recv_us - t_send_us) - (t_peer_send_us - t_peer_recv_us)`, using saturating
+subtraction to exclude peer processing time. `KeyframeRequest` asks the host to
+force the next available video frame to be an IDR.
 
 ## Errors
 
@@ -101,15 +114,15 @@ Errors implement `std::fmt::Display` and `std::error::Error`.
 
 ## Worked example
 
-A version 2 framing-only example with kind 0 and opaque payload `"hi"` is
+A version 3 framing-only example with kind 0 and opaque payload `"hi"` is
 (kind 0 is not a typed message):
 
 ```text
-02 00 02 00 00 00 68 69
+03 00 02 00 00 00 68 69
 │  │  └─────────┘ └───┘
 │  │   length = 2  h  i
 │  kind = 0
-version = 2
+version = 3
 ```
 
 ## Legacy whole-buffer helpers
@@ -145,23 +158,27 @@ A canceled or timed-out receive retains partial bytes and can be retried. A
 canceled or timed-out send may have written part of a frame: drop that connection
 rather than retrying on it. Drop and reconnect after malformed input, socket
 errors, or EOF. Reconnection and any handshake, backoff, or replay policy belong
-to the caller; transport does not automatically reconnect or replay frames.
+to the session/application above the transport; transport does not automatically
+reconnect or replay frames.
 
 ## Reconnect and resume
 
-Resume is now `Message::Resume`, stable kind **9**, encoded with the same bincode
-settings as all typed messages. `PROTOCOL_VERSION` was bumped to **2** to finalize
-this wire format; version 1 peers are rejected. Resume is unauthenticated: bind it
+Resume is `Message::Resume`, stable kind **9**, encoded with the same bincode
+settings as all typed messages. The host session handles Resume: it validates
+the logical session id, continues the sequence after `last_seq`, and forces an
+IDR; the core reconnect module only sends the request and does not replay video.
+`PROTOCOL_VERSION` is **3**; peers using another version are rejected. Resume is unauthenticated: bind it
 to pairing/authentication in a later milestone before trusting a session claim.
 
-After reconnect the client sends Resume first. The peer replays frames **after**
-`last_seq` for the identified logical session. The initial `last_seq` is zero;
-`last_seq == 0` requests replay after sequence zero, not an unspecified-position
-sentinel. The session forwards this value without implementing peer-side replay. The caller updates `set_last_seq`
-only after consuming a frame; opaque frame payloads are never interpreted by the
-session. `Resumed` means the request was written, not acknowledged by the peer.
-The initial connection performs no Resume or application handshake automatically.
-`connect_initial` makes one attempt and returns initial connection failures directly.
+After reconnect the client sends Resume first. The host session accepts it only
+for the matching logical session id, continues sequence numbering from
+`last_seq`, and forces an IDR; previous video frames are not replayed. The
+initial `last_seq` is zero, so the next video frame has sequence one. The
+reconnecting client forwards the caller's last-consumed sequence; callers update
+`set_last_seq` only after consuming a frame. `Resumed` means the Resume request
+was written, not acknowledged by the peer. The initial connection performs no
+Resume or application handshake automatically. `connect_initial` makes one
+attempt and returns initial connection failures directly.
 
 `ReconnectingSession` drops connections on I/O, framing, EOF, and write timeout
 errors. `recv()` reconnects and continues receiving. Read timeouts return to the
@@ -212,8 +229,9 @@ seeded randomness, and attempt limit are configurable; the default retry budget
 is unlimited. A zero attempt limit gives up immediately after disconnection.
 Sleep uses Tokio time, allowing paused-time tests. Each scheduled attempt
 consumes retry budget, including a sleep cancelled before connecting. Backoff
-and budget reset only on the first received frame, never on Resume alone. Exhaustion is terminal for the
-session. Lifecycle events retain only the newest 64 entries; `take_events()`
+and budget reset on the first received frame or a successful application send,
+never on Resume alone. Exhaustion is terminal for the session. Lifecycle events
+retain only the newest 64 entries; `take_events()`
 drains them, so callers needing a complete history should drain regularly.
 
 IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
@@ -229,7 +247,8 @@ ABR uses `crate::message::NetStats`, also exported at the crate root. The contro
 currently uses RTT and loss; received throughput is available for future policies.
 
 `AimdController` implements `BitrateController` with deterministic AIMD rules.
-Each valid sample updates the baseline to the minimum RTT observed. Loss strictly
+Each valid timed sample updates the baseline to the minimum RTT observed within
+`AimdConfig::baseline_window` (30 seconds by default). Loss strictly
 above `loss_threshold_pct`, or RTT strictly above
 `max(baseline * rtt_rise_factor, baseline + rtt_slack_ms)` (computed in `f64`),
 causes a multiplicative decrease and resets the stability

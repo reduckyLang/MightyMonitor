@@ -72,3 +72,20 @@ The workflow exercises silent install, installed decoder initialization with the
 build SDK removed from PATH, and app uninstall. An installer artifact is not a
 signed stable release or proof of physical Windows 11 screen capture. Clean-device
 installation, firewall approval and real Wi-Fi use still require acceptance.
+
+## Pre-release pipeline
+
+The `Release pre-release` workflow (`.github/workflows/release-prerelease.yml`)
+calls the Linux, Windows, and Android installer workflows in parallel, collects
+all three artifacts, adds a `SHA256SUMS` file, and uploads the bundle as a
+workflow artifact. With the `publish` input set to `true`, it also creates a
+GitHub pre-release tagged `v<version>`.
+
+All pre-release artifacts are alpha quality:
+- Linux DEB and Windows EXE are **unsigned**.
+- Android APK is **debug-signed** (sideloading only).
+- No auto-update is present.
+
+See [docs/RELEASING.md](RELEASING.md) for the full publish procedure, artifact
+naming, verification steps, and signing status.
+

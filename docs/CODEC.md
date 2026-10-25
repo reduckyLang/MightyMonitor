@@ -1,7 +1,7 @@
 # H.264 codec (M2-3)
 
 `codec-gst` provides synchronous GStreamer H.264 encoding and decoding on
-Linux with GStreamer >=1.20 (appsrc queue limits). The deterministic default is software x264/FFmpeg.
+Linux and Windows with GStreamer >=1.20 (appsrc queue limits). The deterministic default is software x264/FFmpeg.
 The gstreamer-rs crates are pinned to the 0.23 series (gstreamer 0.23.7,
 gstreamer-app 0.23.5, gstreamer-video 0.23.6), with Cargo.lock committed.
 The locked workspace is checked with Rust 1.85.0 as well as the repository's
@@ -16,10 +16,11 @@ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
 cargo test -p codec-gst -- --nocapture
 ```
 
-CI installs these packages on Ubuntu. Windows and Android have no GStreamer dependency:
-both the crate's code/tests and its dependencies are gated with `target_os = "linux"`.
-The crate compiles as an empty crate on other platforms. A Windows viewer will need a subsequent Windows codec backend
-or deliberate GStreamer packaging and removal of this gate.
+CI installs these packages on Ubuntu. On Windows the crate uses the official
+GStreamer MSVC runtime (see [WINDOWS.md](WINDOWS.md) and the Windows section
+below). Android has no GStreamer dependency: the crate's code, tests and
+dependencies are gated with `any(target_os = "linux", target_os = "windows")`,
+so it compiles as an empty crate on other platforms.
 
 ## API and frame contract
 
@@ -108,6 +109,50 @@ change these figures; they are not end-to-end or Wi-Fi measurements.
 The gstreamer-rs bindings are MIT/Apache-2.0. The GStreamer runtime is LGPL.
 The `avdec_h264` decoder (libav/gst-libav) is LGPL, like the rest of the runtime.
 The `x264enc` element is GPL. MightyMonitor loads these libraries dynamically
-from the system and never bundles them. Bundling any of them needs a separate
-license review. A future Windows or Android backend should avoid GPL
-components (use a hardware or permissively licensed encoder). See NOTICE.
+from the system runtime (on Windows, the official GStreamer runtime installed by
+Setup) and never bundles them in MightyMonitor's binaries or installer.
+Bundling any of them needs a separate license review. The application itself is
+Apache-2.0. See NOTICE.
+
+## Platform codec strategy
+
+Each platform uses a codec path that does not bundle GPL libraries in our
+binaries or installers, and prefers system or hardware acceleration where available.
+
+### Linux
+
+x264 is the default software encoder, loaded as a GStreamer system plugin
+(`gst-plugins-ugly`). VAAPI (`vaapih264enc`) and NVENC (`nvh264enc`) are
+preferred when the `prefer_hardware=true` flag is set and the driver is
+present; the encoder falls back to x264 automatically. The decoder uses
+`avdec_h264` from `gst-libav`, loaded dynamically from the system.
+
+### Windows
+
+The Windows host and viewer use the same `codec-gst` crate as Linux. Capture
+uses GStreamer's `d3d11screencapturesrc` (Windows DXGI desktop duplication,
+GStreamer 1.22 or newer). The host encodes H.264 with `x264enc` and the viewer
+decodes with `avdec_h264`; both need `appsrc`/`appsink` and `videoconvert`
+(see [WINDOWS.md](WINDOWS.md)).
+
+The Windows Setup executable does not contain GStreamer. At install time it
+downloads the pinned official GStreamer MSVC runtime over HTTPS, verifies its
+SHA-256 and installs it for the current user. Setup requires
+`gstreamer-1.0-0.dll`, `gstlibav.dll` and `gstx264.dll` to be present. The
+runtime, including the GPL-licensed x264 plugin, is therefore installed and used
+on Windows hosts, but it is obtained from the GStreamer project, loaded
+dynamically, and not bundled or statically linked in MightyMonitor's installer
+or binaries. See [INSTALLERS.md](INSTALLERS.md) and NOTICE.
+
+Possible future alternatives for Windows are Windows Media Foundation H.264 or
+the Cisco OpenH264 runtime (BSD-2-Clause, runtime download under Cisco's terms).
+Either needs a new backend and a code change and review before inclusion in an
+installer.
+
+### Android
+
+Android encoding and decoding use **MediaCodec**, the platform's built-in
+hardware codec API. No GStreamer dependency exists on Android; the
+`codec-gst` crate is gated to Linux and Windows. MediaCodec is part of the Android
+SDK and does not require any additional library.
+

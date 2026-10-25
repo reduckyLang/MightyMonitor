@@ -269,7 +269,7 @@ pub enum SendOutcome {
 /// sends report recovery without replay. Canceling a send drops its transport;
 /// the next operation recovers. Recovery cancellation retains its retry budget,
 /// including attempts scheduled before a cancelled sleep. Backoff resets only
-/// after receiving a frame, so a successful Resume write alone does not reset it.
+/// after receiving a frame or successfully sending an application frame.
 pub struct ReconnectingSession<C: Connector, J: JitterSource> {
     connector: C,
     backoff: Backoff<J>,
@@ -460,6 +460,7 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
             Ok(()) => {
                 self.current = Some(transport);
                 self.state = SessionState::Connected;
+                self.backoff.reset();
                 Ok(SendOutcome::Sent)
             }
             Err(error @ (TransportError::Io(_) | TransportError::Timeout("write"))) => {
@@ -560,7 +561,8 @@ impl<C: Connector, J: JitterSource> SessionReader<C, J> {
     /// Cancellation while reading retains the transport. Cancellation during an
     /// inline write drops the transport and emits Disconnected with Closed as its
     /// reason, since output may be partial. The next receive recovers without
-    /// replaying the interrupted command. Recovery retains its retry budget.
+    /// replaying the interrupted command. A successful application send resets
+    /// the retry budget; recovery alone does not.
     pub async fn recv(&mut self) -> Result<Frame, SessionError> {
         loop {
             self.session.ready().await?;
@@ -584,6 +586,7 @@ impl<C: Connector, J: JitterSource> SessionReader<C, J> {
                         match result {
                             Some(Ok(())) => {
                                 session.current = Some(transport);
+                                session.backoff.reset();
                                 let _ = command.reply.send(Ok(SendOutcome::Sent));
                             }
                             Some(Err(error @ (TransportError::Io(_) | TransportError::Timeout("write")))) => {
@@ -1076,6 +1079,29 @@ mod tests {
         assert_eq!(session.recv().await.unwrap(), frame);
         assert_eq!(session.backoff.attempts, 0);
         assert_eq!(*calls.lock().unwrap(), 3);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn send_only_retry_budget_resets() {
+        let sent = Sent::default();
+        let (mut session, _) = session(
+            vec![
+                transport(&sent, vec![], true),
+                transport(&sent, vec![], false),
+            ],
+            2,
+        );
+        session.connect_initial().await.unwrap();
+        assert_eq!(
+            session.send(5, b"not replayed").await.unwrap(),
+            SendOutcome::ReconnectedNotSent
+        );
+        assert_eq!(session.backoff.attempts, 1);
+        assert_eq!(
+            session.send(5, b"new send").await.unwrap(),
+            SendOutcome::Sent
+        );
+        assert_eq!(session.backoff.attempts, 0);
     }
 
     #[tokio::test(start_paused = true)]
