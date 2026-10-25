@@ -36,10 +36,10 @@ or statically linked by this project):
 
 | Component                  | License           | Notes                                        |
 |----------------------------|-------------------|----------------------------------------------|
-| GStreamer runtime          | LGPL-2.1-or-later | System package; not redistributed            |
-| gst-libav (avdec_h264)     | LGPL              | libav/FFmpeg plugin; loaded dynamically      |
-| gst-plugins-ugly (x264enc) | GPL-2.0-or-later  | x264 encoder; loaded dynamically; Linux only |
-| PipeWire                   | MIT               | Optional; Wayland capture only               |
+| GStreamer runtime          | LGPL-2.1-or-later | Linux: system package. Windows: official runtime installed by Setup. Not redistributed |
+| gst-libav (avdec_h264)     | LGPL              | libav/FFmpeg plugin; loaded dynamically; Linux and Windows |
+| gst-plugins-ugly (x264enc) | GPL-2.0-or-later  | x264 encoder (gstx264 on Windows); loaded dynamically; Linux and Windows hosts |
+| PipeWire                   | MIT               | Optional; Linux Wayland capture only         |
 
 - The gstreamer-rs Rust bindings are licensed MIT/Apache-2.0.
 - The GStreamer runtime libraries are licensed LGPL-2.1-or-later.
@@ -50,7 +50,14 @@ or statically linked by this project):
   time and never bundles or redistributes them.
 - Bundling GStreamer or any plugin with a release needs a separate license
   review first.
-- A future Windows or Android backend should avoid GPL components.
+- Windows: Setup downloads the official GStreamer runtime (MSVC build, pinned
+  version, SHA-256 verified) from the GStreamer project at install time and
+  installs it under the current user's local application folder. Setup checks
+  for gstreamer-1.0-0.dll, gstlibav.dll and gstx264.dll. The Windows host
+  encodes with x264enc and the viewer decodes with avdec_h264. These
+  components are installed and used at run time but are not included in
+  MightyMonitor's installer, binaries or source, and are not statically linked.
+- Android uses the platform MediaCodec API and has no GStreamer dependency.
 
 Desktop viewer (egui/eframe)
 --------------------------
@@ -64,8 +71,9 @@ Desktop viewer (egui/eframe)
   GStreamer system runtime licensing remains as described above.
 
 
-Windows desktop capture uses the LGPL-licensed GStreamer d3d11 plugin and
-Windows DXGI through its public pipeline API. The Rust adapter is original.
+Windows desktop capture uses the LGPL-licensed GStreamer d3d11 plugin
+(d3d11screencapturesrc, built on Windows DXGI) through its public pipeline API.
+The Rust adapter is original.
 GStreamer Windows SDK distribution, runtime DLLs and plugins retain their
 individual licenses; obtain them from the official GStreamer project. The
 pinned CI installer checksum is from the vendor's published .sha256sum file.
