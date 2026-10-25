@@ -1,7 +1,7 @@
 //! Encoded Android screen hosting. Platform capture stays outside the protocol.
 use crate::{
     socket::{Connection, FrameWriter},
-    Error, FrameDecoder, Message, Role, PROTOCOL_VERSION,
+    Error, FrameDecoder, Message, MonotonicClock, Role, PROTOCOL_VERSION,
 };
 use mightymonitor_core::{encode_stream_frame, Codec, InputEvent};
 use mightymonitor_security::{blocking, Invitation, ShareIdentity};
@@ -218,6 +218,7 @@ fn serve(
     let mut decoder = FrameDecoder::new();
     let mut buffer = [0; 16 * 1024];
     let start = Instant::now();
+    let clock = MonotonicClock::new();
     let mut last_control = start;
     let mut acknowledged = false;
     let mut controlling = false;
@@ -293,7 +294,16 @@ fn serve(
                     } else {
                         match message {
                             Message::Ping { nonce, t_send_us } => {
-                                write_message(&mut stream, Message::Pong { nonce, t_send_us })?
+                                let t_peer_recv_us = clock.now_us();
+                                write_message(
+                                    &mut stream,
+                                    Message::Pong {
+                                        nonce,
+                                        t_send_us,
+                                        t_peer_recv_us,
+                                        t_peer_send_us: clock.now_us(),
+                                    },
+                                )?
                             }
                             Message::ControlRequest { enabled } => {
                                 release_input(shared);

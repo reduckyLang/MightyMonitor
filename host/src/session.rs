@@ -5,8 +5,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use mightymonitor_core::{
-    BackoffPolicy, Codec, Connector, Message, ReconnectingSession, Role, SendOutcome,
-    SessionWriter, SplitMix64, TcpTransport, Transport, TransportError, PROTOCOL_VERSION,
+    BackoffPolicy, Codec, Connector, Message, MonotonicClock, ReconnectingSession, Role,
+    SendOutcome, SessionWriter, SplitMix64, TcpTransport, Transport, TransportError,
+    PROTOCOL_VERSION,
 };
 use std::{
     sync::{Arc, Mutex},
@@ -115,6 +116,8 @@ async fn serve_bound<E: HostEncoder>(
     session.connect_initial().await?;
     let (mut reader, mut writer) = session.split();
     let (tx, mut controls) = mpsc::channel(128);
+    let clock = MonotonicClock::new();
+    let reader_clock = clock.clone();
     let activity = Arc::new(Mutex::new(tokio::time::Instant::now()));
     let reader_activity = activity.clone();
     let handshake = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -132,9 +135,12 @@ async fn serve_bound<E: HostEncoder>(
         let mut input = input;
         let mut controlling = false;
         while let Ok(frame) = reader.recv().await {
+            let received_at_us = reader_clock.now_us();
             let Ok(message) = Message::from_frame_parts(frame.kind, &frame.payload) else {
                 break;
             };
+            let ping_received_at =
+                matches!(&message, Message::Ping { .. }).then_some(received_at_us);
             let message = match message {
                 Message::Input(mightymonitor_core::InputEvent::ReleaseAll) => {
                     if !reader_handshake.load(std::sync::atomic::Ordering::Acquire) {
@@ -181,7 +187,7 @@ async fn serve_bound<E: HostEncoder>(
                 tokio::time::Instant::now();
             // A flooding viewer cannot allocate unbounded controls or stall the
             // reader command loop. Closing makes pending writes fail promptly.
-            if tx.try_send(message).is_err() {
+            if tx.try_send((message, ping_received_at)).is_err() {
                 break;
             }
         }
@@ -189,8 +195,15 @@ async fn serve_bound<E: HostEncoder>(
     let first = tokio::time::timeout(config.handshake_timeout, controls.recv())
         .await?
         .ok_or("viewer closed during handshake")?;
+    let first = first.0;
     let mut seq = 0;
     let supports_input = matches!(&first, Message::Hello {capabilities,..} if capabilities.iter().any(|c| c == "input-v1"));
+    let unsupported_version = match &first {
+        Message::Hello { proto_version, .. } if *proto_version != PROTOCOL_VERSION => {
+            Some(*proto_version)
+        }
+        _ => None,
+    };
     let accepted = match first {
         Message::Hello {
             proto_version,
@@ -249,6 +262,12 @@ async fn serve_bound<E: HostEncoder>(
     )
     .await?;
     if !accepted {
+        if let Some(version) = unsupported_version {
+            return Err(format!(
+                "unsupported protocol version {version}; expected {PROTOCOL_VERSION}"
+            )
+            .into());
+        }
         return Err("invalid viewer handshake".into());
     }
     send(
@@ -267,18 +286,26 @@ async fn serve_bound<E: HostEncoder>(
     *activity.lock().unwrap_or_else(|e| e.into_inner()) = tokio::time::Instant::now();
     loop {
         for _ in 0..64 {
-            let Ok(message) = controls.try_recv() else {
+            let Ok((message, ping_received_at)) = controls.try_recv() else {
                 break;
             };
             match message {
                 Message::Ping { nonce, t_send_us } => {
+                    let t_peer_recv_us =
+                        ping_received_at.ok_or("missing Ping receive timestamp")?;
                     send(
                         &mut writer,
-                        Message::Pong { nonce, t_send_us },
+                        Message::Pong {
+                            nonce,
+                            t_send_us,
+                            t_peer_recv_us,
+                            t_peer_send_us: clock.now_us(),
+                        },
                         config.write_timeout,
                     )
                     .await?
                 }
+                Message::KeyframeRequest => force = true,
                 Message::Resume {
                     session_id,
                     last_seq,
