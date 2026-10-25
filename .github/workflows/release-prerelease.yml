@@ -1,0 +1,226 @@
+name: Release pre-release
+
+# Builds Linux DEB, Windows Setup, and Android APK, collects them with a
+# SHA256SUMS file, and uploads them as workflow artifacts.
+# When publish == true: creates a GitHub pre-release using only GITHUB_TOKEN
+# with contents: write scoped to that one job.
+#
+# The release is unsigned (Linux DEB, Windows EXE) and the Android APK is
+# debug-signed. These are pre-release/alpha artifacts only.
+# Run with publish=false and verify the artifacts before using publish=true.
+# The workflow only runs its jobs when dispatched from main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >
+          Version string, e.g. 0.1.0-alpha.2. The tag v<version> must not
+          already exist. Used as the package version and the Git tag when
+          publishing.
+        required: true
+        type: string
+      publish:
+        description: >
+          Set to true to create a GitHub pre-release from the collected
+          artifacts. Leave false to build and
+          inspect artifacts only.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Check version and tag
+    # Releases are only built and published from main.
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version and make sure the tag is unused
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Version '${VERSION}' is not valid. Use MAJOR.MINOR.PATCH-alpha.N, for example 0.1.0-alpha.2."
+            exit 1
+          fi
+          # Succeeds only when the tag and any release (including drafts) are
+          # absent. Only an HTTP 404 from the tag lookup counts as "unused";
+          # any other API failure stops the job.
+          check_unused() {
+            local out rc
+            set +e
+            out=$(gh api "repos/${REPO}/git/ref/tags/v${VERSION}" 2>&1)
+            rc=$?
+            set -e
+            if [ "${rc}" -eq 0 ]; then
+              echo "::error::Tag v${VERSION} already exists, so this version cannot be built or republished. Choose the next unused version."
+              return 1
+            fi
+            if ! printf '%s' "${out}" | grep -q 'HTTP 404'; then
+              echo "::error::Could not determine whether tag v${VERSION} exists (expected HTTP 404 for an unused tag). gh api output: ${out}"
+              return 1
+            fi
+            if ! releases=$(gh api --paginate "repos/${REPO}/releases" --jq '.[].tag_name' 2>&1); then
+              echo "::error::Could not list existing releases. gh api output: ${releases}"
+              return 1
+            fi
+            if printf '%s\n' "${releases}" | grep -Fxq "v${VERSION}"; then
+              echo "::error::A release for v${VERSION} already exists, so this version cannot be republished. Choose the next unused version."
+              return 1
+            fi
+          }
+          check_unused
+          echo "Tag v${VERSION} is unused."
+
+  linux:
+    name: Build Linux DEB
+    needs: [preflight]
+    uses: ./.github/workflows/linux-installer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  windows:
+    name: Build Windows installer
+    needs: [preflight]
+    uses: ./.github/workflows/windows-installer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  android:
+    name: Build Android APK
+    needs: [preflight]
+    uses: ./.github/workflows/android-viewer.yml
+    with:
+      version: ${{ inputs.version }}
+
+  collect:
+    name: Collect artifacts and compute checksums
+    needs: [linux, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux DEB
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-linux-deb
+          path: dist/
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-windows-installer
+          path: dist/
+
+      - name: Download Android APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: android-viewer-apks
+          path: dist/
+
+      - name: Flatten Android APK and name it
+        env:
+          VERSION: ${{ inputs.version }}
+        working-directory: dist
+        run: |
+          apk=$(find . -name "app-debug.apk" | head -n 1)
+          test -n "$apk"
+          mv "$apk" "mightymonitor-${VERSION}-debug-signed.apk"
+          # Exclude the instrumentation test APK and leftover empty directories.
+          find . -name "app-debug-androidTest.apk" -delete
+          find . -mindepth 1 -type d -empty -delete
+
+      - name: Compute SHA256SUMS
+        working-directory: dist
+        run: |
+          find . -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -d '\n' sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mightymonitor-${{ inputs.version }}-prerelease
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub pre-release
+    # Releases are only published from main.
+    if: ${{ inputs.publish == true && github.ref == 'refs/heads/main' }}
+    needs: [collect]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download collected artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mightymonitor-${{ inputs.version }}-prerelease
+          path: dist/
+
+      - name: Create GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Version '${VERSION}' is not valid."
+            exit 1
+          fi
+          # Succeeds only when the tag and any release (including drafts) are
+          # absent. Only an HTTP 404 from the tag lookup counts as "unused";
+          # any other API failure stops the job.
+          check_unused() {
+            local out rc
+            set +e
+            out=$(gh api "repos/${REPO}/git/ref/tags/v${VERSION}" 2>&1)
+            rc=$?
+            set -e
+            if [ "${rc}" -eq 0 ]; then
+              echo "::error::Tag v${VERSION} already exists, so this version cannot be built or republished. Choose the next unused version."
+              return 1
+            fi
+            if ! printf '%s' "${out}" | grep -q 'HTTP 404'; then
+              echo "::error::Could not determine whether tag v${VERSION} exists (expected HTTP 404 for an unused tag). gh api output: ${out}"
+              return 1
+            fi
+            if ! releases=$(gh api --paginate "repos/${REPO}/releases" --jq '.[].tag_name' 2>&1); then
+              echo "::error::Could not list existing releases. gh api output: ${releases}"
+              return 1
+            fi
+            if printf '%s\n' "${releases}" | grep -Fxq "v${VERSION}"; then
+              echo "::error::A release for v${VERSION} already exists, so this version cannot be republished. Choose the next unused version."
+              return 1
+            fi
+          }
+          # Re-check right before creating the release in case the tag or a
+          # release appeared after the preflight job ran.
+          check_unused
+          printf '%s\n' \
+            "## MightyMonitor v${VERSION}: alpha pre-release" \
+            "" \
+            "**Status:** unsigned alpha for early testing. Not for production use." \
+            "" \
+            "- Linux DEB: unsigned package built on Ubuntu 24.04." \
+            "- Windows Setup EXE: unsigned per-user installer. Windows may show SmartScreen warnings. Setup downloads the official GStreamer runtime (including the x264 and libav plugins) from the GStreamer project at install time, so an internet connection is required; the runtime is not included in the installer." \
+            "- Android APK: debug-signed, sideload only. Not from the Play Store." \
+            "- These builds have not yet been tested on physical devices or across real Wi-Fi networks." \
+            "- No auto-update mechanism is present in this release." \
+            "" \
+            "Verify downloads using SHA256SUMS before installing." \
+            > /tmp/release-notes.md
+          gh release create "v${VERSION}" \
+            --repo "${REPO}" \
+            --prerelease \
+            --target "${SHA}" \
+            --title "MightyMonitor v${VERSION} (pre-release)" \
+            --notes-file /tmp/release-notes.md \
+            dist/*
