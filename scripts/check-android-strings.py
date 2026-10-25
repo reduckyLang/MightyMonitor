@@ -52,7 +52,8 @@ def main():
     banned_source_phrases = re.compile(rb"Allow older alpha|unencrypted", re.IGNORECASE)
     offending_files = []
     for path in main_sources.rglob("*"):
-        if path.is_file():
+        # Only hand-written sources count; skip CI-built native libraries in jniLibs.
+        if path.is_file() and "jniLibs" not in path.relative_to(main_sources).parts:
             try:
                 content = path.read_bytes()
             except OSError as error:
