@@ -97,7 +97,7 @@ pub async fn connect_transport(
             peer,
         } => {
             let current = crate::store::DeviceStore::open(identity.directory())
-                .and_then(|s| s.find(&peer.id()))
+                .and_then(|s| s.find_by_fingerprint(&peer.fingerprint))
                 .map_err(|e| TransportError::Authentication(e.to_string()))?;
             if current.fingerprint != peer.fingerprint
                 || !bool::from(current.secret.as_slice().ct_eq(peer.secret.as_slice()))

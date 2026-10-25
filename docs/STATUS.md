@@ -303,3 +303,19 @@ The Android bridge explicitly rejects paired endpoints until its pairing
 transport is implemented; existing private-link tests pass. No viewer/GUI,
 discovery, README or website feature changes are included. No new dependency
 packages or lockfile changes were required.
+
+## 25 October 2026 — pairing identity lookup hardening
+
+Paired reconnect now reloads credentials by the full 32-byte certificate
+fingerprint. Local short-ID unpair resolves a unique stored entry before removing
+its full fingerprint; ambiguous selections fail closed. Discovery names and TXT
+IDs remain unauthenticated routing/display hints. Added loopback tests for a
+different key behind matching display claims and colliding short IDs, and extended
+Resume coverage for matching display claims from a different authenticated key.
+
+Validation: formatting, workspace Clippy with JNI and warnings denied, workspace
+tests with JNI and required codecs, workspace build, rustdoc with warnings denied,
+and Rust 1.85 all-target checks passed sequentially. Four existing live desktop/
+portal tests remain ignored. Physical-device, Windows runtime and discovery
+integration acceptance remain unverified; discovery wiring is not implemented.
+This change is not released.

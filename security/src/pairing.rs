@@ -634,6 +634,89 @@ mod tests {
         ));
     }
     #[tokio::test]
+    async fn spoofed_advertisement_cannot_replace_stored_pin() {
+        let hd = Directory::new();
+        let vd = Directory::new();
+        let ad = Directory::new();
+        let host = DeviceIdentity::open(&hd.0).unwrap();
+        let viewer = DeviceIdentity::open(&vd.0).unwrap();
+        let mut attacker = DeviceIdentity::open(&ad.0).unwrap();
+        attacker.set_friendly_name(host.friendly_name()).unwrap();
+        let (_, peer, _) = attempt(&host, &viewer, true, true).await;
+        let peer = peer.unwrap();
+        DeviceStore::open(&vd.0)
+            .unwrap()
+            .insert(peer.clone())
+            .unwrap();
+        // Discovery can claim any ID/name. Only its route is used here;
+        // the expected pin comes from the locally selected store entry.
+        let claimed_id = peer.id();
+        let selected = DeviceStore::open(&vd.0).unwrap().find(&claimed_id).unwrap();
+        assert_eq!(attacker.friendly_name(), host.friendly_name());
+        assert_ne!(attacker.fingerprint(), selected.fingerprint);
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = Endpoint::Paired {
+            address: listener.local_addr().unwrap(),
+            identity: Arc::new(viewer),
+            peer: selected,
+        };
+        let (server, client) = tokio::join!(
+            async {
+                let (stream, _) = listener.accept().await.unwrap();
+                accept(stream, &attacker, &ad.0).await
+            },
+            crate::asynchronous::connect_transport(&endpoint)
+        );
+        assert!(server.is_err());
+        assert!(matches!(
+            client,
+            Err(mightymonitor_core::TransportError::Authentication(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn colliding_display_ids_do_not_affect_authentication() {
+        let hd = Directory::new();
+        let vd = Directory::new();
+        let host = DeviceIdentity::open(&hd.0).unwrap();
+        let viewer = DeviceIdentity::open(&vd.0).unwrap();
+        let (hp, vp, _) = attempt(&host, &viewer, true, true).await;
+        DeviceStore::open(&hd.0)
+            .unwrap()
+            .insert(hp.unwrap())
+            .unwrap();
+        let peer = vp.unwrap();
+        let mut collision = peer.clone();
+        collision.fingerprint[31] ^= 1;
+        let mut store = DeviceStore::open(&vd.0).unwrap();
+        store.insert(peer.clone()).unwrap();
+        store.insert(collision.clone()).unwrap();
+        assert_eq!(peer.id(), collision.id());
+        assert!(store.find(&peer.id()).is_err());
+        assert!(store.forget(&peer.id()).is_err());
+        assert!(store.unpair(&peer.id()).is_err());
+        assert_eq!(DeviceStore::open(&vd.0).unwrap().peers().len(), 2);
+        for pin in [peer.fingerprint, collision.fingerprint] {
+            assert_eq!(store.find_by_fingerprint(&pin).unwrap().fingerprint, pin);
+        }
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = Endpoint::Paired {
+            address: listener.local_addr().unwrap(),
+            identity: Arc::new(viewer),
+            peer,
+        };
+        let (server, client) = tokio::join!(
+            async {
+                let (stream, _) = listener.accept().await.unwrap();
+                accept(stream, &host, &hd.0).await
+            },
+            crate::asynchronous::connect_transport(&endpoint)
+        );
+        assert!(server.is_ok());
+        assert!(client.is_ok());
+    }
+
+    #[tokio::test]
     async fn either_denial_leaves_no_peer() {
         let hd = Directory::new();
         let vd = Directory::new();

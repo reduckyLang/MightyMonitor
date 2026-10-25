@@ -82,6 +82,12 @@ ANDROID instructions in `android/README.md` before changing their features.
 
 ## Security and lifecycle invariants
 
+- Discovery service names, TXT short IDs and friendly names are unauthenticated
+  routing/display hints, never identity. Authentication, revocation and Resume
+  use the full 32-byte paired certificate fingerprint/authenticated principal.
+  Resolve local short-ID selections to stored pins and reject ambiguity; connect
+  using the route plus the store/offer pin. A different key fails terminally.
+
 - A viewing link is a bearer secret. Do not broadcast it through discovery,
   store it in preferences, print it in diagnostics or put it in screenshots/PRs.
 - TLS pin/token failures are terminal: no fallback, public trust bypass or downgrade.

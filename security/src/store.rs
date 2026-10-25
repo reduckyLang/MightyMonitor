@@ -238,6 +238,7 @@ impl DeviceStore {
     pub fn peers(&self) -> &[Peer] {
         &self.peers
     }
+    /// Resolve a local display selection; never use this for authentication.
     pub fn find(&self, id: &str) -> io::Result<Peer> {
         let mut matching = self.peers.iter().filter(|p| p.id() == id);
         let peer = matching.next().ok_or_else(denied)?;
@@ -245,6 +246,14 @@ impl DeviceStore {
             return Err(denied());
         }
         Ok(peer.clone())
+    }
+    /// Look up authentication credentials by the complete certificate pin.
+    pub fn find_by_fingerprint(&self, fingerprint: &[u8; 32]) -> io::Result<Peer> {
+        self.peers
+            .iter()
+            .find(|p| &p.fingerprint == fingerprint)
+            .cloned()
+            .ok_or_else(denied)
     }
     pub fn insert(&mut self, peer: Peer) -> io::Result<()> {
         let mut next = self.peers.clone();
@@ -261,11 +270,11 @@ impl DeviceStore {
         Ok(())
     }
     pub fn unpair(&mut self, id: &str) -> io::Result<()> {
-        self.find(id)?;
+        let fingerprint = self.find(id)?.fingerprint;
         let next: Vec<_> = self
             .peers
             .iter()
-            .filter(|p| p.id() != id)
+            .filter(|p| p.fingerprint != fingerprint)
             .cloned()
             .collect();
         self.save(&next)?;

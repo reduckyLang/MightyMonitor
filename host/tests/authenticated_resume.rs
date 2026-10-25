@@ -222,8 +222,10 @@ async fn paired_resume_same_peer_different_peer_and_forget_after_authentication(
     let ad = dir.0.join("a");
     let bd = dir.0.join("b");
     let h = DeviceIdentity::open(&hd).unwrap();
-    let a = DeviceIdentity::open(&ad).unwrap();
-    let b = DeviceIdentity::open(&bd).unwrap();
+    let mut a = DeviceIdentity::open(&ad).unwrap();
+    let mut b = DeviceIdentity::open(&bd).unwrap();
+    a.set_friendly_name("Shared display name").unwrap();
+    b.set_friendly_name(a.friendly_name()).unwrap();
     let mut peers = Vec::new();
     let mut host_ids = Vec::new();
     for viewer in [&a, &b] {
@@ -323,6 +325,12 @@ async fn paired_resume_same_peer_different_peer_and_forget_after_authentication(
     assert!(idr);
     drop(v);
     let _ = task.await.unwrap();
+    // A discovery record for B can claim A's display ID and friendly name.
+    // Resume carries only the session ID: authority comes from B's TLS key.
+    let claimed_id = host_ids[0].clone();
+    assert_ne!(claimed_id, host_ids[1]);
+    assert_eq!(a.friendly_name(), b.friendly_name());
+    assert_ne!(a.fingerprint(), b.fingerprint());
     let (c, s) = sockets().await;
     let (hp, vp) = tokio::join!(
         paired::accept_authenticated(s, &h, &hd),

@@ -150,3 +150,13 @@ persistence and bounds, name/code/offer hooks, view-only paired video, and Resum
 identity/sequence/expiry/eviction checks. Physical pairing, LAN recovery, Windows
 runtime and Android pairing are not verified by those tests. This work is not a
 release or a physical acceptance result.
+
+## Discovery and identity
+
+Discovery service names, TXT short device IDs and friendly names are spoofable
+routing/display hints. Identity is the full 32-byte certificate fingerprint
+established through pairing. Paired connections use an address plus the pin from
+the local store; offer-based pairing uses the offer pin, never advertised data.
+Pin mismatch is terminal, with no fallback. Authentication lookups, revocation and
+Resume use the full fingerprint/authenticated principal. Local short-ID selections
+(including forget/unpair) resolve to stored fingerprints and reject ambiguity.
