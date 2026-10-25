@@ -40,7 +40,7 @@ progress. Check newer PRs before editing.
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing and discovery not implemented |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Discovery library implemented and unit-tested; not wired into host/viewer. No pairing yet |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
@@ -58,6 +58,10 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
   normalized input events, platform traits. See PROTOCOL.md and ABR.md.
 - `security/`: TLS 1.3, certificate pinning, private session invitations and
   asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
+- `discovery/`: opt-in mDNS library, strict public TXT metadata and bounded browsing;
+  not wired into host/viewer. See DISCOVERY.md. Real devices, Wi-Fi, Windows
+  firewall and Android discovery are unverified. The backend normalizes duplicate
+  wire TXT keys before the strict parser; see DISCOVERY.md for that boundary.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.

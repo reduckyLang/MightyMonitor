@@ -311,3 +311,33 @@ bincode 1.3) are planned in P3 and P2.
 
 Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
 milestone.
+
+## 2026-10-25 — M8 part 1: discovery library
+
+Added standalone opt-in mDNS advertising and bounded on-demand browsing, strict
+TXT parsing, fake-backend lifecycle/dedupe/expiry tests and an ignored multicast
+loopback test. Credential-exclusion tests use a real session invitation. This is
+library implementation and unit-test evidence, not host/viewer integration or
+pairing. Real devices, Wi-Fi, Windows firewall and Android remain unverified;
+this work is not a release. See DISCOVERY.md.
+
+Validation: workspace formatting, Clippy with JNI and warnings denied, codec-required
+workspace tests, workspace build and rustdoc with warnings denied pass. Six discovery
+integration tests pass; the real multicast loopback test remains ignored. The
+mdns-sd backend normalizes duplicate wire TXT keys before exposing them; duplicate
+rejection is verified at the pure-parser boundary (see DISCOVERY.md).
+Rust 1.85.0 discovery all-targets check also passes with the locked dependencies.
+
+
+## 2026-10-25 — discovery address and wire policy
+
+Added private on-subnet address filtering for registration and browsing, local
+interface enumeration and daemon interface restriction. Wire metadata derives
+from the core protocol version. Deterministic address-policy, fake-backend and
+registration rejection tests cover these boundaries. Physical multicast and
+cross-device acceptance remain unverified; this change is not a release.
+
+Validation: workspace formatting, discovery Clippy and rustdoc with warnings
+denied, nine discovery integration tests, Rust 1.85.0 all-targets discovery check,
+and workspace all-targets Clippy with JNI and warnings denied pass with locked
+dependencies. The real multicast loopback test remains ignored.

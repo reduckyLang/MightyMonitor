@@ -18,7 +18,7 @@ Cross-cutting requirement for every milestone: it must work **wirelessly over Wi
 5. **Android capture to desktop with control.** Acceptance: MediaProjection stream over Wi-Fi to desktop viewer; control via Accessibility or wireless adb (no cable); adaptive bitrate; reconnect.
 6. **Android as client (PC to phone).** Acceptance: phone displays a PC stream over Wi-Fi and sends touch input back; reconnect.
 7. **Browser viewer.** Acceptance: static page served by host works in a modern browser over LAN with mouse/keyboard/touch; adaptive bitrate; reconnect.
-8. **mDNS discovery.** Acceptance: hosts advertise and viewers list devices automatically on LAN; wireless adb Android devices are discoverable and pairable without cable.
+8. **mDNS discovery.** Library exists with unit tests; not yet wired into host/viewer, with no pairing yet. Acceptance: hosts advertise and viewers list devices automatically on LAN; wireless adb Android devices are discoverable and pairable without cable.
 9. **Virtual extended monitors (optional, per OS).** Acceptance: EVDI/compositor output on Linux, indirect display driver on Windows; streams wirelessly.
 10. **Polish, docs, installers, first release.** Acceptance: packaged installers, user docs, end-to-end wireless test matrix passes, tagged release.
 

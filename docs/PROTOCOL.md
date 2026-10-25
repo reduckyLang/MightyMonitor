@@ -237,7 +237,8 @@ drains them, so callers needing a complete history should drain regularly.
 IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
 and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
-that literal address; hostname discovery via mDNS is a later milestone, M8.
+that literal address; M8 has a standalone mDNS discovery library, not yet wired into host/viewer.
+Discovery does not grant trust; pairing is not implemented.
 
 ## Adaptive bitrate
 
