@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind};
 
-use mightymonitor_core::TransportError;
+use mightymonitor_core::{FrameError, TransportError};
 
 use crate::catalog::{Platform, UserError, UserMessage};
 
@@ -23,6 +23,9 @@ pub fn classify(err: &(dyn Error + 'static)) -> UserMessage {
                 }
                 TransportError::Closed => {
                     return with_technical(UserError::HostStopped, technical);
+                }
+                TransportError::Frame(FrameError::UnsupportedVersion(_)) => {
+                    return with_technical(UserError::VersionMismatch, technical);
                 }
                 TransportError::Frame(_) => {
                     return with_technical(UserError::DecodeFailed, technical);
@@ -55,16 +58,16 @@ fn with_technical(error: UserError, technical: String) -> UserMessage {
 
 fn classify_io_error(error: &IoError) -> Option<UserError> {
     match error.kind() {
-        ErrorKind::ConnectionRefused
-        | ErrorKind::TimedOut
-        | ErrorKind::ConnectionReset
+        ErrorKind::ConnectionRefused | ErrorKind::TimedOut => Some(UserError::HostUnreachable),
+        ErrorKind::ConnectionReset
+        | ErrorKind::ConnectionAborted
         | ErrorKind::BrokenPipe
-        | ErrorKind::UnexpectedEof => Some(UserError::HostUnreachable),
+        | ErrorKind::UnexpectedEof => Some(UserError::ConnectionLost),
         ErrorKind::HostUnreachable
         | ErrorKind::NetworkUnreachable
         | ErrorKind::AddrNotAvailable => Some(UserError::SameWifi),
         ErrorKind::NotConnected => Some(UserError::NoNetwork),
-        ErrorKind::PermissionDenied => Some(UserError::ConnectionExpired),
+        ErrorKind::PermissionDenied => Some(UserError::FirewallBlocked),
         ErrorKind::InvalidData => {
             let text = error.to_string().to_ascii_lowercase();
             (text.contains("tls") || text.contains("certificate") || text.contains("handshake"))
@@ -173,7 +176,7 @@ mod tests {
         );
         assert_classified(
             &IoError::from(ErrorKind::PermissionDenied),
-            UserError::ConnectionExpired,
+            UserError::FirewallBlocked,
         );
         assert_classified(
             &IoError::new(ErrorKind::InvalidData, "TLS handshake failed"),
@@ -181,11 +184,19 @@ mod tests {
         );
         assert_classified(
             &TransportError::Io(IoError::from(ErrorKind::BrokenPipe)),
-            UserError::HostUnreachable,
+            UserError::ConnectionLost,
         );
         assert_classified(
             &IoError::from(ErrorKind::UnexpectedEof),
-            UserError::HostUnreachable,
+            UserError::ConnectionLost,
+        );
+        assert_classified(
+            &IoError::from(ErrorKind::ConnectionReset),
+            UserError::ConnectionLost,
+        );
+        assert_classified(
+            &IoError::from(ErrorKind::ConnectionAborted),
+            UserError::ConnectionLost,
         );
     }
 
@@ -231,6 +242,16 @@ mod tests {
             &TransportError::Frame(FrameError::Empty),
             UserError::DecodeFailed,
         );
+        assert_classified(
+            &TransportError::Frame(FrameError::UnsupportedVersion(2)),
+            UserError::VersionMismatch,
+        );
+    }
+
+    #[test]
+    fn permission_denied_is_not_reported_as_an_expired_connection() {
+        let message = classify(&IoError::from(ErrorKind::PermissionDenied));
+        assert_ne!(message.title, UserError::ConnectionExpired.title());
     }
 
     #[test]
