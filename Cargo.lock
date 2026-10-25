@@ -2146,6 +2146,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mightymonitor-ux"
+version = "0.0.1"
+dependencies = [
+ "mightymonitor-core",
+]
+
+[[package]]
 name = "mightymonitor-viewer"
 version = "0.0.1"
 dependencies = [

@@ -1,0 +1,11 @@
+[package]
+name = "mightymonitor-ux"
+description = "User-facing messages and error classification for MightyMonitor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mightymonitor-core = { path = "../core" }
