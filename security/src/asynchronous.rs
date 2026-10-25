@@ -114,8 +114,13 @@ pub async fn connect_transport(
             .map_err(|_| TransportError::Timeout("connect"))??;
             let tls = crate::pairing::asynchronous::connect(stream, identity, peer)
                 .await
-                .map_err(|_| {
-                    TransportError::Authentication("Paired authentication rejected".into())
+                .map_err(|error| match error.kind() {
+                    // Pin, secret and revocation failures are terminal; network
+                    // and timeout failures remain recoverable.
+                    io::ErrorKind::PermissionDenied | io::ErrorKind::InvalidData => {
+                        TransportError::Authentication("Paired authentication rejected".into())
+                    }
+                    _ => TransportError::Io(error),
                 })?;
             Ok(Box::new(FramedTransport::from_stream(tls)))
         }

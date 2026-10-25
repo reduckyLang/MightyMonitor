@@ -215,7 +215,7 @@ impl PairingOffer {
     }
 }
 /// One outstanding offer per locally enabled mode. Replacement revokes the old
-/// offer. Taking it is atomic and consumes it before validation or TLS consent.
+/// offer. A matching nonce is taken atomically before TLS consent; a mismatch leaves the offer intact.
 pub(crate) struct Offers {
     clock: Arc<dyn Clock>,
     pending: Mutex<Option<PairingOffer>>,
@@ -252,10 +252,17 @@ impl Offers {
     }
     pub(crate) fn consume(&self, nonce: &[u8; 16]) -> io::Result<()> {
         let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
-        let offer = pending.take().ok_or_else(denied)?;
-        if self.clock.now() >= offer.expires || !bool::from(offer.nonce.ct_eq(nonce)) {
+        let offer = pending.as_ref().ok_or_else(denied)?;
+        if self.clock.now() >= offer.expires {
+            *pending = None;
             return Err(denied());
         }
+        // A wrong nonce must not burn the genuine offer; the nonce is compared
+        // first and the offer is taken only on an exact match.
+        if !bool::from(offer.nonce.ct_eq(nonce)) {
+            return Err(denied());
+        }
+        *pending = None;
         Ok(())
     }
 }
@@ -336,7 +343,9 @@ mod tests {
         let fresh = mode.create_offer(&identity, offer.address()).unwrap();
         let mut forged = fresh.clone();
         forged.nonce[0] ^= 1;
+        // A wrong nonce is rejected without burning the genuine offer.
         assert!(mode.consume_offer(&forged).is_err());
+        assert!(mode.consume_offer(&fresh).is_ok());
         assert!(mode.consume_offer(&fresh).is_err());
         let expiring = mode.create_offer(&identity, offer.address()).unwrap();
         clock.0.store(161, Ordering::Relaxed);

@@ -13,7 +13,7 @@ pub const MAX_PEERS: usize = 64;
 
 pub fn config_dir() -> io::Result<PathBuf> {
     #[cfg(target_os = "windows")]
-    let base = std::env::var_os("APPDATA").map(PathBuf::from);
+    let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
     #[cfg(not(target_os = "windows"))]
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)

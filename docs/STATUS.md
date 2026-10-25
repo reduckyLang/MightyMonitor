@@ -374,3 +374,17 @@ handshake; and a host key that changes during recovery makes the reconnecting
 session give up without further attempts or any plaintext fallback. Loopback only;
 no physical-device or Wi-Fi evidence. The Android bridge clippy job passes after
 gating desktop-only pairing items on the `async` feature.
+
+## 2026-10-26 — pairing SAS commit-reveal and review follow-ups
+
+The pairing code is now derived from the TLS exporter and both parties' nonces,
+each committed before the handshake and revealed inside it (HKDF-SHA256). A
+mismatched reveal aborts before any prompt. ALPN is `pair-v2` and the preface is
+`MMDEV2`; earlier pairing builds are not compatible. New tests cover an HKDF
+known-answer vector, nonce binding of the code, forged reveals in both directions
+and two-leg interception showing different codes. Also: paired-handshake errors are
+classified by `io::ErrorKind` (pin/secret/revocation terminal; network and timeout
+failures recoverable), Windows configuration lives under `%LOCALAPPDATA%`, a wrong
+offer nonce no longer consumes the genuine offer, and `mm-host --pair` prints the
+paired device name. The attempt limiter and pairing code remain library hooks and
+are not used by `mm-host --pair` or `mm-devices`.

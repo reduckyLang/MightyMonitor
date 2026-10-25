@@ -298,7 +298,12 @@ mod desktop {
                     .await
                 })
                 .await??;
-            mightymonitor_security::store::DeviceStore::open(&directory)?.insert(peer)?;
+            let id = mightymonitor_security::store::short_id(&peer.fingerprint);
+            let mut store = mightymonitor_security::store::DeviceStore::open(&directory)?;
+            store.insert(peer)?;
+            if let Some(device) = store.list().into_iter().find(|d| d.device_id == id) {
+                eprintln!("Paired with {}.", device.friendly_name);
+            }
             return Ok(());
         }
         let allow_control = allow_control && !paired;
