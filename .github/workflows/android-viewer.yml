@@ -1,6 +1,17 @@
 name: Build and test Android viewer
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: APK version label
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      version:
+        description: APK version label
+        required: true
+        type: string
   push:
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control']
     paths: ['security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']

@@ -93,9 +93,10 @@ def main():
             f'Installed-Size: {installed_size}\nDepends: {dependencies}, '+', '.join(extras)+'\n'
             'Homepage: https://github.com/reduckyLang/MightyMonitor\n'
             'Description: Local screen-sharing development prototype\n'
-            ' Share and view a Linux X11 desktop over a trusted local network.\n'
-            ' This alpha package is for testing; Android, remote input, virtual\n'
-            ' extended displays, authentication and encryption are not included.\n'
+            ' Share and view a Linux desktop over a local network, with private\n'
+            ' viewing links, pinned TLS, consent-based remote control, an Android\n'
+            ' viewer and experimental extended-display sharing. This alpha package\n'
+            ' is unsigned and intended for testing.\n'
         )
         (control / 'control').chmod(0o644)
         for directory in [package, *(p for p in package.rglob('*') if p.is_dir())]:

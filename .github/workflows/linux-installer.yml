@@ -6,6 +6,12 @@ on:
         description: Debian package version (alpha by default)
         required: true
         default: '0.0.1~alpha.5'
+  workflow_call:
+    inputs:
+      version:
+        description: Debian package version
+        required: true
+        type: string
   push:
     branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control']
     paths: ['security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
