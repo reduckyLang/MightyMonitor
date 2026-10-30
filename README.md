@@ -1,6 +1,6 @@
 # Trinix – Multi Monitor Control
 
-Trinix (formerly MightyMonitor) is a free, open-source application being built to share, control,
+Trinix is a free, open-source application being built to share, control,
 and extend screens across Linux, Windows, and Android devices over a local
 network. View another device in a window, use your keyboard and mouse or touch
 to control it, and turn another device into an additional display as these
@@ -22,13 +22,6 @@ unsigned pre-release. You need two devices on the same Wi-Fi.
 
 Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?](docs/HELP.md), [Glossary](docs/GLOSSARY.md).
 
-> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
-> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
-> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
-> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
-> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`, the Trinix Start menu entry)
-> apply from the next release.
-
 ## Goals
 - Share a screen between Linux, Windows and Android (host to viewer, any direction).
 - View an Android phone on a PC and control it from the PC.
@@ -46,8 +39,8 @@ Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?
 
 ## Contributor starting point
 
-Read the [project handover](docs/PROJECT_HANDOVER.md) for current evidence, missing
-features, architecture, next milestones and the squash-merge workflow.
+Read the [development guide](docs/DEVELOPMENT.md) for current evidence, missing
+features, architecture, next milestones and the PR workflow.
 
 ## Architecture (Cargo workspace)
 - `core`: protocol (serde + bincode, version byte first), framing, input events, platform traits (Capture, Encoder, Decoder, InputInjector), adaptive bitrate and reconnect logic.

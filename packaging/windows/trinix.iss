@@ -30,7 +30,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 [InstallDelete]
-; Remove files left by installs made under the previous project name.
+; Remove files left by earlier packages.
 Type: filesandordirs; Name: "{localappdata}\Programs\MightyMonitor"
 Type: filesandordirs; Name: "{userprograms}\MightyMonitor"
 Type: files; Name: "{userdesktop}\MightyMonitor.lnk"

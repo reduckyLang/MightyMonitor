@@ -90,12 +90,11 @@ See [docs/RELEASING.md](RELEASING.md) for the full publish procedure, artifact
 naming, verification steps, and signing status.
 
 
-## Upgrading from MightyMonitor builds
+## Upgrading from earlier packages
 
 The Windows installer keeps the same application id, installs into
-`%LOCALAPPDATA%\Programs\Trinix`, and removes the previous
-`%LOCALAPPDATA%\Programs\MightyMonitor` folder, its Start menu and desktop
-shortcuts, and the old `%LOCALAPPDATA%\MightyMonitor` video runtime, which is
-downloaded again under `%LOCALAPPDATA%\Trinix`. The `trinix` Debian package
-declares `Conflicts`, `Replaces` and `Provides: mightymonitor`, so installing it
-replaces an existing `mightymonitor` package.
+`%LOCALAPPDATA%\Programs\Trinix`, and removes folders and shortcuts left by
+earlier packages (see `[InstallDelete]` in `packaging/windows/trinix.iss`). The
+video runtime is downloaded again under `%LOCALAPPDATA%\Trinix`. The `trinix`
+Debian package declares `Conflicts`, `Replaces` and `Provides: mightymonitor`,
+so installing it replaces an earlier package of that name.

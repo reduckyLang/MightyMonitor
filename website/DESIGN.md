@@ -10,8 +10,8 @@ artwork. Centered hero; alternating image/text feature stories; practical releas
 and alpha status sections below. Direct headline: “Every screen. Within reach.”
 
 Review against brief: replaced the generic homemade device mockups and vague
-“make room” slogan with generated studio artwork. The user rejected the floating
-window transfer, so it has been removed. The hero now plays a three-chapter scene sequence: a restrained camera move
+“make room” slogan with generated studio artwork. The floating
+window transfer was removed. The hero now plays a three-chapter scene sequence: a restrained camera move
 within each generated composition, a directional wipe into the next mode, and
 a synchronized progress rail. Mode buttons select a chapter; Pause freezes both
 the camera and chapter clock. Hidden/offscreen scenes pause, and system reduced

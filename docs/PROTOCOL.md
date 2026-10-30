@@ -288,15 +288,19 @@ releases held remote input. Reconnect discards queued input and requires a fresh
 control request. See REMOTE_CONTROL.md and the current core message definitions
 for validation bounds. Existing message kind values remain unchanged.
 
-## Legacy identifiers
+## Protocol identifiers
 
-The project was renamed to Trinix. Identifiers that other devices or existing
-installs depend on keep their original values for compatibility: the TLS ALPN
-`mightymonitor/secure-v1`, the TLS server name `mightymonitor.local`, the
-`mightymonitor://` connection link scheme, the DNS-SD service type
-`_mightymonitor._tcp.local.`, the Android application id `com.mightymonitor.app`,
-its JNI library name `mightymonitor_android`, the Android intent action
-`com.mightymonitor.STOP_SHARING`, and the `MM_INVITE` invitation line prefix.
-The `MM_ALLOW_INPUT_SMOKE`, `MM_REQUIRE_CODECS` and `MM_STARTUP_ERROR`
-environment variables also keep their names. Changing any of them would
-break interoperability with existing builds and needs a protocol version bump.
+| Identifier | Value |
+| --- | --- |
+| TLS ALPN | `mightymonitor/secure-v1` |
+| TLS server name | `mightymonitor.local` |
+| Connection link scheme | `mightymonitor://` |
+| DNS-SD service type | `_mightymonitor._tcp.local.` |
+| Android application id | `com.mightymonitor.app` |
+| Android JNI library | `mightymonitor_android` |
+| Android stop-sharing intent action | `com.mightymonitor.STOP_SHARING` |
+| Invitation line prefix | `MM_INVITE` |
+| Environment variables | `MM_ALLOW_INPUT_SMOKE`, `MM_REQUIRE_CODECS`, `MM_STARTUP_ERROR` |
+
+These values are part of the wire and install contract. Changing any of them
+breaks interoperability with existing builds and needs a protocol version bump.

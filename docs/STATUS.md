@@ -83,7 +83,7 @@ The roadmap tracks M2 as a whole, so its completion status is unchanged.
 2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.
 
 2026-10-18: M2-6 desktop viewer implemented on feat/m2-6-viewer. Added
-mightymonitor-viewer / mm-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
+the desktop viewer with pinned eframe 0.31.1, Linux codec-gst H.264
 I420 decoding, RGB texture presentation, connection controls, lifecycle state,
 fps/payload bitrate/RTT overlay and logged decode-to-texture-submission latency.
 The GUI feature can be disabled for the headless generic core ViewerSession;
@@ -208,7 +208,7 @@ installation/runtime/uninstallation checks. Physical devices and interactive
 Wayland input remain unverified. PR #44 is the remote-control review milestone.
 
 2026-10-19: Experimental Wayland extension is implemented on the separate
-`codex/virtual-display` branch after the remote-control milestone. It requests
+`virtual-display` branch after the remote-control milestone. It requests
 the portal's Virtual source, checks advertised support and the returned stream
 type, reuses encrypted H.264 viewing/control, and exposes Mirror/Extend in Share.
 Unsupported X11/Windows extension fails before publishing a viewing invitation.
