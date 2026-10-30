@@ -1,6 +1,6 @@
 //! Time-gated host policy around the core AIMD controller.
-use mightymonitor_core::{AimdConfig, AimdController, Encoder, NetStats};
 use std::time::Duration;
+use trinix_core::{AimdConfig, AimdController, Encoder, NetStats};
 
 /// One decision per second, two healthy reports before recovery, and a bounded
 /// 5 Mbit/s recovery step. Time is supplied by the caller for deterministic tests.
@@ -40,7 +40,7 @@ impl Abr {
         stats: &NetStats,
         now: Duration,
         blocked: bool,
-    ) -> Result<Option<u32>, mightymonitor_core::CodecError> {
+    ) -> Result<Option<u32>, trinix_core::CodecError> {
         // Latch before cloning so skipped reports and encoder failures retain
         // the observation until a valid decision is successfully committed.
         self.pending_write_pressure |= blocked;
@@ -98,10 +98,10 @@ mod tests {
         reject: bool,
     }
     impl Encoder for EncoderStub {
-        fn encode(&mut self, _: &[u8]) -> Result<Vec<u8>, mightymonitor_core::CodecError> {
+        fn encode(&mut self, _: &[u8]) -> Result<Vec<u8>, trinix_core::CodecError> {
             Ok(vec![])
         }
-        fn set_bitrate_kbps(&mut self, target: u32) -> Result<(), mightymonitor_core::CodecError> {
+        fn set_bitrate_kbps(&mut self, target: u32) -> Result<(), trinix_core::CodecError> {
             if self.reject {
                 return Err(std::io::Error::other("rejected").into());
             }

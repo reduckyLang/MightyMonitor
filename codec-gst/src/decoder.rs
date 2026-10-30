@@ -106,11 +106,8 @@ impl Decoder {
         })
     }
 }
-impl mightymonitor_core::traits::Decoder for Decoder {
-    fn decode(
-        &mut self,
-        encoded: &[u8],
-    ) -> std::result::Result<Vec<u8>, mightymonitor_core::CodecError> {
+impl trinix_core::traits::Decoder for Decoder {
+    fn decode(&mut self, encoded: &[u8]) -> std::result::Result<Vec<u8>, trinix_core::CodecError> {
         let pts = self.next_pts;
         Ok(self.decode_frame(encoded, pts)?.data)
     }

@@ -1,12 +1,12 @@
 use std::time::{Duration, Instant};
 
-use mightymonitor_core::{
-    encode_stream_frame, FrameError, FrameHeader, TcpTransport, Transport, TransportError,
-    MAX_PAYLOAD_LEN, PROTOCOL_VERSION,
-};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
+use trinix_core::{
+    encode_stream_frame, FrameError, FrameHeader, TcpTransport, Transport, TransportError,
+    MAX_PAYLOAD_LEN, PROTOCOL_VERSION,
+};
 
 const LIMIT: Duration = Duration::from_secs(12);
 

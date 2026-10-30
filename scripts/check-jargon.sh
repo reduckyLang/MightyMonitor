@@ -22,7 +22,7 @@ TARGETS=(
 # Matched case-sensitively as whole words (acronyms).
 CASE_WORDS='IP|TCP|UDP|TLS|SHA|SHA-256|DNS|LAN|APK|ADB|H\.264|H264|JNI|QUIC|MM_INVITE'
 # Matched case-insensitively as whole words.
-ANY_WORDS='port|ports|codec|codecs|bitrate|kbit|kbit/s|kbps|fps|GStreamer|listener|listeners|mDNS|Bonjour|session id|session ids|PipeWire|Wayland|X11|runtime|handshake|certificate|fingerprint|latency|socket|daemon|localhost|loopback|backend|protocol|bind|MediaCodec|MediaProjection|sideload|mm-host|mm-viewer|stderr|stdout|link|links|address|addresses|package|packages|portal|driver|drivers'
+ANY_WORDS='port|ports|codec|codecs|bitrate|kbit|kbit/s|kbps|fps|GStreamer|listener|listeners|mDNS|Bonjour|session id|session ids|PipeWire|Wayland|X11|runtime|handshake|certificate|fingerprint|latency|socket|daemon|localhost|loopback|backend|protocol|bind|MediaCodec|MediaProjection|sideload|trinix-host|trinix-viewer|stderr|stdout|link|links|address|addresses|package|packages|portal|driver|drivers'
 # Also banned where the operating system's own word is not needed (not in HELP or GLOSSARY, which explain them).
 STRICT_WORDS='firewall|VPN'
 

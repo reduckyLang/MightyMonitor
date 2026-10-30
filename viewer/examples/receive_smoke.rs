@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let address = if args.first().map(String::as_str) == Some("--invitation-file") {
         let path = args.get(1).ok_or("Pass an invitation file")?;
-        let invitation: mightymonitor_security::Invitation =
+        let invitation: trinix_security::Invitation =
             std::fs::read_to_string(path)?.trim().parse()?;
         if args.get(2).map(String::as_str) == Some("--via") {
             invitation
@@ -20,8 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("Pass a connection link or invitation file")?
             .clone()
     };
-    let session =
-        mightymonitor_viewer::net::ViewerSession::new(codec_gst::decoder::Decoder::new()?);
+    let session = trinix_viewer::net::ViewerSession::new(codec_gst::decoder::Decoder::new()?);
     let output = session.output.clone();
     let task = tokio::spawn(session.run(address));
     let start = tokio::time::Instant::now();

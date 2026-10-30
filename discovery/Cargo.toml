@@ -1,16 +1,16 @@
 [package]
-name = "mightymonitor-discovery"
+name = "trinix-discovery"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-mightymonitor-core = { path = "../core" }
+trinix-core = { path = "../core" }
 if-addrs = "=0.13.4"
 mdns-sd = { version = "=0.13.11", default-features = false }
 
 [dev-dependencies]
-mightymonitor-security = { path = "../security" }
+trinix-security = { path = "../security" }
 base64 = "=0.22.1"
 rcgen = { version = "=0.14.7", default-features = false, features = ["ring", "zeroize"] }

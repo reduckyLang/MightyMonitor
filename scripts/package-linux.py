@@ -36,7 +36,7 @@ def main():
     for tool in ('dpkg', 'dpkg-deb', 'dpkg-shlibdeps'):
         if not shutil.which(tool):
             parser.error(f'{tool} is required (install dpkg-dev)')
-    binaries = [(args.binaries_dir / name).resolve() for name in ('mm-viewer', 'mm-host')]
+    binaries = [(args.binaries_dir / name).resolve() for name in ('trinix-viewer', 'trinix-host')]
     for binary in binaries:
         if not binary.is_file() or not os.access(binary, os.X_OK):
             parser.error(f'Missing executable {binary}; first run cargo build --release --workspace')
@@ -44,24 +44,24 @@ def main():
     if architecture(binaries[1]) != arch or run('dpkg', '--print-architecture') != arch:
         parser.error('Build/package natively; binary architectures must match this system')
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = (args.output_dir / f'mightymonitor_{args.version}_{arch}.deb').resolve()
-    with tempfile.TemporaryDirectory(prefix='mightymonitor-package-') as temp:
+    output = (args.output_dir / f'trinix_{args.version}_{arch}.deb').resolve()
+    with tempfile.TemporaryDirectory(prefix='trinix-package-') as temp:
         work = Path(temp)
         package = work / 'package'
-        app = package / 'usr/lib/mightymonitor'
+        app = package / 'usr/lib/trinix'
         app.mkdir(parents=True)
         for binary in binaries:
             destination = app / binary.name
             shutil.copyfile(binary, destination)
             destination.chmod(0o755)
-        launcher = package / 'usr/bin/mightymonitor'
+        launcher = package / 'usr/bin/trinix'
         launcher.parent.mkdir(parents=True)
-        launcher.symlink_to('../lib/mightymonitor/mm-viewer')
+        launcher.symlink_to('../lib/trinix/trinix-viewer')
         for source, destination in [
-            (ROOT / 'packaging/linux/mightymonitor.desktop', 'usr/share/applications/mightymonitor.desktop'),
-            (ROOT / 'assets/mightymonitor.png', 'usr/share/pixmaps/mightymonitor.png'),
-            (ROOT / 'LICENSE', 'usr/share/doc/mightymonitor/LICENSE'),
-            (ROOT / 'NOTICE', 'usr/share/doc/mightymonitor/NOTICE'),
+            (ROOT / 'packaging/linux/trinix.desktop', 'usr/share/applications/trinix.desktop'),
+            (ROOT / 'assets/trinix.png', 'usr/share/pixmaps/trinix.png'),
+            (ROOT / 'LICENSE', 'usr/share/doc/trinix/LICENSE'),
+            (ROOT / 'NOTICE', 'usr/share/doc/trinix/NOTICE'),
         ]:
             target = package / destination
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -70,7 +70,7 @@ def main():
         # Resolve actual ELF ABI requirements rather than guessing libc versions.
         debian = work / 'debian'
         debian.mkdir()
-        (debian / 'control').write_text('Source: mightymonitor\nSection: net\nPriority: optional\nMaintainer: MightyMonitor contributors <85924848+akasumitlamba@users.noreply.github.com>\n\nPackage: mightymonitor\nArchitecture: any\nDescription: Local screen-sharing prototype\n')
+        (debian / 'control').write_text('Source: trinix\nSection: net\nPriority: optional\nMaintainer: Trinix contributors <85924848+akasumitlamba@users.noreply.github.com>\n\nPackage: trinix\nArchitecture: any\nDescription: Local screen-sharing prototype\n')
         resolved = run('dpkg-shlibdeps', '-O', *(f'-e{path}' for path in binaries), cwd=work)
         dependency_line = next((line for line in resolved.splitlines() if line.startswith('shlibs:Depends=')), None)
         if not dependency_line:
@@ -87,11 +87,11 @@ def main():
         control.mkdir()
         installed_size = sum(p.stat().st_size for p in package.rglob('*') if p.is_file() and not p.is_symlink()) // 1024
         (control / 'control').write_text(
-            f'Package: mightymonitor\nVersion: {args.version}\nArchitecture: {arch}\n'
+            f'Package: trinix\nVersion: {args.version}\nArchitecture: {arch}\n'
             'Section: net\nPriority: optional\n'
-            'Maintainer: MightyMonitor contributors <85924848+akasumitlamba@users.noreply.github.com>\n'
+            'Maintainer: Trinix contributors <85924848+akasumitlamba@users.noreply.github.com>\n'
             f'Installed-Size: {installed_size}\nDepends: {dependencies}, '+', '.join(extras)+'\n'
-            'Homepage: https://github.com/reduckyLang/MightyMonitor\n'
+            'Homepage: https://github.com/reduckyLang/Trinix\n'
             'Description: Local screen-sharing development prototype\n'
             ' Share and view a Linux desktop over a local network, with private\n'
             ' viewing links, pinned TLS, consent-based remote control, an Android\n'

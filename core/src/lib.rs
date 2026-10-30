@@ -1,4 +1,4 @@
-//! MightyMonitor's typed wire protocol, stream framing, transport abstractions,
+//! Trinix's typed wire protocol, stream framing, transport abstractions,
 //! adaptive bitrate controller, and reconnect lifecycle.
 
 /// Adaptive bitrate control from receiver feedback.

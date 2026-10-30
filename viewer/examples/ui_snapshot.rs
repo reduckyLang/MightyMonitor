@@ -2,7 +2,7 @@
 use eframe::egui;
 use std::io::Write;
 struct Snapshot {
-    app: mightymonitor_viewer::app::App,
+    app: trinix_viewer::app::App,
     frames: u32,
     path: String,
 }
@@ -28,12 +28,12 @@ impl eframe::App for Snapshot {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args().nth(1).ok_or("Pass a PPM output path")?;
     let snapshot = Snapshot {
-        app: mightymonitor_viewer::app::App::new()?,
+        app: trinix_viewer::app::App::new()?,
         frames: 0,
         path,
     };
     eframe::run_native(
-        "MightyMonitor preview",
+        "Trinix preview",
         eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default().with_inner_size([1100.0, 720.0]),
             ..Default::default()

@@ -287,3 +287,13 @@ not peer-provided native OS scan codes. Text is bounded Unicode; ReleaseAll
 releases held remote input. Reconnect discards queued input and requires a fresh
 control request. See REMOTE_CONTROL.md and the current core message definitions
 for validation bounds. Existing message kind values remain unchanged.
+
+## Legacy identifiers
+
+The project was renamed to Trinix. Identifiers that other devices or existing
+installs depend on keep their original values for compatibility: the TLS ALPN
+`mightymonitor/secure-v1`, the TLS server name `mightymonitor.local`, the
+`mightymonitor://` connection link scheme, the DNS-SD service type
+`_mightymonitor._tcp.local.`, the Android application id `com.mightymonitor.app`
+and its JNI library name `mightymonitor_android`. Changing any of them would
+break interoperability with existing builds and needs a protocol version bump.

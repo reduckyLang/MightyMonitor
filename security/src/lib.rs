@@ -167,7 +167,7 @@ impl FromStr for Invitation {
         let mut parts = link
             .trim()
             .strip_prefix("mightymonitor://")
-            .ok_or_else(|| invalid("Paste a MightyMonitor connection link"))?
+            .ok_or_else(|| invalid("Paste a Trinix connection link"))?
             .split('/');
         let address: SocketAddr = parts
             .next()

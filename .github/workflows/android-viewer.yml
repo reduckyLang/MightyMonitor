@@ -73,7 +73,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: android-viewer-apks
-          path: /tmp/mightymonitor-apks
+          path: /tmp/trinix-apks
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -84,14 +84,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libpipewire-0.3-dev libspa-0.2-dev clang libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --locked -p mightymonitor-host
-      - run: cargo build --release --locked -p mightymonitor-viewer --example receive_smoke --no-default-features
+      - run: cargo build --release --locked -p trinix-host
+      - run: cargo build --release --locked -p trinix-viewer --example receive_smoke --no-default-features
       - name: Start isolated test desktop and real H.264 host
         run: |
           Xvfb :99 -screen 0 640x480x24 > /tmp/mm-xvfb.log 2>&1 &
           for i in $(seq 1 50); do test -S /tmp/.X11-unix/X99 && break; sleep .1; done
           umask 077
-          DISPLAY=:99 ./target/release/mm-host --secure --bind 127.0.0.1:5000 --fps 10 > /tmp/mm-pc-invitation-private 2> /tmp/mm-host.log &
+          DISPLAY=:99 ./target/release/trinix-host --secure --bind 127.0.0.1:5000 --fps 10 > /tmp/mm-pc-invitation-private 2> /tmp/trinix-host.log &
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -105,8 +105,8 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
-            adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
+            adb install $(find /tmp/trinix-apks -name app-debug.apk)
+            adb install $(find /tmp/trinix-apks -name app-debug-androidTest.apk)
             # Isolated emulator acceptance: preauthorize only our test service/IME.
             # The shipped app never writes these settings and always requires the user's system grant.
             # Grant accessibility inside instrumentation after its process restart.
@@ -134,7 +134,7 @@ jobs:
           name: android-viewer-test-logs-api-${{ matrix.api }}
           path: |
             /tmp/mm-desktop-video.log
-            /tmp/mm-host.log
+            /tmp/trinix-host.log
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
             /tmp/mm-android-logcat.log
