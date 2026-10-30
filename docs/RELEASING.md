@@ -19,7 +19,7 @@ that the build succeeds and artifacts are correct before deciding to publish.
 2. Click **Run workflow**.
 3. Enter a `version` string following the pattern `MAJOR.MINOR.PATCH-alpha.N`,
    e.g. `0.1.0-alpha.2`. Use a version whose tag `v<version>` does not exist
-   yet; `0.1.0-alpha.1` is already released.
+   yet.
 4. Leave **publish** unchecked (default: false).
 5. Click **Run workflow**.
 

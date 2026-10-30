@@ -34,7 +34,7 @@ through a small docs PR whenever a task starts, opens a PR or merges.
 | P1 M8 mDNS discovery + persistent pairing (3 PRs) | `feat/m8a-discovery` (part 1) | #9, draft PR #52 | none | in progress |
 | P2 Protocol v3 + core hygiene | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
 | S1 User-message catalog (`ux/` crate) | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
-| P3 CI/supply-chain + pre-release pipeline | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; a manual unsigned pre-release `v0.1.0-alpha.1` already exists, this task adds the repeatable pipeline |
+| P3 CI/supply-chain + pre-release pipeline | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; adds a repeatable pre-release pipeline |
 | S3 Android plain-language pass (incl. Android legacy toggle debug-only) | not started | #50 | P3 (queue order) | queued, not started |
 | S4 Windows installer 7 -> 3 clicks | not started | #50 | S3 (queue order) | queued, not started |
 | S2 Getting-started docs and copy | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
@@ -47,12 +47,13 @@ through a small docs PR whenever a task starts, opens a PR or merges.
 | P5 Extended display spike (X11 PoC, Windows design) | not started | #10 | none | waiting / not started |
 | P6 Viewer batch | not started | #50 | P1, P2 | after P1 + P2 |
 
-A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/Trinix/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
-with a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`, built from the existing
-manual CI builds. It was tested on emulators, Xvfb and one KDE session only; physical-device
+Download the latest build from the
+[Releases page](https://github.com/reduckyLang/Trinix/releases). Test builds are
+unsigned and include a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`.
+They were tested on emulators, Xvfb and one KDE session only; physical-device
 and Wi-Fi acceptance are unverified. There is no
 stable release, and production signing and a stable release are still open. Known
-follow-ups: the Windows installer file keeps the internal `0.0.1-alpha.1` name and version string
+follow-ups: the Windows installer version string is fixed in the build script
 (draft PR #56 adds a version input), and the `.deb` description text in
 `scripts/package-linux.py` is outdated (it describes an X11-only development prototype).
 Labels `claimed`, `blocked` and `follow-up` mark issue state on
