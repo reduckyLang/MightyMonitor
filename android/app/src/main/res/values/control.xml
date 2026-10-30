@@ -1,4 +1,4 @@
 <resources>
     <string name="control_description">Optional remote control for your shared phone screen. A connected device can tap, swipe and edit the focused field only while screen sharing is running and you have allowed control. Stop sharing to end access. No accessibility content is recorded.</string>
-    <string name="keyboard_label">MightyMonitor remote keyboard</string>
+    <string name="keyboard_label">Trinix remote keyboard</string>
 </resources>

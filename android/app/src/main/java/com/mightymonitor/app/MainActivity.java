@@ -84,7 +84,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         LinearLayout layout = column(); layout.setFitsSystemWindows(true);
         layout.setPadding(dp(20), dp(18), dp(20), dp(12));
         layout.setBackgroundColor(Color.rgb(247, 248, 247));
-        layout.addView(text("MightyMonitor", 26, Color.rgb(30, 39, 35)));
+        layout.addView(text("Trinix", 26, Color.rgb(30, 39, 35)));
         LinearLayout navigation = new LinearLayout(this);
         Button viewTab = new Button(this); viewTab.setText("View");
         Button shareTab = new Button(this); shareTab.setText("Share"); shareTab.setId(SHARE_TAB_ID);
@@ -156,7 +156,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         copyLink.setOnClickListener(v -> {
             String link = ScreenShareService.invitation;
             if (link.isEmpty()) { shareStatus.setText("Start sharing first"); return; }
-            android.content.ClipData clip = android.content.ClipData.newPlainText("MightyMonitor connection", link);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("Trinix connection", link);
             if (android.os.Build.VERSION.SDK_INT >= 33) { android.os.PersistableBundle extras = new android.os.PersistableBundle(); extras.putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true); clip.getDescription().setExtras(extras); }
             getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
             shareStatus.setText("Link copied");
@@ -166,11 +166,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             if (!enabled && ScreenShareService.sharing) ScreenShareService.revokeControl();
             if (enabled && !RemoteControlService.available()) {
                 shareControl.setChecked(false);
-                new android.app.AlertDialog.Builder(this).setTitle("Enable phone control").setMessage("Enable MightyMonitor control in Android Accessibility settings. Control works only while you share your screen and allow it here.").setPositiveButton("Open settings", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))).setNegativeButton("Cancel", null).show();
+                new android.app.AlertDialog.Builder(this).setTitle("Enable phone control").setMessage("Enable Trinix control in Android Accessibility settings. Control works only while you share your screen and allow it here.").setPositiveButton("Open settings", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))).setNegativeButton("Cancel", null).show();
             }
         });
         Button keyboardSettings = new Button(this); keyboardSettings.setText("Remote keyboard"); styleButton(keyboardSettings, false); sharePage.addView(keyboardSettings);
-        keyboardSettings.setOnClickListener(v -> new android.app.AlertDialog.Builder(this).setTitle("Remote keyboard").setMessage("Optional: enable and select the MightyMonitor remote keyboard for full typing, shortcuts and password fields. You can switch back at any time.").setPositiveButton("Enable", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))).setNeutralButton("Select", (dialog, which) -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()).setNegativeButton("Cancel", null).show());
+        keyboardSettings.setOnClickListener(v -> new android.app.AlertDialog.Builder(this).setTitle("Remote keyboard").setMessage("Optional: enable and select the Trinix remote keyboard for full typing, shortcuts and password fields. You can switch back at any time.").setPositiveButton("Enable", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))).setNeutralButton("Select", (dialog, which) -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()).setNegativeButton("Cancel", null).show());
         share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
