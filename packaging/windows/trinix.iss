@@ -14,6 +14,8 @@ AppPublisherURL=https://github.com/reduckyLang/Trinix
 DefaultDirName={localappdata}\Programs\Trinix
 DefaultGroupName=Trinix
 DisableProgramGroupPage=yes
+UsePreviousAppDir=no
+UsePreviousGroup=no
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -27,6 +29,12 @@ InfoBeforeFile=installer-info.txt
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+[InstallDelete]
+; Remove files left by installs made under the previous project name.
+Type: filesandordirs; Name: "{localappdata}\Programs\MightyMonitor"
+Type: filesandordirs; Name: "{userprograms}\MightyMonitor"
+Type: files; Name: "{userdesktop}\MightyMonitor.lnk"
+Type: filesandordirs; Name: "{localappdata}\MightyMonitor"
 [Files]
 Source: "..\..\target\release\trinix-viewer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\target\release\trinix-host.exe"; DestDir: "{app}"; Flags: ignoreversion

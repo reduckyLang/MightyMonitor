@@ -88,6 +88,7 @@ def main():
         installed_size = sum(p.stat().st_size for p in package.rglob('*') if p.is_file() and not p.is_symlink()) // 1024
         (control / 'control').write_text(
             f'Package: trinix\nVersion: {args.version}\nArchitecture: {arch}\n'
+            'Conflicts: mightymonitor\nReplaces: mightymonitor\nProvides: mightymonitor\n'
             'Section: net\nPriority: optional\n'
             'Maintainer: Trinix contributors <85924848+akasumitlamba@users.noreply.github.com>\n'
             f'Installed-Size: {installed_size}\nDepends: {dependencies}, '+', '.join(extras)+'\n'

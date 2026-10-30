@@ -295,5 +295,8 @@ installs depend on keep their original values for compatibility: the TLS ALPN
 `mightymonitor/secure-v1`, the TLS server name `mightymonitor.local`, the
 `mightymonitor://` connection link scheme, the DNS-SD service type
 `_mightymonitor._tcp.local.`, the Android application id `com.mightymonitor.app`
-and its JNI library name `mightymonitor_android`. Changing any of them would
+its JNI library name `mightymonitor_android`, the Android intent action
+`com.mightymonitor.STOP_SHARING`, and the `MM_INVITE` invitation line prefix.
+The `MM_ALLOW_INPUT_SMOKE`, `MM_REQUIRE_CODECS` and `MM_STARTUP_ERROR`
+environment variables also keep their names. Changing any of them would
 break interoperability with existing builds and needs a protocol version bump.

@@ -89,3 +89,13 @@ All pre-release artifacts are alpha quality:
 See [docs/RELEASING.md](RELEASING.md) for the full publish procedure, artifact
 naming, verification steps, and signing status.
 
+
+## Upgrading from MightyMonitor builds
+
+The Windows installer keeps the same application id, installs into
+`%LOCALAPPDATA%\Programs\Trinix`, and removes the previous
+`%LOCALAPPDATA%\Programs\MightyMonitor` folder, its Start menu and desktop
+shortcuts, and the old `%LOCALAPPDATA%\MightyMonitor` video runtime, which is
+downloaded again under `%LOCALAPPDATA%\Trinix`. The `trinix` Debian package
+declares `Conflicts`, `Replaces` and `Provides: mightymonitor`, so installing it
+replaces an existing `mightymonitor` package.
