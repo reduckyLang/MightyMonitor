@@ -70,8 +70,8 @@ name = "android-bridge"
 version = "0.0.1"
 dependencies = [
  "jni 0.21.1",
- "mightymonitor-core",
- "mightymonitor-security",
+ "trinix-core",
+ "trinix-security",
 ]
 
 [[package]]
@@ -264,8 +264,8 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "bench"
 version = "0.0.1"
 dependencies = [
- "mightymonitor-core",
  "tokio",
+ "trinix-core",
 ]
 
 [[package]]
@@ -547,8 +547,8 @@ dependencies = [
  "gstreamer",
  "gstreamer-app",
  "gstreamer-video",
- "mightymonitor-core",
  "thiserror 2.0.21",
+ "trinix-core",
 ]
 
 [[package]]
@@ -1686,10 +1686,10 @@ version = "0.0.1"
 dependencies = [
  "ashpd",
  "futures-util",
- "mightymonitor-core",
  "pipewire",
  "thiserror 2.0.21",
  "tokio",
+ "trinix-core",
  "x11rb",
 ]
 
@@ -2131,82 +2131,6 @@ dependencies = [
  "log",
  "objc",
  "paste",
-]
-
-[[package]]
-name = "mightymonitor-core"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "bincode",
- "serde",
- "thiserror 2.0.21",
- "tokio",
-]
-
-[[package]]
-name = "mightymonitor-discovery"
-version = "0.0.1"
-dependencies = [
- "base64",
- "if-addrs",
- "mdns-sd",
- "mightymonitor-core",
- "mightymonitor-security",
- "rcgen",
-]
-
-[[package]]
-name = "mightymonitor-host"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "codec-gst",
- "enigo",
- "host-linux",
- "mightymonitor-core",
- "mightymonitor-security",
- "mightymonitor-viewer",
- "socket2 0.6.5",
- "tokio",
- "x11rb",
-]
-
-[[package]]
-name = "mightymonitor-security"
-version = "0.0.1"
-dependencies = [
- "base64",
- "getrandom 0.2.17",
- "mightymonitor-core",
- "rcgen",
- "rustls",
- "sha2",
- "subtle",
- "time",
- "tokio",
- "tokio-rustls",
- "zeroize",
-]
-
-[[package]]
-name = "mightymonitor-ux"
-version = "0.0.1"
-dependencies = [
- "mightymonitor-core",
-]
-
-[[package]]
-name = "mightymonitor-viewer"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "codec-gst",
- "eframe",
- "mightymonitor-core",
- "mightymonitor-security",
- "qrcode",
- "tokio",
 ]
 
 [[package]]
@@ -3884,6 +3808,82 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "trinix-core"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "serde",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
+name = "trinix-discovery"
+version = "0.0.1"
+dependencies = [
+ "base64",
+ "if-addrs",
+ "mdns-sd",
+ "rcgen",
+ "trinix-core",
+ "trinix-security",
+]
+
+[[package]]
+name = "trinix-host"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "codec-gst",
+ "enigo",
+ "host-linux",
+ "socket2 0.6.5",
+ "tokio",
+ "trinix-core",
+ "trinix-security",
+ "trinix-viewer",
+ "x11rb",
+]
+
+[[package]]
+name = "trinix-security"
+version = "0.0.1"
+dependencies = [
+ "base64",
+ "getrandom 0.2.17",
+ "rcgen",
+ "rustls",
+ "sha2",
+ "subtle",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "trinix-core",
+ "zeroize",
+]
+
+[[package]]
+name = "trinix-ux"
+version = "0.0.1"
+dependencies = [
+ "trinix-core",
+]
+
+[[package]]
+name = "trinix-viewer"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "codec-gst",
+ "eframe",
+ "qrcode",
+ "tokio",
+ "trinix-core",
+ "trinix-security",
 ]
 
 [[package]]

@@ -1,9 +1,9 @@
-use mightymonitor_core::{
+use std::time::Duration;
+use tokio::{io::AsyncWriteExt, net::TcpListener};
+use trinix_core::{
     encode_stream_frame, BackoffPolicy, Message, ReconnectingSession, SplitMix64, TcpConnector,
     TcpTransport, Transport,
 };
-use std::time::Duration;
-use tokio::{io::AsyncWriteExt, net::TcpListener};
 
 #[tokio::test]
 async fn loopback_server_restart_reconnect() {

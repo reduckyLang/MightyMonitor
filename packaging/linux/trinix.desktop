@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=MightyMonitor
+Name=Trinix
 Comment=Share and view screens on your local network
-Exec=mightymonitor
-Icon=mightymonitor
+Exec=trinix
+Icon=trinix
 Terminal=false
 Categories=Network;RemoteAccess;
 StartupNotify=true

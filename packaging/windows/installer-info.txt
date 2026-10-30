@@ -1,9 +1,9 @@
-MightyMonitor for Windows 10 and 11 (64-bit) - early test version
+Trinix for Windows 10 and 11 (64-bit) - early test version
 
 Share your screen with another device, or see another device's screen on this PC, over your own home or office Wi-Fi. It is free and needs no account.
 
 What Setup does
-- Installs MightyMonitor for your Windows account only. Setup does not need administrator rights.
+- Installs Trinix for your Windows account only. Setup does not need administrator rights.
 - The first time, it downloads video support. This is a large download, so you need internet and some free disk space.
 
 What Setup does not do
@@ -12,14 +12,14 @@ What Setup does not do
 
 First use
 - Windows may say it "protected your PC", because this early version is not signed yet. If you got Setup from the project, choose "More info", then "Run anyway".
-- The first time you share, Windows may ask if MightyMonitor can use your network. Keep "Private networks" ticked and choose "Allow access". Windows may ask for an administrator's password.
-- Open MightyMonitor from the Start menu. Help for each step: docs/GETTING_STARTED.md in the project, on GitHub.
+- The first time you share, Windows may ask if Trinix can use your network. Keep "Private networks" ticked and choose "Allow access". Windows may ask for an administrator's password.
+- Open Trinix from the Start menu. Help for each step: docs/GETTING_STARTED.md in the project, on GitHub.
 
 To remove it
-- Open Windows Settings, then Apps, and uninstall MightyMonitor.
+- Open Windows Settings, then Apps, and uninstall Trinix.
 - The video support is a separate program and stays, so other programs can keep using it. You can remove it from the same Apps list if you no longer need it.
 
 Credits and licences
-- MightyMonitor is open source under the Apache License 2.0 (LICENSE and NOTICE are installed with the app).
+- Trinix is open source under the Apache License 2.0 (LICENSE and NOTICE are installed with the app).
 - The video support is GStreamer 1.28.8 from the GStreamer project (gstreamer.freedesktop.org). Setup checks the download against a fixed checksum. GStreamer and its plug-ins keep their own licences, mainly LGPL, plus GPL for the H.264 encoder. They have their own uninstall entry and are not bundled in this Setup file.
 - This is an early test version. It has not been tested on many PCs yet. Remote control and second-screen features are still being developed.

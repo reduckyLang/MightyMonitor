@@ -102,9 +102,7 @@ impl App {
     }
     fn connect(&mut self) {
         self.disconnect();
-        if let Err(error) =
-            mightymonitor_security::Endpoint::parse(&self.address, self.allow_legacy)
-        {
+        if let Err(error) = trinix_security::Endpoint::parse(&self.address, self.allow_legacy) {
             self.output.lock().unwrap_or_else(|e| e.into_inner()).error = Some(error.to_string());
             return;
         }
@@ -162,7 +160,7 @@ impl eframe::App for App {
                     }
                     Ok(false) => {
                         let diagnostics = host.diagnostics().unwrap_or_default();
-                        self.host_message = if diagnostics.contains("mm-host listening on") {
+                        self.host_message = if diagnostics.contains("trinix-host listening on") {
                             format!("Sharing on {}", self.share_address)
                         } else {
                             "Starting sharing…".into()
@@ -205,7 +203,7 @@ impl eframe::App for App {
             .exact_width(174.0)
             .show(ctx, |ui| {
                 ui.add_space(18.0);
-                ui.label(egui::RichText::new("MightyMonitor").size(20.0).strong());
+                ui.label(egui::RichText::new("Trinix").size(20.0).strong());
                 ui.add_space(30.0);
                 ui.selectable_value(&mut self.page, Page::View, "View a screen");
                 ui.selectable_value(&mut self.page, Page::Share, "Share this screen");
@@ -280,7 +278,7 @@ impl eframe::App for App {
         );
         if self.page != Page::View && self.input_focused {
             self.command(crate::net::ControlAction::Input(
-                mightymonitor_core::InputEvent::ReleaseAll,
+                trinix_core::InputEvent::ReleaseAll,
             ));
             self.input_focused = false;
             self.input_modifiers = egui::Modifiers::NONE;
@@ -506,7 +504,7 @@ impl eframe::App for App {
                         }
                     } else if self.input_focused {
                         self.command(crate::net::ControlAction::Input(
-                            mightymonitor_core::InputEvent::ReleaseAll,
+                            trinix_core::InputEvent::ReleaseAll,
                         ));
                         self.input_modifiers = egui::Modifiers::NONE;
                     }

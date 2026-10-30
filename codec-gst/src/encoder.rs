@@ -204,18 +204,12 @@ impl Encoder {
         }
     }
 }
-impl mightymonitor_core::traits::Encoder for Encoder {
-    fn encode(
-        &mut self,
-        raw: &[u8],
-    ) -> std::result::Result<Vec<u8>, mightymonitor_core::CodecError> {
+impl trinix_core::traits::Encoder for Encoder {
+    fn encode(&mut self, raw: &[u8]) -> std::result::Result<Vec<u8>, trinix_core::CodecError> {
         let pts = self.next_pts;
         Ok(self.encode_frame(raw, pts)?.data)
     }
-    fn set_bitrate_kbps(
-        &mut self,
-        kbps: u32,
-    ) -> std::result::Result<(), mightymonitor_core::CodecError> {
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> std::result::Result<(), trinix_core::CodecError> {
         Ok(Encoder::set_bitrate_kbps(self, kbps)?)
     }
 }

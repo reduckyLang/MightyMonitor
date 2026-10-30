@@ -1,6 +1,5 @@
 //! One authorized capture session, reused across sequential network viewers.
 use crate::CapturedFrame;
-use mightymonitor_core::{Bytes, Capture};
 use std::{
     io,
     sync::{
@@ -10,6 +9,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use trinix_core::{Bytes, Capture};
 #[derive(Default)]
 struct Latest {
     frame: Option<CapturedFrame>,

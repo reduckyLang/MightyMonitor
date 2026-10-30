@@ -1,12 +1,12 @@
 #![cfg(feature = "async")]
-use mightymonitor_core::{FramedTransport, Transport};
-use mightymonitor_security::{asynchronous, blocking, ShareIdentity};
 use std::{
     io::Read,
     net::{TcpListener, TcpStream},
     thread,
     time::Duration,
 };
+use trinix_core::{FramedTransport, Transport};
+use trinix_security::{asynchronous, blocking, ShareIdentity};
 #[tokio::test]
 async fn blocking_host_and_async_framed_viewer_interoperate() {
     let identity = ShareIdentity::generate().unwrap();
@@ -76,8 +76,8 @@ async fn expired_invitation_is_terminal_for_transport() {
         );
     });
     assert!(matches!(
-        asynchronous::connect_transport(&mightymonitor_security::Endpoint::Secure(invite)).await,
-        Err(mightymonitor_core::TransportError::Authentication(_))
+        asynchronous::connect_transport(&trinix_security::Endpoint::Secure(invite)).await,
+        Err(trinix_core::TransportError::Authentication(_))
     ));
     host.await.unwrap();
 }

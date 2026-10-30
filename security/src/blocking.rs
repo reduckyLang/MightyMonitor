@@ -174,7 +174,7 @@ pub fn connect_cancellable(
     let mut magic = [0; 8];
     socket.read_exact(&mut magic)?;
     if &magic != MAGIC {
-        return Err(invalid("This endpoint is not a secure MightyMonitor host"));
+        return Err(invalid("This endpoint is not a secure Trinix host"));
     }
     let mut length = [0; 2];
     socket.read_exact(&mut length)?;

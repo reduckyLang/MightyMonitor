@@ -1,5 +1,4 @@
 //! Bounded input queue for the same system-authorized Wayland capture session.
-use mightymonitor_core::InputEvent;
 use std::{
     collections::VecDeque,
     io,
@@ -8,6 +7,7 @@ use std::{
         Arc, Mutex,
     },
 };
+use trinix_core::InputEvent;
 struct State {
     queue: Mutex<VecDeque<InputEvent>>,
     reset: AtomicBool,
@@ -120,8 +120,8 @@ pub(crate) async fn drive(
     input: &PortalInput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use ashpd::desktop::remote_desktop::{KeyState, RemoteDesktop};
-    use mightymonitor_core::{MouseButton, TouchPhase};
     use std::{collections::BTreeSet, time::Duration};
+    use trinix_core::{MouseButton, TouchPhase};
     struct Close(PortalInput);
     impl Drop for Close {
         fn drop(&mut self) {

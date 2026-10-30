@@ -156,14 +156,14 @@ impl UserError {
             Self::PairingExpired => "Pairing took too long.",
             Self::TooManyTries => "Too many tries.",
             Self::DeviceForgotten => "This device isn't paired any more.",
-            Self::CameraDenied => "The camera is turned off for MightyMonitor.",
+            Self::CameraDenied => "The camera is turned off for Trinix.",
             Self::NotificationsOff => "Notifications are off.",
             Self::AccessibilityOff => "Remote control needs one more setting.",
             Self::ControlNotAllowed => "The other device hasn't allowed control.",
-            Self::SharingPartMissing => "A part of MightyMonitor is missing.",
+            Self::SharingPartMissing => "A part of Trinix is missing.",
             Self::ScreenCaptureUnavailable => "This device can't share its screen.",
             Self::ShareCouldNotStart => "Sharing couldn't start.",
-            Self::StartupFailed => "MightyMonitor couldn't start.",
+            Self::StartupFailed => "Trinix couldn't start.",
             Self::HostStoppedLocal => "Sharing stopped.",
             Self::CannotShowSharedScreen => "This device can't show a shared screen.",
         }
@@ -177,8 +177,8 @@ impl UserError {
             Self::HostUnreachable => "Check that it is still sharing, then try again.",
             Self::ConnectionExpired => "On the other device, start sharing again, then try again.",
             Self::HostBusy => "Wait a moment, then try again.",
-            Self::FirewallBlocked => "Allow MightyMonitor when your system asks, then try again.",
-            Self::VideoRuntimeMissing => "Run the MightyMonitor installer again.",
+            Self::FirewallBlocked => "Allow Trinix when your system asks, then try again.",
+            Self::VideoRuntimeMissing => "Run the Trinix installer again.",
             Self::ScreenPermissionDenied => "Try again and choose Allow when asked.",
             Self::ScreenCaptureBlocked => {
                 "Sign out, choose Xorg or X11 on the sign-in screen, then sign in."
@@ -186,8 +186,8 @@ impl UserError {
             Self::ExtendUnsupported => "Share this screen instead.",
             Self::DecodeFailed => "Disconnect, then connect again.",
             Self::HostStopped => "Ask it to start sharing again.",
-            Self::VersionMismatch => "Update MightyMonitor on both devices.",
-            Self::Unknown => "Close MightyMonitor and open it again.",
+            Self::VersionMismatch => "Update Trinix on both devices.",
+            Self::Unknown => "Close Trinix and open it again.",
             Self::ConnectFailed => "Check that both devices use the same Wi-Fi, then try again.",
             Self::ConnectionLost => "Keep both devices on the same Wi-Fi while we try again.",
             Self::NothingNearby => "On the other device, press Share this screen.",
@@ -198,9 +198,9 @@ impl UserError {
             Self::DeviceForgotten => "Pair it again to continue.",
             Self::CameraDenied => "Turn it on in your phone's Settings.",
             Self::NotificationsOff => "Turn them on in Settings so you can stop sharing easily.",
-            Self::AccessibilityOff => "Turn on MightyMonitor in Accessibility settings.",
+            Self::AccessibilityOff => "Turn on Trinix in Accessibility settings.",
             Self::ControlNotAllowed => "Ask the owner to turn on remote control.",
-            Self::SharingPartMissing => "Reinstall MightyMonitor.",
+            Self::SharingPartMissing => "Reinstall Trinix.",
             Self::ScreenCaptureUnavailable => {
                 "Use a Windows or Linux computer, or an Android phone, to share."
             }
@@ -218,11 +218,9 @@ impl UserError {
         let (title, next_step) = match (self, platform) {
             (Self::FirewallBlocked, Platform::Windows) => (
                 "Windows blocked the connection.",
-                "Allow MightyMonitor in Windows Security, then try again.",
+                "Allow Trinix in Windows Security, then try again.",
             ),
-            (Self::VideoRuntimeMissing, Platform::Linux) => {
-                (self.title(), "Reinstall MightyMonitor.")
-            }
+            (Self::VideoRuntimeMissing, Platform::Linux) => (self.title(), "Reinstall Trinix."),
             (Self::ScreenPermissionDenied, Platform::Android) => {
                 (self.title(), "Try again and choose Start now when asked.")
             }
@@ -353,12 +351,12 @@ mod tests {
         assert_eq!(windows.title, "Windows blocked the connection.");
         assert_eq!(
             windows.next_step,
-            "Allow MightyMonitor in Windows Security, then try again."
+            "Allow Trinix in Windows Security, then try again."
         );
 
         let linux = UserError::VideoRuntimeMissing.message(Platform::Linux);
         assert_eq!(linux.title, UserError::VideoRuntimeMissing.title());
-        assert_eq!(linux.next_step, "Reinstall MightyMonitor.");
+        assert_eq!(linux.next_step, "Reinstall Trinix.");
 
         let android = UserError::ScreenPermissionDenied.message(Platform::Android);
         assert_eq!(android.title, UserError::ScreenPermissionDenied.title());

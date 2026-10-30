@@ -7,7 +7,7 @@ version = "0.0.1"
 edition = "2021"
 rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/reduckyLang/MightyMonitor"
+repository = "https://github.com/reduckyLang/Trinix"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -1,11 +1,11 @@
 //! Latest-frame-wins raw capture slot; encoding happens only on writer demand.
 use crate::Error;
-use mightymonitor_core::{Bytes, Capture, Encoder, MonotonicClock};
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tokio::sync::Notify;
+use trinix_core::{Bytes, Capture, Encoder, MonotonicClock};
 
 /// Adds fallible encoding, keyframe control and accurate metadata to core Encoder.
 ///
@@ -159,7 +159,7 @@ impl<E: HostEncoder> Pipeline<E> {
     }
     /// Return a rejected bitrate update to the caller; the encoder retains its
     /// previous bitrate, so a live session can log the error and continue.
-    pub fn on_stats(&mut self, stats: &mightymonitor_core::NetStats) -> Result<(), Error> {
+    pub fn on_stats(&mut self, stats: &trinix_core::NetStats) -> Result<(), Error> {
         self.abr
             .apply(
                 self.encoder.as_mut().ok_or("encoder unavailable")?,
