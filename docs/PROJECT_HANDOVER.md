@@ -1,4 +1,4 @@
-# MightyMonitor project handover
+# Trinix project handover
 
 Last reviewed: 25 October 2026. This is the starting point for a new contributor
 or AI assistant. Verify repository/release state before relying on this snapshot.
@@ -65,9 +65,9 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.
-- `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
+- `host/`: `trinix-host`, capture/encoder pipeline, per-viewer sessions, native input,
   exclusive controller ownership and managed Stop lifecycle.
-- `viewer/`: eframe/egui `mm-viewer`, View/Share, QR, decoder, focused input,
+- `viewer/`: eframe/egui `trinix-viewer`, View/Share, QR, decoder, focused input,
   child-host lifecycle. `examples/receive_smoke.rs` receives actual video.
 - `android-bridge/`: original Rust phone host/client and JNI bridge.
 - `android/`: native Java Activity, MediaCodec/MediaProjection foreground service,
@@ -130,7 +130,7 @@ this file's evidence matrix current as work lands.
 
 ## Where to find current tasks
 
-- Tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50):
+- Tracking issue [#50](https://github.com/reduckyLang/Trinix/issues/50):
   ordered next tasks P1-P6, the Simplicity track (S1-S8), acceptance tests and
   follow-up checklists. Milestone issues are #2-#11; reviewer follow-ups are #19.
 - `docs/ROADMAP.md`, section "Current work / claimed tasks": task, owner role,
@@ -167,7 +167,7 @@ three real video/control tests on APIs 29/30/34/36. Instrumentation must grant
 Accessibility **after** its process restart and wait for the specific target
 editor's IME connection; prebinding or accepting any stale IME caused failures.
 
-For Linux Extend, start `mm-host --secure --extend --managed` with a local bind,
+For Linux Extend, start `trinix-host --secure --extend --managed` with a local bind,
 keep its stdin open, approve the virtual monitor, receive real H.264 video, send
 `STOP`, and compare active displays before/during/after. A closed stdin immediately
 stops a managed host. Keep its invitation private and delete test credentials.
@@ -181,7 +181,7 @@ multiple worktrees into one cargo target directory because stale output can misl
 
 ## Repository and PR workflow
 
-Upstream: `reduckyLang/MightyMonitor`. Contributors may work from forks.
+Upstream: `reduckyLang/Trinix`. Contributors may work from forks.
 Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
 Work happens on a branch with a PR to upstream. Never push to `main`; nobody
 pushes to `main` directly. PRs target upstream and are merged after review and
@@ -245,8 +245,8 @@ graphics more space. Product alpha limitations and real release filtering stay.
 Root index.html and .nojekyll support Pages configured as main / (root), instead
 of showing README. The fixed relative redirect preserves repository subpaths,
 query strings and anchors. The Actions deployment still uploads website/dist.
-A real local browser check of /MightyMonitor/?preview=root#download reached
-/MightyMonitor/website/dist/?preview=root#download with all assets. Automated
+A real local browser check of /Trinix/?preview=root#download reached
+/Trinix/website/dist/?preview=root#download with all assets. Automated
 root-route and installer filtering tests pass; new website checks run on PRs.
 Do not claim this is deployed until the PR is merged and Pages finishes.
 

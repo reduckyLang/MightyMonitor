@@ -4,7 +4,7 @@ On Linux, install the X11/PipeWire and GStreamer prerequisites in [LINUX.md](LIN
 and [CODEC.md](CODEC.md), including the H.264 encoder plugins. Wayland uses the system screen-selection dialog; X11 uses `DISPLAY`:
 
 ```sh
-cargo run -p mightymonitor-host --bin mm-host -- --secure --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
+cargo run -p trinix-host --bin trinix-host -- --secure --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
 ```
 
 `--bind` is the TCP listen address (default `127.0.0.1:5000`; use a LAN address
@@ -66,7 +66,7 @@ produce no output until it catches up.
 Pipeline::monitor returns snapshots with queue_len, max_queue_len, captured,
 dropped, sent and max_send_age. Age is capture-start to send initiation; TCP
 buffers and viewer read delays can still add delivery latency. A blocked send
-has a two-second deadline in mm-host; a partial/timed-out write ends that
+has a two-second deadline in trinix-host; a partial/timed-out write ends that
 connection rather than retrying a corrupt stream. Capture continues replacing
 the slot during writes. Input and revocation are handled by the session reader even while encoding or
 writing waits. Outgoing control replies use a bounded channel; flooding ends the

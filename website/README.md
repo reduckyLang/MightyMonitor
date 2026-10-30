@@ -1,4 +1,4 @@
-# MightyMonitor static website
+# Trinix static website
 
 Plain HTML, CSS, JavaScript, images and bundled fonts. No build step, framework, application server, account or hosting-service dependency.
 
@@ -36,7 +36,7 @@ project website** manually. There is no package installation or build command.
 
 All site assets use relative paths and support GitHub Pages repository subpaths.
 The workflow uses the repository where it runs; download discovery intentionally
-points to upstream `reduckyLang/MightyMonitor` releases. Change `PROJECT` in
+points to upstream `reduckyLang/Trinix` releases. Change `PROJECT` in
 `dist/app.js` only when intentionally distributing installers from another repo.
 
 ## Real installer links
@@ -66,7 +66,7 @@ clock. Offscreen/hidden scenes pause, and reduced motion disables autoplay.
 The initial workspace artwork remains visible without JavaScript. These are
 concept images, not app screenshots. No WebGL or external asset CDN is required.
 
-The editable app icon master is `../assets/brand/mightymonitor.svg`; see that
+The editable app icon master is `../assets/brand/trinix.svg`; see that
 folder's README for the design, provenance and synchronized export locations.
 
 Additional root Pages regression checks:
