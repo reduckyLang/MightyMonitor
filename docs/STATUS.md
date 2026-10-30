@@ -83,7 +83,7 @@ The roadmap tracks M2 as a whole, so its completion status is unchanged.
 2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.
 
 2026-10-18: M2-6 desktop viewer implemented on feat/m2-6-viewer. Added
-trinix-viewer / trinix-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
+mightymonitor-viewer / mm-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
 I420 decoding, RGB texture presentation, connection controls, lifecycle state,
 fps/payload bitrate/RTT overlay and logged decode-to-texture-submission latency.
 The GUI feature can be disabled for the headless generic core ViewerSession;

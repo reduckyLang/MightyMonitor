@@ -85,6 +85,13 @@ window asks which screen to share, or sharing stops straight away:
 3. If a window asks which screen to share and you close it, sharing is cancelled
    on purpose. Press **Share this screen** again and choose a screen.
 
+> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
+> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
+> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
+> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
+> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`,
+> `trinix-host`, the Trinix Start menu entry) apply from the next release.
+
 ## Still stuck?
 
 Search or open a report on the project's

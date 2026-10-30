@@ -22,6 +22,13 @@ unsigned pre-release. You need two devices on the same Wi-Fi.
 
 Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?](docs/HELP.md), [Glossary](docs/GLOSSARY.md).
 
+> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
+> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
+> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
+> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
+> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`,
+> `trinix-host`, the Trinix Start menu entry) apply from the next release.
+
 ## Goals
 - Share a screen between Linux, Windows and Android (host to viewer, any direction).
 - View an Android phone on a PC and control it from the PC.

@@ -12,6 +12,13 @@ install to your first shared screen in five steps or fewer.
 This is an early test version. If something does not work, see
 [Can't connect?](HELP.md). Unfamiliar word? See the [glossary](GLOSSARY.md).
 
+> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
+> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
+> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
+> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
+> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`,
+> `trinix-host`, the Trinix Start menu entry) apply from the next release.
+
 ## Windows 10 and 11
 
 1. Download the Windows installer from the project's
