@@ -1,7 +1,6 @@
-# Trinix project handover
+# Trinix development guide
 
-Last reviewed: 25 October 2026. This is the starting point for a new contributor
-or AI assistant. Verify repository/release state before relying on this snapshot.
+Last reviewed: 25 October 2026. This is the starting point for a new contributor. Verify repository/release state before relying on this snapshot.
 
 ## Intended finished app
 
@@ -133,7 +132,7 @@ this file's evidence matrix current as work lands.
 - Tracking issue [#50](https://github.com/reduckyLang/Trinix/issues/50):
   ordered next tasks P1-P6, the Simplicity track (S1-S8), acceptance tests and
   follow-up checklists. Milestone issues are #2-#11; reviewer follow-ups are #19.
-- `docs/ROADMAP.md`, section "Current work / claimed tasks": task, owner role,
+- `docs/ROADMAP.md`, section "Current work": task,
   branch, issue/PR link and status. Update it by docs PR after every claim or merge.
 - `docs/STATUS.md`: dated progress log; its last entry is the current snapshot.
 - GitHub labels: `claimed`, `blocked`, `follow-up`, `wireless`,
@@ -141,7 +140,7 @@ this file's evidence matrix current as work lands.
 
 ## Quick start for a new contributor
 
-1. Read this file, `AGENTS.md`, `CONTRIBUTING.md` and `docs/CROSS_DEVICE.md`.
+1. Read this file, `CONTRIBUTING.md` and `docs/CROSS_DEVICE.md`.
 2. Run the checks in "Build and meaningful checks" below on a clean branch from `main`.
 3. Pick an unclaimed task from #50 (or ask in the issue), add a `claimed` comment with
    your branch name, open a draft PR early, and keep ROADMAP/STATUS current.
@@ -182,7 +181,7 @@ multiple worktrees into one cargo target directory because stale output can misl
 ## Repository and PR workflow
 
 Upstream: `reduckyLang/Trinix`. Contributors may work from forks.
-Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
+Check `git remote -v` and clean/dirty state before working.
 Work happens on a branch with a PR to upstream. Never push to `main`; nobody
 pushes to `main` directly. PRs target upstream and are merged after review and
 green required checks. Use a descriptive branch prefix such as `feat/`, `docs/`,
@@ -205,71 +204,3 @@ Before each new PR:
 No new scheduling/hosting service is needed to keep the website fresh: update it
 with each milestone. Its release buttons must point only to real published
 installers from the configured upstream repository, with honest unavailable states.
-
-## Keeping this handover useful
-
-At each milestone update: the date, support/evidence matrix, remaining work,
-new module map entries, tests and known failure causes, relevant PRs, and website
-status copy. Link this guide from README and keep AGENTS.md pointing here. Keep
-personal conversation history, local machine identifiers, secrets and transient
-execution-session details out of the repository. This guide should explain the
-project sufficiently for a contributor with no access to previous chats.
-
-
-2026-10-23 website redesign: the static site now uses a split opening with
-original CSS perspective devices, moving local-connection paths, animated screen
-widgets and user-selected Mirror/Control/Extend previews. Three original animated
-feature illustrations replace the icon-only feature treatment. Neutral/green
-styling, locally bundled fonts, inline SVG, keyboard focus and real GitHub release
-installer filtering remain. Download cards now describe the actual EXE/DEB/APK
-formats. A global pause control and system reduced-motion rule cover looping
-artwork; the page pauses while hidden and starts paused without JavaScript.
-Responsive browser checks covered 320/390/768-pixel widths and desktop; installer
-filter/offline/rate-limit tests pass. This website milestone is isolated on current
-upstream main so it can merge independently of ongoing app/driver work. See
-website/DESIGN.md for design decisions and website/README.md for maintenance.
-
-
-2026-10-23 screen-playground identity and Pages root fix: the first linked-frame
-logo was replaced; the refined folded-screen M now has an editable SVG
-master under assets/brand and synchronized PNG/Windows ICO exports for the
-website, desktop/Linux packaging and Android. The website now renders original
-3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
-content with a locally vendored MIT Three.js build (integrity/license recorded).
-A manual rearrangement control and pointer perspective replace continuous device
-bobbing. Rendering is limited to 30fps and stops offscreen, in hidden tabs and
-when paused/reduced motion is active; manual changes still render while paused.
-The CSS illustration remains the fallback. Alternating feature stories give the
-graphics more space. Product alpha limitations and real release filtering stay.
-
-Root index.html and .nojekyll support Pages configured as main / (root), instead
-of showing README. The fixed relative redirect preserves repository subpaths,
-query strings and anchors. The Actions deployment still uploads website/dist.
-A real local browser check of /Trinix/?preview=root#download reached
-/Trinix/website/dist/?preview=root#download with all assets. Automated
-root-route and installer filtering tests pass; new website checks run on PRs.
-Do not claim this is deployed until the PR is merged and Pages finishes.
-
-## 23 October 2026 — generated website artwork revision
-
-Replaced the earlier homemade devices and vague “make room” copy with five
-image-generated studio assets. The hero moves a separate transparent window
-between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
-Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
-Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
-root Pages regression checks pass. Artwork is illustrative; app acceptance status
-is unchanged. Physical-device tests remain pending.
-
-## Website refinement — 23 October 2026
-
-Removed the rejected window-transfer animation and its playback controls.
-Mode buttons now switch between generated concept scenes. No continuous hero
-animation or render loop remains. Generated originals stay in local output.
-
-## 24 October 2026 — animated scene preview
-
-After PR #48 merged, added a separate website-only milestone on current upstream
-main. Generated scenes now play as Mirror/Control/Extend chapters with camera
-travel, directional wipes and a synchronized timeline. The rejected floating
-window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
-handling are included. Local download and root Pages regressions pass.
