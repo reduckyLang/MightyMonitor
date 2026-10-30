@@ -1,5 +1,5 @@
-MightyMonitor
-Copyright 2026 The MightyMonitor contributors
+Trinix
+Copyright 2026 The Trinix contributors
 
 Licensed under the Apache License, Version 2.0.
 
@@ -46,7 +46,7 @@ or statically linked by this project):
 - The avdec_h264 decoder (libav/gst-libav) is LGPL, like the rest of the
   runtime; it is loaded dynamically from the system and is not bundled.
 - The x264enc element (gst-plugins-ugly, libx264) is licensed GPL.
-- MightyMonitor loads these libraries dynamically from the system at run
+- Trinix loads these libraries dynamically from the system at run
   time and never bundles or redistributes them.
 - Bundling GStreamer or any plugin with a release needs a separate license
   review first.
@@ -56,7 +56,7 @@ or statically linked by this project):
   for gstreamer-1.0-0.dll, gstlibav.dll and gstx264.dll. The Windows host
   encodes with x264enc and the viewer decodes with avdec_h264. These
   components are installed and used at run time but are not included in
-  MightyMonitor's installer, binaries or source, and are not statically linked.
+  Trinix's installer, binaries or source, and are not statically linked.
 - Android uses the platform MediaCodec API and has no GStreamer dependency.
 
 Desktop viewer (egui/eframe)
@@ -103,7 +103,7 @@ LAN discovery library
   (Apache-2.0 OR MIT), mio (MIT), if-addrs (MIT OR BSD-3-Clause),
   spin (MIT), fastrand (Apache-2.0 OR MIT), log (Apache-2.0 OR MIT). Exact resolved versions
   and platform dependencies are recorded in Cargo.lock. The discovery adapter
-  and TXT schema are original MightyMonitor code.
+  and TXT schema are original Trinix code.
 
 Discovery directly uses if-addrs 0.13.4 (MIT OR BSD-3-Clause), already used
 by mdns-sd, to enumerate local interface addresses and subnet prefixes.

@@ -24,7 +24,7 @@ View / Share rail | Sharing status / full-screen action
 Phone layout:
 
 ```text
-MightyMonitor
+Trinix
 View | Share
 Address or this phone's sharing address
 Trust acknowledgement

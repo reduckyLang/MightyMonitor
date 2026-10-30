@@ -25,7 +25,7 @@ Cross-cutting requirement for every milestone: it must work **wirelessly over Wi
 ## Current work / claimed tasks
 
 Snapshot dated 2026-10-25 (check `git log origin/main` for the current head). Task definitions, acceptance tests and
-ordering live in tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50);
+ordering live in tracking issue [#50](https://github.com/reduckyLang/Trinix/issues/50);
 milestone issues are #2-#11 and reviewer follow-ups are in #19. Update this table
 through a small docs PR whenever a task is claimed, opened or merged.
 
@@ -48,7 +48,7 @@ through a small docs PR whenever a task is claimed, opened or merged.
 | P5 Extended display spike (X11 PoC, Windows design) | unassigned | not started | #10 | none | waiting / not started |
 | P6 Viewer batch | Codex (ChatGPT Developer) | not started | #50 | P1, P2 | after P1 + P2 |
 
-A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/MightyMonitor/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
+A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/Trinix/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
 with a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`, built from the existing
 manual CI builds. It was tested on emulators, Xvfb and one KDE session only; physical-device
 and Wi-Fi acceptance are unverified. There is no

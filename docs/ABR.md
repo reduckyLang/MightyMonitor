@@ -26,7 +26,7 @@ TCP packet loss is unavailable, so loss_pct remains zero, not a measured loss
 estimate. Sequence gaps also include deliberate host frame drops and must not
 be interpreted as packet loss.
 
-Run `cargo test -p mightymonitor-host abr:: -- --nocapture` for deterministic
+Run `cargo test -p trinix-host abr:: -- --nocapture` for deterministic
 coverage. The virtual transport uses 1 ms ticks, a 30 fps constant-rate encoder,
 one non-preemptible write and one replaceable raw slot, with 20 Mbps capacity,
 a drop to 4 Mbps at 3 seconds and recovery at 9 seconds. It checks reduction

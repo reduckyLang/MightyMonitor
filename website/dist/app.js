@@ -1,5 +1,5 @@
 "use strict";
-const PROJECT = "reduckyLang/MightyMonitor";
+const PROJECT = "reduckyLang/Trinix";
 const RELEASES_URL = `https://github.com/${PROJECT}/releases`;
 const descriptions = {
   mirror: [

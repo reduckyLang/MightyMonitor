@@ -15,12 +15,12 @@ one. Things that often get in the way:
 - Public or hotel Wi-Fi, which often blocks devices from seeing each other.
 
 <a id="network-permission"></a>
-## 2. Let MightyMonitor use the network
+## 2. Let Trinix use the network
 
-The first time you share a screen, your computer may ask if MightyMonitor can
+The first time you share a screen, your computer may ask if Trinix can
 use the network. On Windows, the choices are **Allow access** and **Cancel**.
 Choose **Allow access**. If you chose **Cancel** by mistake, open your
-computer's firewall settings and allow MightyMonitor on private networks. Then
+computer's firewall settings and allow Trinix on private networks. Then
 press **Stop sharing** and press **Share this screen** again.
 
 <a id="new-link"></a> <!-- jargon-ok -->
@@ -34,7 +34,7 @@ after it.
 <a id="restart"></a>
 ## 4. Restart the app
 
-Close MightyMonitor on both devices and open it again. Open it after you are
+Close Trinix on both devices and open it again. Open it after you are
 connected to Wi-Fi, because the app looks up your network when it starts.
 If it still does not work, restart your router, or both devices.
 
@@ -50,18 +50,18 @@ If it still does not work, restart your router, or both devices.
 <a id="slow-picture"></a>
 ## Picture is slow or jumpy
 
-MightyMonitor is designed to lower the picture quality on its own when the
+Trinix is designed to lower the picture quality on its own when the
 network is busy, and to try again after a short drop. For a smoother picture,
 stay close to the router and pause big downloads.
 
 <a id="other-messages"></a>
 ## Other messages you may see
 
-- **You see "mm-host" in your firewall list**: this is the screen-sharing part
-  of MightyMonitor. Allow it together with MightyMonitor.
-- **Sharing component missing**: reinstall MightyMonitor. The sharing part is
+- **You see "trinix-host" in your firewall list**: this is the screen-sharing part
+  of Trinix. Allow it together with Trinix.
+- **Sharing component missing**: reinstall Trinix. The sharing part is
   installed together with the app.
-- **The video runtime is missing** (Windows): run the MightyMonitor installer
+- **The video runtime is missing** (Windows): run the Trinix installer
   again and stay online until it finishes.
 - **The connection link is invalid or has expired**: make a new link as in step 3.
 - **Windows says it protected your PC**: this early version is not signed yet.
@@ -85,10 +85,17 @@ window asks which screen to share, or sharing stops straight away:
 3. If a window asks which screen to share and you close it, sharing is cancelled
    on purpose. Press **Share this screen** again and choose a screen.
 
+> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
+> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
+> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
+> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
+> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`, the Trinix Start menu entry)
+> apply from the next release.
+
 ## Still stuck?
 
 Search or open a report on the project's
-[issues page](https://github.com/reduckyLang/MightyMonitor/issues). Say which
+[issues page](https://github.com/reduckyLang/Trinix/issues). Say which
 devices you use and what the app showed. Do not post your connection link in
 public: anyone who has it can watch while sharing is on.
 

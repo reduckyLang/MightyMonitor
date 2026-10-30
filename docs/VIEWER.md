@@ -8,7 +8,7 @@ documented in [LINUX.md](LINUX.md). Run:
 
 
 ```sh
-cargo run -p mightymonitor-viewer --bin mm-viewer
+cargo run -p trinix-viewer --bin trinix-viewer
 ```
 
 Paste the host's private viewing link and click Connect. Bare IP:port connections
@@ -18,7 +18,7 @@ the native runtime/development prerequisites. Physical Windows playback still
 needs validation. For a headless core build:
 
 ```sh
-cargo test -p mightymonitor-viewer --no-default-features
+cargo test -p trinix-viewer --no-default-features
 ```
 
 The initial handshake sends Hello (current PROTOCOL_VERSION, Viewer role), then
@@ -46,7 +46,7 @@ input forwarding is implemented; audio, mDNS and persistent pairing are not.
 
 ## Manual smoke test (requires a desktop)
 
-1. Start `mm-host` using HOST.md, then start mm-viewer on Linux. Connect to the
+1. Start `trinix-host` using HOST.md, then start trinix-viewer on Linux. Connect to the
    listener. Confirm Connected, moving desktop video, sensible colors/aspect,
    fps/bitrate, RTT, and latency log lines. Resize the window.
 2. Kill the host. Confirm Reconnecting remains visible and the GUI responds.
@@ -71,13 +71,13 @@ feedback but is not a pure wire RTT.
 ## Desktop control panel
 
 Build both binaries with `cargo build --release --workspace`, then run
-`target/release/mm-viewer`. The viewer finds `mm-host` beside its own executable;
+`target/release/trinix-viewer`. The viewer finds `trinix-host` beside its own executable;
 packaging must keep the two together. The generated app icon is embedded in the
 viewer window. The icon does not constitute a Windows executable resource or a
 Linux desktop-menu installation; those are packaging work.
 
 On Linux X11/Wayland or Windows, **Share this screen** launches the sibling host without
-a shell (mm-host on Linux, mm-host.exe on Windows).
+a shell (trinix-host on Linux, trinix-host.exe on Windows).
 Enter a local listen IP/port, frame rate, and bitrate. The loopback default is
 for this computer only; use the computer's LAN address for another device.
 Normal sharing uses private links and pinned TLS. Optional **Allow remote control**
@@ -106,6 +106,6 @@ Manual acceptance (not yet performed on physical devices):
    and verify moving video. Confirm settings cannot change during sharing.
 3. Stop sharing and confirm the host process and stream end. Restart sharing.
 4. Disconnect the viewer and confirm the displayed frame clears. Reconnect.
-5. Close the app while sharing and verify no owned mm-host process remains.
+5. Close the app while sharing and verify no owned trinix-host process remains.
 6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
 7. Verify Windows host/viewer playback using the acceptance steps in WINDOWS.md.

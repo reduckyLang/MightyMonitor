@@ -1,6 +1,6 @@
-# MightyMonitor
+# Trinix – Multi Monitor Control
 
-MightyMonitor is a free, open-source application being built to share, control,
+Trinix (formerly MightyMonitor) is a free, open-source application being built to share, control,
 and extend screens across Linux, Windows, and Android devices over a local
 network. View another device in a window, use your keyboard and mouse or touch
 to control it, and turn another device into an additional display as these
@@ -13,14 +13,21 @@ iOS are not currently targeted.
 ## Quick start
 
 This is an early test version. Installers are on the project's
-[Releases page](https://github.com/reduckyLang/MightyMonitor/releases) as an
+[Releases page](https://github.com/reduckyLang/Trinix/releases) as an
 unsigned pre-release. You need two devices on the same Wi-Fi.
 
-1. Install MightyMonitor on both devices (Windows, Linux or Android).
+1. Install Trinix on both devices (Windows, Linux or Android).
 2. On the device that shares its screen, open the app and press **Share this screen**, then press **Copy connection link**.
-3. Send the link to the other device, open MightyMonitor there, paste the link under **View a screen**, and press **Connect**.
+3. Send the link to the other device, open Trinix there, paste the link under **View a screen**, and press **Connect**.
 
 Step-by-step guides: [Getting started](docs/GETTING_STARTED.md), [Can't connect?](docs/HELP.md), [Glossary](docs/GLOSSARY.md).
+
+> **Older test version:** v0.1.0-alpha.1 still uses the earlier name
+> MightyMonitor. Its files are `MightyMonitor-0.0.1-alpha.1-windows-x64-setup.exe`,
+> `mightymonitor_0.1.0-alpha.1_amd64.deb` and
+> `MightyMonitor-0.1.0-alpha.1-android-debug.apk`, and it appears as
+> MightyMonitor in the Start menu and app list. The Trinix names (`trinix_*.deb`, the Trinix Start menu entry)
+> apply from the next release.
 
 ## Goals
 - Share a screen between Linux, Windows and Android (host to viewer, any direction).

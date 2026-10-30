@@ -1,4 +1,4 @@
-# Working on MightyMonitor
+# Working on Trinix
 
 Read `docs/PROJECT_HANDOVER.md` before changing this project. It contains the
 product requirements, verified status, missing features, architecture, acceptance

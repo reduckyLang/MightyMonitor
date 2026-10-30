@@ -37,4 +37,4 @@ Only the supplied qualifying address is registered. Interface snapshots are
 refreshed for registration and each browse operation (and each mdns resolution).
 
 The advertised `wire` value and parser comparison derive from
-`mightymonitor_core::PROTOCOL_VERSION` (currently 3); discovery follows protocol version bumps.
+`trinix_core::PROTOCOL_VERSION` (currently 3); discovery follows protocol version bumps.

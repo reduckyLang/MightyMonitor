@@ -1,6 +1,6 @@
-# MightyMonitor protocol
+# Trinix protocol
 
-MightyMonitor uses versioned, length-prefixed frames to carry messages over TCP
+Trinix uses versioned, length-prefixed frames to carry messages over TCP
 and other byte streams. This protocol is intended for LAN-only use. Framing
 provides message boundaries; it does not provide authentication or encryption.
 

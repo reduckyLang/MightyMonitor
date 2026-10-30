@@ -9,4 +9,4 @@ Keep default text free of technical terms.
 
 ## Testing
 
-`cargo test -p mightymonitor-ux` builds only this crate and `mightymonitor-core`, so it needs no GStreamer development packages.
+`cargo test -p trinix-ux` builds only this crate and `trinix-core`, so it needs no GStreamer development packages.

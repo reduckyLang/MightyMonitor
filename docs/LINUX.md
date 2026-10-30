@@ -6,7 +6,7 @@ are Linux-only; on other targets it is empty.
 
 ## GUI and display build prerequisites
 
-The desktop viewer (`mm-viewer`) uses OpenGL and supports X11 and Wayland. The
+The desktop viewer (`trinix-viewer`) uses OpenGL and supports X11 and Wayland. The
 following development libraries are required to build and run it on Linux. CI
 installs them on Ubuntu 24.04:
 
