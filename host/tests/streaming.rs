@@ -1,15 +1,21 @@
 #![forbid(unsafe_code)]
-use mightymonitor_core::{
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use tokio::net::TcpListener;
+use trinix_core::{
     Bytes, Capture, Codec, CodecError, Encoder, Message, Role, TcpTransport, Transport,
     PROTOCOL_VERSION,
 };
-use mightymonitor_host::{
+use trinix_host::{
     pipeline::{HostEncoder, Monitor, Pipeline},
     session::{serve, SessionConfig},
     Error,
 };
-use std::time::Duration;
-use tokio::net::TcpListener;
 
 struct FakeCapture(u64);
 impl Capture for FakeCapture {
@@ -20,6 +26,7 @@ impl Capture for FakeCapture {
 }
 struct DummyEncoder {
     size: usize,
+    idrs: Option<Arc<AtomicUsize>>,
 }
 impl Encoder for DummyEncoder {
     fn encode(&mut self, raw: &[u8]) -> Result<Bytes, CodecError> {
@@ -31,6 +38,11 @@ impl Encoder for DummyEncoder {
 }
 impl HostEncoder for DummyEncoder {
     fn encode_video(&mut self, raw: &[u8], _: u64, force: bool) -> Result<(Bytes, bool), Error> {
+        if force {
+            if let Some(idrs) = &self.idrs {
+                idrs.fetch_add(1, Ordering::Relaxed);
+            }
+        }
         let mut data = vec![0; self.size.max(8)];
         data[..8].copy_from_slice(raw);
         Ok((data, force))
@@ -69,7 +81,7 @@ async fn start_with_idle(
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let pipeline = Pipeline::new(
         FakeCapture(0),
-        DummyEncoder { size },
+        DummyEncoder { size, idrs: None },
         if size > 8 { 10 } else { 30 },
     )
     .unwrap();
@@ -168,7 +180,7 @@ async fn host_streams_n_frames() {
     }
     send(
         &mut viewer,
-        Message::NetStats(mightymonitor_core::NetStats {
+        Message::NetStats(trinix_core::NetStats {
             rtt_ms: 50,
             loss_pct: 5.0,
             recv_kbps: 1000,
@@ -184,12 +196,93 @@ async fn host_streams_n_frames() {
     )
     .await;
     loop {
-        if let Message::Pong { nonce, t_send_us } = recv(&mut viewer).await {
+        if let Message::Pong {
+            nonce,
+            t_send_us,
+            t_peer_recv_us,
+            t_peer_send_us,
+        } = recv(&mut viewer).await
+        {
             assert_eq!((nonce, t_send_us), (7, 123));
+            assert!(t_peer_send_us >= t_peer_recv_us);
             break;
         }
     }
     assert_eq!(monitor.snapshot().max_queue_len, 1);
+    stop(viewer, host).await;
+}
+
+#[tokio::test]
+async fn keyframe_request_forces_idr() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let idrs = Arc::new(AtomicUsize::new(0));
+    let pipeline = Pipeline::new(
+        FakeCapture(0),
+        DummyEncoder {
+            size: 8,
+            idrs: Some(idrs.clone()),
+        },
+        30,
+    )
+    .unwrap();
+    let address = listener.local_addr().unwrap();
+    let host = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await?;
+        serve(
+            stream,
+            pipeline,
+            SessionConfig {
+                session_id: 42,
+                codec: Codec::Raw,
+                width: 1,
+                height: 1,
+                fps: 30,
+                write_timeout: Duration::from_secs(1),
+                handshake_timeout: Duration::from_secs(5),
+                idle_timeout: Duration::from_secs(30),
+            },
+        )
+        .await
+    });
+    let mut viewer = TcpTransport::connect(address).await.unwrap();
+    send(
+        &mut viewer,
+        Message::Hello {
+            proto_version: PROTOCOL_VERSION,
+            device_name: "keyframe test".into(),
+            role: Role::Viewer,
+            capabilities: vec![],
+        },
+    )
+    .await;
+    assert!(matches!(
+        recv(&mut viewer).await,
+        Message::HelloAck { accepted: true, .. }
+    ));
+    assert!(matches!(
+        recv(&mut viewer).await,
+        Message::VideoConfig { .. }
+    ));
+    assert!(matches!(
+        recv(&mut viewer).await,
+        Message::VideoFrame { keyframe: true, .. }
+    ));
+    assert_eq!(idrs.load(Ordering::Relaxed), 1);
+
+    send(&mut viewer, Message::KeyframeRequest).await;
+    let keyframe = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if matches!(
+                recv(&mut viewer).await,
+                Message::VideoFrame { keyframe: true, .. }
+            ) {
+                break;
+            }
+        }
+    })
+    .await;
+    assert!(keyframe.is_ok(), "host did not send a requested IDR");
+    assert!(idrs.load(Ordering::Relaxed) >= 2);
     stop(viewer, host).await;
 }
 #[tokio::test]
@@ -316,7 +409,14 @@ async fn rejects_invalid_and_missing_handshakes() {
             let (stream, _) = listener.accept().await?;
             serve(
                 stream,
-                Pipeline::new(FakeCapture(0), DummyEncoder { size: 8 }, 30)?,
+                Pipeline::new(
+                    FakeCapture(0),
+                    DummyEncoder {
+                        size: 8,
+                        idrs: None,
+                    },
+                    30,
+                )?,
                 SessionConfig {
                     session_id: 42,
                     codec: Codec::Raw,
@@ -350,6 +450,61 @@ async fn rejects_invalid_and_missing_handshakes() {
 }
 
 #[tokio::test]
+async fn old_protocol_rejected() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let host = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await?;
+        serve(
+            stream,
+            Pipeline::new(
+                FakeCapture(0),
+                DummyEncoder {
+                    size: 8,
+                    idrs: None,
+                },
+                30,
+            )?,
+            SessionConfig {
+                session_id: 42,
+                codec: Codec::Raw,
+                width: 1,
+                height: 1,
+                fps: 30,
+                write_timeout: Duration::from_secs(1),
+                handshake_timeout: Duration::from_secs(5),
+                idle_timeout: Duration::from_secs(30),
+            },
+        )
+        .await
+    });
+    let mut viewer = TcpTransport::connect(address).await.unwrap();
+    send(
+        &mut viewer,
+        Message::Hello {
+            proto_version: 2,
+            device_name: "old protocol".into(),
+            role: Role::Viewer,
+            capabilities: vec![],
+        },
+    )
+    .await;
+    assert!(matches!(
+        recv(&mut viewer).await,
+        Message::HelloAck {
+            accepted: false,
+            ..
+        }
+    ));
+    let error = tokio::time::timeout(Duration::from_secs(2), host)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert!(error.to_string().contains("unsupported protocol version 2"));
+}
+
+#[tokio::test]
 async fn capture_panic_closes_pipeline() {
     struct PanickingCapture;
     impl Capture for PanickingCapture {
@@ -357,7 +512,15 @@ async fn capture_panic_closes_pipeline() {
             panic!("backend failed")
         }
     }
-    let mut pipeline = Pipeline::new(PanickingCapture, DummyEncoder { size: 8 }, 30).unwrap();
+    let mut pipeline = Pipeline::new(
+        PanickingCapture,
+        DummyEncoder {
+            size: 8,
+            idrs: None,
+        },
+        30,
+    )
+    .unwrap();
     assert!(
         tokio::time::timeout(Duration::from_secs(2), pipeline.next(false))
             .await

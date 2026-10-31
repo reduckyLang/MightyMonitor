@@ -2,7 +2,7 @@
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 #[test]
 fn unsupported_extension_does_not_silently_mirror() {
-    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_mm-host"));
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_trinix-host"));
     command.args(["--secure", "--extend", "--bind", "127.0.0.1:0"]);
     #[cfg(target_os = "linux")]
     command.args(["--capture", "x11"]);

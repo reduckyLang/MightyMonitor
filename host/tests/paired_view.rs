@@ -1,14 +1,14 @@
 //! Paired authentication reaches the video protocol with view authority only.
-use mightymonitor_core::{
+use trinix_core::{
     Bytes, Capture, Codec, CodecError, Encoder, FramedTransport, Message, Role, Transport,
     PROTOCOL_VERSION,
 };
-use mightymonitor_host::{
+use trinix_host::{
     pipeline::{HostEncoder, Pipeline},
     session::{serve_authenticated, SessionConfig},
     Error,
 };
-use mightymonitor_security::{
+use trinix_security::{
     pairing::{asynchronous as paired, DeviceIdentity, PairingMode},
     store::DeviceStore,
 };
@@ -111,7 +111,7 @@ async fn paired_reconnect_streams_video_and_denies_control() {
             },
             None,
             authenticated,
-            mightymonitor_host::resume::ResumeRegistry::default(),
+            trinix_host::resume::ResumeRegistry::default(),
         )
         .await
     });

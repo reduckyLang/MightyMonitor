@@ -1,9 +1,9 @@
-use mightymonitor_core::{Message, MonotonicClock, TcpTransport, Transport, MAX_PAYLOAD_LEN};
 use std::{
     error::Error,
     time::{Duration, Instant},
 };
 use tokio::net::TcpListener;
+use trinix_core::{pong_rtt_us, Message, MonotonicClock, TcpTransport, Transport, MAX_PAYLOAD_LEN};
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 const USAGE: &str = "Usage: bench [--frames N] [--size BYTES] [--fps N] [--rtt] [--max-p99-ms MS]\nDefaults: 1000 frames, 65536 data bytes, unpaced; --rtt uses sequential Ping/Pong (size ignored).";
@@ -112,9 +112,17 @@ async fn run(args: Args) -> Result<()> {
                 )
                 .await?;
                 match recv(&mut sender).await? {
-                    Message::Pong { nonce, t_send_us } if nonce == seq && t_send_us == t0 => {
-                        samples.push(send_clock.now_us() - t0)
-                    }
+                    Message::Pong {
+                        nonce,
+                        t_send_us,
+                        t_peer_recv_us,
+                        t_peer_send_us,
+                    } if nonce == seq && t_send_us == t0 => samples.push(pong_rtt_us(
+                        t0,
+                        t_peer_recv_us,
+                        t_peer_send_us,
+                        send_clock.now_us(),
+                    )),
                     _ => return Err("unexpected Pong".into()),
                 }
             } else {
@@ -146,7 +154,17 @@ async fn run(args: Args) -> Result<()> {
                     samples.push(clock.now_us() - timestamp_us)
                 }
                 Message::Ping { nonce, t_send_us } if args.rtt && nonce == expected => {
-                    send(&mut receiver, Message::Pong { nonce, t_send_us }).await?
+                    let t_peer_recv_us = clock.now_us();
+                    send(
+                        &mut receiver,
+                        Message::Pong {
+                            nonce,
+                            t_send_us,
+                            t_peer_recv_us,
+                            t_peer_send_us: clock.now_us(),
+                        },
+                    )
+                    .await?
                 }
                 _ => return Err("unexpected message or sequence".into()),
             }

@@ -6,6 +6,12 @@ on:
         description: Debian package version (alpha by default)
         required: true
         default: '0.0.1~alpha.5'
+  workflow_call:
+    inputs:
+      version:
+        description: Debian package version
+        required: true
+        type: string
   push:
     branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control']
     paths: ['security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
@@ -22,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dpkg-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libx11-dev libpipewire-0.3-dev libspa-0.2-dev clang libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
+      - run: cargo build --release --locked -p trinix-host -p trinix-viewer
       - name: Create Debian package
         env:
           PACKAGE_VERSION: ${{ inputs.version || '0.0.1~alpha.5' }}
@@ -31,12 +37,12 @@ jobs:
         run: |
           dpkg-deb --info output/installers/*.deb
           dpkg-deb --contents output/installers/*.deb
-          dpkg-deb --extract output/installers/*.deb /tmp/mightymonitor-package
-          /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-host --help
-          test -x /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-viewer
-          test -f /tmp/mightymonitor-package/usr/share/applications/mightymonitor.desktop
+          dpkg-deb --extract output/installers/*.deb /tmp/trinix-package
+          /tmp/trinix-package/usr/lib/trinix/trinix-host --help
+          test -x /tmp/trinix-package/usr/lib/trinix/trinix-viewer
+          test -f /tmp/trinix-package/usr/share/applications/trinix.desktop
       - uses: actions/upload-artifact@v4
         with:
-          name: mightymonitor-linux-deb
+          name: trinix-linux-deb
           path: output/installers/*.deb
           if-no-files-found: error

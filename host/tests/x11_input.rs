@@ -1,8 +1,8 @@
 #![cfg(target_os = "linux")]
 //! Run only on an isolated X server: verifies actual XTest key/button delivery.
-use mightymonitor_core::{InputEvent, MouseButton};
-use mightymonitor_host::input::{desktop::DesktopInput, InputLease};
 use std::time::{Duration, Instant};
+use trinix_core::{InputEvent, MouseButton};
+use trinix_host::input::{desktop::DesktopInput, InputLease};
 use x11rb::{
     connection::Connection,
     protocol::{xproto::*, Event},
@@ -103,8 +103,8 @@ fn x11_input_smoke() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "Requires an isolated Xvfb, real codecs and MM_ALLOW_INPUT_SMOKE=1"]
 async fn x11_multiviewer_control_smoke() {
-    use mightymonitor_viewer::net::{Command, ControlAction, State, ViewerSession};
     use std::io::{BufRead, BufReader};
+    use trinix_viewer::net::{Command, ControlAction, State, ViewerSession};
     assert_eq!(std::env::var("MM_ALLOW_INPUT_SMOKE").as_deref(), Ok("1"));
     struct Child(std::process::Child);
     impl Drop for Child {
@@ -114,7 +114,7 @@ async fn x11_multiviewer_control_smoke() {
         }
     }
     let mut child = Child(
-        std::process::Command::new(env!("CARGO_BIN_EXE_mm-host"))
+        std::process::Command::new(env!("CARGO_BIN_EXE_trinix-host"))
             .args([
                 "--secure",
                 "--allow-control",

@@ -1,9 +1,6 @@
 //! Android video client: original Rust protocol and bounded networking worker.
 //! Java is limited to platform UI/MediaCodec; no screen protocol is reimplemented there.
 #![deny(unsafe_op_in_unsafe_fn)]
-use mightymonitor_core::{
-    encode_stream_frame, Codec, FrameDecoder, InputEvent, Message, NetStats, Role, PROTOCOL_VERSION,
-};
 use std::{
     collections::VecDeque,
     io::{self, Read},
@@ -15,10 +12,14 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use trinix_core::{
+    encode_stream_frame, pong_rtt_us, Codec, FrameDecoder, InputEvent, Message, MonotonicClock,
+    NetStats, Role, PROTOCOL_VERSION,
+};
 pub mod hosting;
 mod socket;
-use mightymonitor_security::{blocking, Endpoint};
 use socket::{Connection, FrameWriter};
+use trinix_security::{blocking, Endpoint};
 #[cfg(feature = "jni")]
 mod native;
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -248,7 +249,7 @@ fn connection(
         },
         None => Message::Hello {
             proto_version: PROTOCOL_VERSION,
-            device_name: "MightyMonitor Android".into(),
+            device_name: "Trinix Android".into(),
             role: Role::Viewer,
             capabilities: vec!["h264".into(), "input-v1".into()],
         },
@@ -266,6 +267,7 @@ fn connection(
     let mut nonce = 0_u64;
     let mut pending_ping = None;
     let mut rtt_ms = 0;
+    let clock = MonotonicClock::new();
     while !shared.stopped.load(Ordering::Relaxed) {
         for _ in 0..32 {
             let command = shared
@@ -296,7 +298,7 @@ fn connection(
                 }),
             )?;
             nonce = nonce.wrapping_add(1);
-            let timestamp = start.elapsed().as_micros().min(u64::MAX as u128) as u64;
+            let timestamp = clock.now_us();
             send(
                 &mut stream,
                 Message::Ping {
@@ -304,7 +306,7 @@ fn connection(
                     t_send_us: timestamp,
                 },
             )?;
-            pending_ping = Some((nonce, timestamp, Instant::now()));
+            pending_ping = Some((nonce, timestamp));
             feedback_at = Instant::now();
             bytes = 0;
         }
@@ -405,15 +407,33 @@ fn connection(
                     }
                 }
                 Message::Ping { nonce, t_send_us } => {
-                    send(&mut stream, Message::Pong { nonce, t_send_us })?
+                    let t_peer_recv_us = clock.now_us();
+                    send(
+                        &mut stream,
+                        Message::Pong {
+                            nonce,
+                            t_send_us,
+                            t_peer_recv_us,
+                            t_peer_send_us: clock.now_us(),
+                        },
+                    )?
                 }
                 Message::Pong {
                     nonce: received,
                     t_send_us,
+                    t_peer_recv_us,
+                    t_peer_send_us,
                 } => {
-                    if let Some((expected, timestamp, sent)) = pending_ping {
+                    if let Some((expected, timestamp)) = pending_ping {
                         if received == expected && t_send_us == timestamp {
-                            rtt_ms = sent.elapsed().as_millis().min(u32::MAX as u128) as u32;
+                            rtt_ms = (pong_rtt_us(
+                                timestamp,
+                                t_peer_recv_us,
+                                t_peer_send_us,
+                                clock.now_us(),
+                            ) / 1_000)
+                                .min(u64::from(u32::MAX))
+                                as u32;
                             pending_ping = None;
                         }
                     }

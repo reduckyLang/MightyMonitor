@@ -1,5 +1,5 @@
 //! Pure bounded presentation state; route and credential data stays elsewhere.
-use mightymonitor_security::pairing::{sanitize_name, Clock};
+use trinix_security::pairing::{sanitize_name, Clock};
 use std::sync::Arc;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NearbyRow {

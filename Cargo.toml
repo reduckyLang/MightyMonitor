@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
-members = ["core", "host-linux", "bench", "codec-gst", "host", "viewer", "android-bridge", "security", "discovery"]
+members = ["core", "host-linux", "bench", "codec-gst", "host", "viewer", "android-bridge", "security", "ux", "discovery"]
 
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
 rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/reduckyLang/MightyMonitor"
+repository = "https://github.com/reduckyLang/Trinix"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
-# Keep bincode 1.3 for its serde-based API and wire format compatibility.
-bincode = "1.3"
+# The legacy serde config is guarded by v3 golden-frame compatibility tests.
+bincode = { version = "2", features = ["serde"] }
 thiserror = "2"
 tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "time", "sync"] }

@@ -3,7 +3,7 @@
 #[cfg(feature = "async")]
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use mightymonitor_security::{
+    use trinix_security::{
         device_cli,
         pairing::{asynchronous, DeviceIdentity},
         store::{config_dir, DeviceStore},

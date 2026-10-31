@@ -1,12 +1,12 @@
 //! A closed advertisement schema: no invitation or credential input exists.
 use std::{collections::BTreeMap, io};
-/// DNS-SD service type for untrusted MightyMonitor routes.
+/// DNS-SD service type for untrusted Trinix routes.
 pub const SERVICE: &str = "_mightymonitor._tcp.local.";
 /// Only keys emitted by the advertisement builder.
 pub const KEYS: [&str; 3] = ["name", "id", "wire"];
-/// Supported MightyMonitor wire version.
+/// Supported Trinix wire version.
 pub static WIRE: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| mightymonitor_core::PROTOCOL_VERSION.to_string());
+    std::sync::LazyLock::new(|| trinix_core::PROTOCOL_VERSION.to_string());
 /// Keep at most 40 safe ASCII characters, using a neutral fallback.
 pub fn sanitize_name(name: &str) -> String {
     let result: String = name
@@ -16,7 +16,7 @@ pub fn sanitize_name(name: &str) -> String {
         .collect();
     let result = result.trim();
     if result.is_empty() {
-        "MightyMonitor".into()
+        "Trinix".into()
     } else {
         result.into()
     }

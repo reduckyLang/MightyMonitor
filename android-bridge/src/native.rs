@@ -233,7 +233,7 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostInvite(
     }
 }
 
-fn dispatch_input(env: &mut JNIEnv, id: jlong, event: mightymonitor_core::InputEvent) -> jboolean {
+fn dispatch_input(env: &mut JNIEnv, id: jlong, event: trinix_core::InputEvent) -> jboolean {
     let result = clients()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -282,7 +282,7 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_pointer(
     y: jni::sys::jfloat,
     phase: jint,
 ) -> jboolean {
-    use mightymonitor_core::{InputEvent, TouchPhase};
+    use trinix_core::{InputEvent, TouchPhase};
     let phase = match phase {
         0 => TouchPhase::Start,
         1 => TouchPhase::Move,
@@ -303,7 +303,7 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_key(
     dispatch_input(
         &mut env,
         id,
-        mightymonitor_core::InputEvent::Key {
+        trinix_core::InputEvent::Key {
             code: code as u32,
             pressed: pressed != 0,
         },
@@ -320,7 +320,7 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_typeText(
         return 0;
     };
     let text: String = text.into();
-    dispatch_input(&mut env, id, mightymonitor_core::InputEvent::Text(text))
+    dispatch_input(&mut env, id, trinix_core::InputEvent::Text(text))
 }
 
 #[no_mangle]
@@ -340,7 +340,7 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_pollHostInput(
     _: JClass,
     id: jlong,
 ) -> jbyteArray {
-    use mightymonitor_core::{InputEvent, MouseButton, TouchPhase};
+    use trinix_core::{InputEvent, MouseButton, TouchPhase};
     let event = hosts()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -411,5 +411,5 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_releaseInput(
     _: JClass,
     id: jlong,
 ) -> jboolean {
-    dispatch_input(&mut env, id, mightymonitor_core::InputEvent::ReleaseAll)
+    dispatch_input(&mut env, id, trinix_core::InputEvent::ReleaseAll)
 }

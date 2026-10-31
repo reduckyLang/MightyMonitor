@@ -1,11 +1,11 @@
 //! Protocol handling and bounded output, independent of any GUI toolkit.
 use async_trait::async_trait;
-use mightymonitor_core::*;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tokio::sync::mpsc;
+use trinix_core::*;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,7 +64,7 @@ pub enum ControlAction {
 }
 pub type SharedOutput = Arc<Mutex<Output>>;
 enum SessionEndpoint {
-    Link(mightymonitor_security::Endpoint),
+    Link(trinix_security::Endpoint),
     Paired {
         address: std::net::SocketAddr,
         directory: std::path::PathBuf,
@@ -81,16 +81,16 @@ impl SessionEndpoint {
     async fn connect(&self) -> Result<Box<dyn Transport>, TransportError> {
         match self {
             Self::Link(endpoint) => {
-                mightymonitor_security::asynchronous::connect_transport(endpoint).await
+                trinix_security::asynchronous::connect_transport(endpoint).await
             }
             Self::Paired {
                 address,
                 directory,
                 fingerprint,
             } => {
-                let identity = mightymonitor_security::pairing::DeviceIdentity::open(directory)
+                let identity = trinix_security::pairing::DeviceIdentity::open(directory)
                     .map_err(TransportError::Io)?;
-                let store = mightymonitor_security::store::DeviceStore::open(directory)
+                let store = trinix_security::store::DeviceStore::open(directory)
                     .map_err(TransportError::Io)?;
                 let peer = store
                     .peers()
@@ -103,7 +103,7 @@ impl SessionEndpoint {
                     .await
                     .map_err(TransportError::Io)?;
                 let tls =
-                    mightymonitor_security::pairing::asynchronous::connect(stream, &identity, peer)
+                    trinix_security::pairing::asynchronous::connect(stream, &identity, peer)
                         .await
                         .map_err(|_| {
                             TransportError::Authentication(
@@ -160,7 +160,7 @@ impl<D: Decoder> ViewerSession<D> {
         }
     }
     pub async fn run(mut self, address: String) {
-        let result = match mightymonitor_security::Endpoint::parse(&address, true) {
+        let result = match trinix_security::Endpoint::parse(&address, true) {
             Ok(endpoint) => self.drive(SessionEndpoint::Link(endpoint)).await,
             Err(error) => Err(error.into()),
         };
@@ -200,7 +200,7 @@ impl<D: Decoder> ViewerSession<D> {
                     t.as_mut(),
                     Message::Hello {
                         proto_version: PROTOCOL_VERSION,
-                        device_name: "mm-viewer".into(),
+                        device_name: "trinix-viewer".into(),
                         role: Role::Viewer,
                         capabilities: vec!["h264".into(), "input-v1".into()],
                     },
@@ -260,6 +260,8 @@ impl<D: Decoder> ViewerSession<D> {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .control_epoch = writer.generation();
+        let clock = MonotonicClock::new();
+        let writer_clock = clock.clone();
         let (tx, mut rx) = mpsc::channel(1);
         let task = tokio::spawn(async move {
             loop {
@@ -291,7 +293,12 @@ impl<D: Decoder> ViewerSession<D> {
             loop {
                 tokio::select! {
                     command = commands.recv() => match command {
-                        Some((generation,message)) if generation==writer.generation() => { if let Err(e) = send(&mut writer, message).await { output.lock().unwrap_or_else(|p| p.into_inner()).error = Some(e.to_string()); } }
+                        Some((generation,mut message)) if generation==writer.generation() => {
+                            if let Message::Pong { t_peer_send_us, .. } = &mut message {
+                                *t_peer_send_us = writer_clock.now_us();
+                            }
+                            if let Err(e) = send(&mut writer, message).await { output.lock().unwrap_or_else(|p| p.into_inner()).error = Some(e.to_string()); }
+                        }
                         Some(_)=>{},
                         None => break,
                     },
@@ -314,7 +321,6 @@ impl<D: Decoder> ViewerSession<D> {
         let mut dimensions = None;
         let mut acknowledged = true;
         let mut keyframe_needed = true;
-        let clock = MonotonicClock::new();
         let mut nonce = 0u64;
         let mut ping = None;
         loop {
@@ -343,9 +349,16 @@ impl<D: Decoder> ViewerSession<D> {
                             keyframe_needed = false; frames += 1;
                             self.output.lock().unwrap_or_else(|p| p.into_inner()).picture = Some(Picture { i420, width, height, decoded: Instant::now() });
                         }
-                        Message::Ping { nonce, t_send_us } => controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::Pong { nonce,t_send_us }))?,
-                        Message::Pong { nonce: n, t_send_us } => {
-                            if let Some((expected,stamp,start)) = ping { if n == expected && t_send_us == stamp { self.output.lock().unwrap_or_else(|p| p.into_inner()).stats.rtt_ms = tokio::time::Instant::now().duration_since(start).as_millis().min(u32::MAX as u128) as u32; ping = None; } }
+                        Message::Ping { nonce, t_send_us } => {
+                            let t_peer_recv_us = clock.now_us();
+                            controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::Pong { nonce,t_send_us,t_peer_recv_us,t_peer_send_us:0 }))?
+                        }
+                        Message::Pong { nonce: n, t_send_us, t_peer_recv_us, t_peer_send_us } => {
+                            if let Some((expected,stamp)) = ping { if n == expected && t_send_us == stamp {
+                                let rtt_ms = pong_rtt_us(stamp, t_peer_recv_us, t_peer_send_us, clock.now_us()) / 1_000;
+                                self.output.lock().unwrap_or_else(|p| p.into_inner()).stats.rtt_ms = rtt_ms.min(u64::from(u32::MAX)) as u32;
+                                ping = None;
+                            } }
                         }
                         Message::ControlStatus {enabled} if control_available => {let mut out=self.output.lock().unwrap_or_else(|e|e.into_inner());out.controlling=enabled;out.control_response=Some(enabled);},
                         Message::Bye { reason } => return Err(reason.into()),
@@ -367,7 +380,7 @@ impl<D: Decoder> ViewerSession<D> {
                             controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::NetStats(NetStats { rtt_ms: stats.rtt_ms, loss_pct: 0.0, recv_kbps: stats.kbps })))?;
                             nonce = nonce.wrapping_add(1);
                             let t_send_us = clock.now_us();
-                            ping = Some((nonce,t_send_us,tokio::time::Instant::now()));
+                            ping = Some((nonce,t_send_us));
                             controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::Ping { nonce,t_send_us }))?;
                         }
                     }

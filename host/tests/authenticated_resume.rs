@@ -1,15 +1,15 @@
 //! Loopback authentication and server-side Resume authorization, without capture APIs.
-use mightymonitor_core::{
+use trinix_core::{
     Bytes, Capture, Codec, CodecError, Encoder, FramedTransport, Message, Role, Transport,
     PROTOCOL_VERSION,
 };
-use mightymonitor_host::{
+use trinix_host::{
     pipeline::{HostEncoder, Pipeline},
     resume::ResumeRegistry,
     session::{serve_authenticated, SessionConfig},
     Error,
 };
-use mightymonitor_security::{
+use trinix_security::{
     asynchronous as private,
     pairing::{asynchronous as paired, DeviceIdentity, PairingMode},
     store::DeviceStore,
@@ -19,7 +19,7 @@ use std::{path::PathBuf, time::Duration};
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
-        let name = mightymonitor_security::random_session_id().unwrap();
+        let name = trinix_security::random_session_id().unwrap();
         Self(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join(format!("../target/resume-tests/{name}")),

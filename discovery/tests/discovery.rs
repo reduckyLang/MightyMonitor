@@ -1,10 +1,10 @@
-use mightymonitor_discovery::{txt::*, *};
 use std::{
     collections::VecDeque,
     net::SocketAddr,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use trinix_discovery::{txt::*, *};
 #[derive(Default)]
 struct State {
     registered: bool,
@@ -101,13 +101,10 @@ fn resolution_dedupe_removal_expiry_and_bounds() {
 }
 #[test]
 fn txt_strict_validation() {
-    assert_eq!(*WIRE, mightymonitor_core::PROTOCOL_VERSION.to_string());
+    assert_eq!(*WIRE, trinix_core::PROTOCOL_VERSION.to_string());
     let records = metadata().records();
-    assert_eq!(
-        records["wire"],
-        mightymonitor_core::PROTOCOL_VERSION.to_string()
-    );
-    let different = (u64::from(mightymonitor_core::PROTOCOL_VERSION) + 1).to_string();
+    assert_eq!(records["wire"], trinix_core::PROTOCOL_VERSION.to_string());
+    let different = (u64::from(trinix_core::PROTOCOL_VERSION) + 1).to_string();
     let mut bytes: Vec<_> = records
         .iter()
         .map(|(k, v)| (k.as_str(), v.as_bytes()))
@@ -142,7 +139,7 @@ fn advertisements_never_contain_private_link_or_credentials() {
         engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD},
         Engine,
     };
-    use mightymonitor_security::ShareIdentity;
+    use trinix_security::ShareIdentity;
     let share = ShareIdentity::generate().unwrap();
     let invitation = share.invitation("127.0.0.1:5000".parse().unwrap()).unwrap();
     let link = invitation.to_link();

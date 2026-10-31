@@ -10,7 +10,7 @@ private viewing link on Windows, Linux or Android. The normal encrypted video
 and optional remote-control paths are reused. Configure the monitor's arrangement
 in Linux Display Settings. Stop sharing closes the portal session and its monitor.
 
-The CLI equivalent is `mm-host --secure --extend --bind YOUR_LAN_IP:5000`;
+The CLI equivalent is `trinix-host --secure --extend --bind YOUR_LAN_IP:5000`;
 add `--allow-control` to request keyboard and pointer consent too.
 
 This uses the standard ScreenCast portal's VIRTUAL source type. The app checks

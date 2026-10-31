@@ -1,6 +1,6 @@
 //! Time-gated host policy around the core AIMD controller.
-use mightymonitor_core::{AimdConfig, AimdController, BitrateController, Encoder, NetStats};
 use std::time::Duration;
+use trinix_core::{AimdConfig, AimdController, Encoder, NetStats};
 
 /// One decision per second, two healthy reports before recovery, and a bounded
 /// 5 Mbit/s recovery step. Time is supplied by the caller for deterministic tests.
@@ -8,7 +8,6 @@ use std::time::Duration;
 pub struct Abr {
     core: AimdController,
     last: Option<Duration>,
-    baseline_rtt: Option<u32>,
     pending_write_pressure: bool,
     min: u32,
     max: u32,
@@ -25,7 +24,6 @@ impl Abr {
                 ..Default::default()
             })?,
             last: None,
-            baseline_rtt: None,
             pending_write_pressure: false,
             min,
             max,
@@ -42,7 +40,7 @@ impl Abr {
         stats: &NetStats,
         now: Duration,
         blocked: bool,
-    ) -> Result<Option<u32>, mightymonitor_core::CodecError> {
+    ) -> Result<Option<u32>, trinix_core::CodecError> {
         // Latch before cloning so skipped reports and encoder failures retain
         // the observation until a valid decision is successfully committed.
         self.pending_write_pressure |= blocked;
@@ -64,21 +62,14 @@ impl Abr {
             return None;
         }
         self.last = Some(now);
-        let baseline = self
-            .baseline_rtt
-            .map_or(stats.rtt_ms, |r| r.min(stats.rtt_ms));
-        self.baseline_rtt = Some(baseline);
-        let congested = self.pending_write_pressure
-            || stats.loss_pct > 2.0
-            || f64::from(stats.rtt_ms)
-                > (f64::from(baseline) * 1.5).max(f64::from(baseline) + 20.0);
+        let congested = self.pending_write_pressure || self.core.is_congested_at(stats, now);
         self.pending_write_pressure = false;
         let previous = self.target_kbps();
         let mut feedback = stats.clone();
         if congested {
             feedback.loss_pct = feedback.loss_pct.max(3.0);
         }
-        self.core.on_stats(&feedback);
+        self.core.on_stats_at(&feedback, now);
         // Throughput alone is application limited, not a capacity estimate.
         // Use it only with independent congestion evidence, reserving 10% headroom.
         if congested && stats.recv_kbps > 0 {
@@ -107,10 +98,10 @@ mod tests {
         reject: bool,
     }
     impl Encoder for EncoderStub {
-        fn encode(&mut self, _: &[u8]) -> Result<Vec<u8>, mightymonitor_core::CodecError> {
+        fn encode(&mut self, _: &[u8]) -> Result<Vec<u8>, trinix_core::CodecError> {
             Ok(vec![])
         }
-        fn set_bitrate_kbps(&mut self, target: u32) -> Result<(), mightymonitor_core::CodecError> {
+        fn set_bitrate_kbps(&mut self, target: u32) -> Result<(), trinix_core::CodecError> {
             if self.reject {
                 return Err(std::io::Error::other("rejected").into());
             }

@@ -11,7 +11,7 @@ use std::{
 
 #[derive(Default, Clone)]
 pub struct PairStatus {
-    pub state: Option<mightymonitor_security::managed::Status>,
+    pub state: Option<trinix_security::managed::Status>,
     pub offer: Option<String>,
 }
 pub struct HostProcess {
@@ -19,7 +19,7 @@ pub struct HostProcess {
     child: Child,
     log: File,
     log_path: PathBuf,
-    invitation: Arc<Mutex<Option<mightymonitor_security::Invitation>>>,
+    invitation: Arc<Mutex<Option<trinix_security::Invitation>>>,
     invitation_worker: Option<std::thread::JoinHandle<()>>,
 }
 impl HostProcess {
@@ -48,13 +48,15 @@ impl HostProcess {
         }
         validate(address, fps, bitrate)?;
         let binary = std::env::current_exe()?.with_file_name(if cfg!(target_os = "windows") {
-            "mm-host.exe"
+            "trinix-host.exe"
         } else {
-            "mm-host"
+            "trinix-host"
         });
         if !binary.is_file() {
-            return Err(io::Error::new(io::ErrorKind::NotFound,
-                "Sharing component missing. Reinstall MightyMonitor with its screen-sharing component."));
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Sharing component missing. Reinstall Trinix with its screen-sharing component.",
+            ));
         }
         let mut command = Command::new(binary);
         command.args([
@@ -87,7 +89,7 @@ impl HostProcess {
             .map_err(io::Error::other)?
             .as_nanos();
         let log_path =
-            std::env::temp_dir().join(format!("mightymonitor-{}-{stamp}.log", std::process::id()));
+            std::env::temp_dir().join(format!("trinix-{}-{stamp}.log", std::process::id()));
         let mut options = OpenOptions::new();
         options.read(true).write(true).create_new(true);
         #[cfg(unix)]
@@ -118,7 +120,7 @@ impl HostProcess {
                     .spawn(move || {
                         let mut input = BufReader::new(stdout);
                         while let Ok(Some(line)) =
-                            mightymonitor_security::managed::read_line(&mut input)
+                            trinix_security::managed::read_line(&mut input)
                         {
                             if let Some(link) = line.strip_prefix("MM_INVITE ") {
                                 if let Ok(value) = link.parse() {
@@ -127,22 +129,22 @@ impl HostProcess {
                                     }
                                 }
                             } else if let Some(status) =
-                                mightymonitor_security::managed::Status::parse(&line)
+                                trinix_security::managed::Status::parse(&line)
                             {
                                 if let Ok(mut pairing) = shared_pairing.lock() {
                                     if matches!(
                                         status,
-                                        mightymonitor_security::managed::Status::Expired
-                                            | mightymonitor_security::managed::Status::Locked
+                                        trinix_security::managed::Status::Expired
+                                            | trinix_security::managed::Status::Locked
                                     ) {
                                         pairing.offer = None;
                                     }
                                     pairing.state = Some(status);
                                 }
                             } else if let Some(value) = line.strip_prefix("MM_PAIR_OFFER ") {
-                                if mightymonitor_security::pairing::PairingOffer::parse(
+                                if trinix_security::pairing::PairingOffer::parse(
                                     value,
-                                    &mightymonitor_security::pairing::SystemClock,
+                                    &trinix_security::pairing::SystemClock,
                                 )
                                 .is_ok()
                                 {
@@ -183,9 +185,9 @@ impl HostProcess {
             .lock()
             .map_or_else(|_| PairStatus::default(), |state| state.clone())
     }
-    pub fn command(&mut self, command: mightymonitor_security::managed::Command) -> io::Result<()> {
+    pub fn command(&mut self, command: trinix_security::managed::Command) -> io::Result<()> {
         let line = command.line();
-        if mightymonitor_security::managed::Command::parse(&line).is_none() {
+        if trinix_security::managed::Command::parse(&line).is_none() {
             return Err(io::Error::other("Invalid sharing command"));
         }
         let input = self
@@ -196,7 +198,7 @@ impl HostProcess {
         writeln!(input, "{line}")?;
         input.flush()
     }
-    pub fn invitation(&self) -> Option<mightymonitor_security::Invitation> {
+    pub fn invitation(&self) -> Option<trinix_security::Invitation> {
         self.invitation
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -270,7 +272,7 @@ mod tests {
     #[test]
     fn failed_host_exposes_diagnostics_and_cleans_log() {
         let mut command = std::process::Command::new("/bin/ls");
-        command.arg("/mightymonitor-test-nonexistent-path");
+        command.arg("/trinix-test-nonexistent-path");
         let mut host = super::HostProcess::spawn(command).unwrap();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
         while !host.exited().unwrap() {
@@ -280,7 +282,7 @@ mod tests {
         assert!(host
             .diagnostics()
             .unwrap()
-            .contains("mightymonitor-test-nonexistent-path"));
+            .contains("trinix-test-nonexistent-path"));
         let log = host.log_path.clone();
         drop(host);
         assert!(!log.exists());

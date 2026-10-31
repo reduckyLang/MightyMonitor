@@ -4,6 +4,26 @@
 Apache-2.0), without unsafe code or Xlib/C bindings. The crate and its dependencies
 are Linux-only; on other targets it is empty.
 
+## GUI and display build prerequisites
+
+The desktop viewer (`trinix-viewer`) uses OpenGL and supports X11 and Wayland. The
+following development libraries are required to build and run it on Linux. CI
+installs them on Ubuntu 24.04:
+
+```sh
+sudo apt-get install \
+  libgl1-mesa-dev \
+  libx11-dev \
+  libxkbcommon-dev \
+  libwayland-dev
+```
+
+These packages are in addition to the GStreamer development libraries listed in
+[docs/CODEC.md](CODEC.md) and the PipeWire libraries listed below. See
+[docs/VIEWER.md](VIEWER.md) for viewer usage and smoke-test instructions.
+
+## X11 capture
+
 `X11Capture::open(display)` connects to the requested display (`None` uses
 `DISPLAY`) and captures the default screen's root window with xproto GetImage
 in ZPixmap mode. Supported layouts have depth 24 or 32, 32 bits per pixel
@@ -29,7 +49,7 @@ grab start frequency by sleeping between attempts; zero and the default are
 unpaced. `last_grab_duration()` includes the source grab and pixel conversion,
 including failed attempts, but excludes pacing sleep.
 
-## Smoke test
+## X11 capture smoke test
 
 With an existing X11 session:
 

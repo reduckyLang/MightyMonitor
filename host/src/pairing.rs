@@ -1,5 +1,5 @@
 //! Per-share pairing lifecycle. Discovery is public routing metadata only.
-use mightymonitor_security::{
+use trinix_security::{
     managed::Command,
     pairing::{asynchronous::pair_host, DeviceIdentity, PairingMode, PAIRING_WINDOW},
     store::DeviceStore,
@@ -46,8 +46,8 @@ impl SharePairing {
         this.publish_offer()?;
         Ok(this)
     }
-    pub fn metadata(&self) -> io::Result<mightymonitor_discovery::txt::Metadata> {
-        mightymonitor_discovery::txt::Metadata::new(
+    pub fn metadata(&self) -> io::Result<trinix_discovery::txt::Metadata> {
+        trinix_discovery::txt::Metadata::new(
             self.identity.friendly_name(),
             &self.identity.id(),
         )
@@ -204,7 +204,7 @@ pub async fn route(stream: &mut tokio::net::TcpStream) -> io::Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mightymonitor_security::pairing::{asynchronous, Clock, PairingOffer, SystemClock};
+    use trinix_security::pairing::{asynchronous, Clock, PairingOffer, SystemClock};
     use std::sync::atomic::{AtomicU64, Ordering};
     use tokio::net::{TcpListener, TcpStream};
     struct Directory(PathBuf);
@@ -227,7 +227,7 @@ mod tests {
     }
     async fn connection(listener: &TcpListener, pair: bool) -> (TcpStream, TcpStream) {
         let (client, server) = tokio::join!(
-            mightymonitor_viewer::devices::dial(listener.local_addr().unwrap(), pair),
+            trinix_viewer::devices::dial(listener.local_addr().unwrap(), pair),
             async {
                 let mut stream = listener.accept().await.unwrap().0;
                 assert_eq!(route(&mut stream).await.unwrap(), pair);
@@ -360,7 +360,7 @@ mod tests {
             metadata.keys().map(String::as_str).collect::<Vec<_>>(),
             ["id", "name", "wire"]
         );
-        let share = mightymonitor_security::ShareIdentity::generate().unwrap();
+        let share = trinix_security::ShareIdentity::generate().unwrap();
         let invitation = share
             .invitation("127.0.0.1:5101".parse().unwrap())
             .unwrap()

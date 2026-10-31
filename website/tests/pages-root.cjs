@@ -13,16 +13,16 @@ assert.match(html, /url=website\/dist\//);
 assert.match(html, /href="website\/dist\/"/);
 for (const [source, expected] of [
   [
-    "https://example.github.io/MightyMonitor/?from=home#download",
-    "https://example.github.io/MightyMonitor/website/dist/?from=home#download",
+    "https://example.github.io/Trinix/?from=home#download",
+    "https://example.github.io/Trinix/website/dist/?from=home#download",
   ],
   [
     "https://example.github.io/?next=https://untrusted.example/#progress",
     "https://example.github.io/website/dist/?next=https://untrusted.example/#progress",
   ],
   [
-    "file:///project/MightyMonitor/index.html#download",
-    "file:///project/MightyMonitor/website/dist/#download",
+    "file:///project/Trinix/index.html#download",
+    "file:///project/Trinix/website/dist/#download",
   ],
 ]) {
   const input = new URL(source);

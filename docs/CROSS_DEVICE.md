@@ -1,7 +1,7 @@
 # Cross-device product requirements
 
 This document defines intended behavior, not currently supported features.
-MightyMonitor is an original Rust implementation with an original protocol.
+Trinix is an original Rust implementation with an original protocol.
 Do not copy proprietary spacedesk code, protocols, drivers, or assets. Record
 third-party dependencies and source provenance in NOTICE with license review.
 Small platform API adapters may be necessary around the shared Rust core.

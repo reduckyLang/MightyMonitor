@@ -34,10 +34,10 @@ async function render(response, failure = false) {
   let result = await render({ status: 404 });
   assert.match(result.status.textContent, /No published release/);
   for (const card of Object.values(result.cards)) assert.equal(card.links.children[0].disabled, true);
-  const asset = (name, url) => ({ name, browser_download_url: url || `https://github.com/reduckyLang/MightyMonitor/releases/download/v1/${name}` });
+  const asset = (name, url) => ({ name, browser_download_url: url || `https://github.com/reduckyLang/Trinix/releases/download/v1/${name}` });
   result = await render({ status: 200, ok: true, json: async () => ({ tag_name: 'v1', assets: [
-    asset('MightyMonitor.msi'), asset('MightyMonitor-Setup-x64.exe'), asset('MightyMonitor.deb'),
-    asset('MightyMonitor.rpm'), asset('MightyMonitor.apk'), asset('mm-viewer.exe'), asset('source.zip'),
+    asset('Trinix.msi'), asset('Trinix-Setup-x64.exe'), asset('Trinix.deb'),
+    asset('Trinix.rpm'), asset('Trinix.apk'), asset('mm-viewer.exe'), asset('source.zip'),
     asset('malicious.msi', 'https://example.org/untrusted.msi'),
     asset('other.msi', 'https://github.com/another/repository/releases/download/v1/other.msi')
   ] }) });
@@ -48,9 +48,9 @@ async function render(response, failure = false) {
   result = await render({ status: 200, ok: true, json: async () => ({ tag_name: 'v2', assets: [asset('source.zip')] }) });
   assert.match(result.status.textContent, /No installer packages/);
   result = await render(null, true);
-  assert.equal(result.status.children[1].href, 'https://github.com/reduckyLang/MightyMonitor/releases');
+  assert.equal(result.status.children[1].href, 'https://github.com/reduckyLang/Trinix/releases');
   for (const card of Object.values(result.cards)) assert.equal(card.links.children[0].disabled, true);
   result = await render({ status: 403, ok: false });
-  assert.equal(result.status.children[1].href, 'https://github.com/reduckyLang/MightyMonitor/releases');
+  assert.equal(result.status.children[1].href, 'https://github.com/reduckyLang/Trinix/releases');
   console.log('Passed: no release, installer filtering, source-only release, offline and rate-limit fallback.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

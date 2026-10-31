@@ -1,14 +1,14 @@
 //! Real H.264 encoder -> TCP host -> viewer -> real decoder (no GUI or desktop).
 #![cfg(any(target_os = "linux", target_os = "windows"))]
 use codec_gst::encoder::{Encoder as H264Encoder, EncoderConfig, PixelFormat};
-use mightymonitor_core::{Bytes, Capture, Codec, CodecError, Encoder};
-use mightymonitor_host::{
+use std::time::Duration;
+use tokio::net::TcpListener;
+use trinix_core::{Bytes, Capture, Codec, CodecError, Encoder};
+use trinix_host::{
     pipeline::{HostEncoder, Pipeline},
     session::{serve_transport, SessionConfig},
     Error,
 };
-use std::time::Duration;
-use tokio::net::TcpListener;
 struct SolidFrame;
 impl Capture for SolidFrame {
     fn next_frame(&mut self) -> Option<Bytes> {
@@ -69,7 +69,7 @@ async fn exercise(secure: bool) {
     };
     let decoder = codec_gst::decoder::Decoder::new().expect("H.264 decoder required");
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let identity = secure.then(|| mightymonitor_security::ShareIdentity::generate().unwrap());
+    let identity = secure.then(|| trinix_security::ShareIdentity::generate().unwrap());
     let address = identity.as_ref().map_or_else(
         || listener.local_addr().unwrap().to_string(),
         |id| {
@@ -80,14 +80,14 @@ async fn exercise(secure: bool) {
     );
     let host = tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        let transport: Box<dyn mightymonitor_core::Transport> = if let Some(identity) = identity {
-            Box::new(mightymonitor_core::FramedTransport::from_stream(
-                mightymonitor_security::asynchronous::accept(stream, &identity)
+        let transport: Box<dyn trinix_core::Transport> = if let Some(identity) = identity {
+            Box::new(trinix_core::FramedTransport::from_stream(
+                trinix_security::asynchronous::accept(stream, &identity)
                     .await
                     .unwrap(),
             ))
         } else {
-            Box::new(mightymonitor_core::TcpTransport::new(stream).unwrap())
+            Box::new(trinix_core::TcpTransport::new(stream).unwrap())
         };
         let pipeline = Pipeline::new(SolidFrame, VideoEncoder(encoder), 10)
             .unwrap()
@@ -109,7 +109,7 @@ async fn exercise(secure: bool) {
         )
         .await
     });
-    let session = mightymonitor_viewer::net::ViewerSession::new(decoder);
+    let session = trinix_viewer::net::ViewerSession::new(decoder);
     let output = session.output.clone();
     let viewer = tokio::spawn(session.run(address));
     let result = tokio::time::timeout(Duration::from_secs(10), async {
@@ -120,7 +120,7 @@ async fn exercise(secure: bool) {
                     panic!("viewer failed: {error}");
                 }
                 if let Some(picture) = &out.picture {
-                    assert_eq!(out.state, mightymonitor_viewer::net::State::Connected);
+                    assert_eq!(out.state, trinix_viewer::net::State::Connected);
                     assert_eq!((picture.width, picture.height), (64, 64));
                     assert_eq!(picture.i420.len(), 64 * 64 * 3 / 2);
                     assert!(picture.i420[..64 * 64].iter().all(|&luma| luma > 20));

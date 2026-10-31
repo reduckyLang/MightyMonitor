@@ -15,7 +15,7 @@ pub async fn connect(
         let mut magic = [0; 8];
         stream.read_exact(&mut magic).await?;
         if &magic != MAGIC {
-            return Err(invalid("This endpoint is not a secure MightyMonitor host"));
+            return Err(invalid("This endpoint is not a secure Trinix host"));
         }
         let mut length = [0; 2];
         stream.read_exact(&mut length).await?;
@@ -88,8 +88,8 @@ pub async fn accept(
 /// terminal to reconnect policy; network outages remain recoverable.
 pub async fn connect_transport(
     endpoint: &Endpoint,
-) -> Result<Box<dyn mightymonitor_core::Transport>, mightymonitor_core::TransportError> {
-    use mightymonitor_core::{FramedTransport, TcpTransport, TransportError};
+) -> Result<Box<dyn trinix_core::Transport>, trinix_core::TransportError> {
+    use trinix_core::{FramedTransport, TcpTransport, TransportError};
     match endpoint {
         Endpoint::Paired {
             address,

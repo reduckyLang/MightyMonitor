@@ -1,5 +1,5 @@
 //! Background discovery and explicit pairing decisions, independent of drawing.
-use mightymonitor_security::{
+use trinix_security::{
     pairing::{DeviceIdentity, PairingOffer},
     store::DeviceStore,
 };
@@ -20,13 +20,13 @@ pub async fn dial(address: SocketAddr, pair: bool) -> io::Result<tokio::net::Tcp
     .await
     .map_err(|_| io::Error::other("Device did not answer"))?
 }
-pub fn browse() -> io::Result<mpsc::Receiver<Vec<mightymonitor_discovery::Device>>> {
+pub fn browse() -> io::Result<mpsc::Receiver<Vec<trinix_discovery::Device>>> {
     let (tx, rx) = mpsc::sync_channel(1);
     std::thread::Builder::new()
         .name("mm-nearby".into())
         .spawn(move || {
-            let result = mightymonitor_discovery::Mdns::new().and_then(|mut backend| {
-                mightymonitor_discovery::browse(&mut backend, Duration::from_secs(3))
+            let result = trinix_discovery::Mdns::new().and_then(|mut backend| {
+                trinix_discovery::browse(&mut backend, Duration::from_secs(3))
             });
             let _ = tx.try_send(result.unwrap_or_default());
         })?;
@@ -55,13 +55,13 @@ pub async fn pair(
         };
         let peer = match offer {
             Some(offer) => {
-                mightymonitor_security::pairing::asynchronous::pair_client_offer(
+                trinix_security::pairing::asynchronous::pair_client_offer(
                     stream, &identity, &offer, confirm,
                 )
                 .await?
             }
             None => {
-                mightymonitor_security::pairing::asynchronous::pair_client(
+                trinix_security::pairing::asynchronous::pair_client(
                     stream, &identity, confirm,
                 )
                 .await?

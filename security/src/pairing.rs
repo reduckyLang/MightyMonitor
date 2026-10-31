@@ -672,7 +672,7 @@ mod tests {
         assert!(a.is_err());
         assert!(matches!(
             b,
-            Err(mightymonitor_core::TransportError::Authentication(_))
+            Err(trinix_core::TransportError::Authentication(_))
         ));
     }
     #[tokio::test]
@@ -712,7 +712,7 @@ mod tests {
         assert!(server.is_err());
         assert!(matches!(
             client,
-            Err(mightymonitor_core::TransportError::Authentication(_))
+            Err(trinix_core::TransportError::Authentication(_))
         ));
     }
 

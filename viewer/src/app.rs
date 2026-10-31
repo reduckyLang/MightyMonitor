@@ -14,8 +14,8 @@ enum Page {
 pub struct App {
     page: Page,
     nearby: crate::ui::NearbyModel,
-    routes: Vec<mightymonitor_discovery::Device>,
-    browse: Option<std::sync::mpsc::Receiver<Vec<mightymonitor_discovery::Device>>>,
+    routes: Vec<trinix_discovery::Device>,
+    browse: Option<std::sync::mpsc::Receiver<Vec<trinix_discovery::Device>>>,
     last_browse: std::time::Instant,
     pair_flow: crate::ui::PairFlow,
     pair_events: Option<std::sync::mpsc::Receiver<crate::devices::PairEvent>>,
@@ -59,9 +59,9 @@ impl App {
             pair_decision: None,
             pair_target: None,
             forget_pending: None,
-            device_name: mightymonitor_security::store::config_dir()
+            device_name: trinix_security::store::config_dir()
                 .and_then(|directory| {
-                    mightymonitor_security::pairing::DeviceIdentity::open(&directory)
+                    trinix_security::pairing::DeviceIdentity::open(&directory)
                 })
                 .map_or_else(
                     |_| "Device".into(),
@@ -131,7 +131,7 @@ impl App {
         self.disconnect();
         #[cfg(any(target_os = "linux", target_os = "windows"))]
         if let (Ok(directory), Ok(decoder)) = (
-            mightymonitor_security::store::config_dir(),
+            trinix_security::store::config_dir(),
             codec_gst::decoder::Decoder::new(),
         ) {
             let session = ViewerSession::new(decoder);
@@ -147,12 +147,12 @@ impl App {
     fn pair_device(
         &mut self,
         address: std::net::SocketAddr,
-        offer: Option<mightymonitor_security::pairing::PairingOffer>,
+        offer: Option<trinix_security::pairing::PairingOffer>,
     ) {
         if self.pair_events.is_some() {
             return;
         }
-        let Ok(directory) = mightymonitor_security::store::config_dir() else {
+        let Ok(directory) = trinix_security::store::config_dir() else {
             self.pair_flow = crate::ui::PairFlow::Failed;
             return;
         };
@@ -193,8 +193,8 @@ impl App {
         }
         if let Some(device) = selected.and_then(|index| self.routes.get(index)).cloned() {
             if let Some(address) = device.addresses.first().copied() {
-                let selected = mightymonitor_security::store::config_dir().and_then(|directory| {
-                    let store = mightymonitor_security::store::DeviceStore::open(&directory)?;
+                let selected = trinix_security::store::config_dir().and_then(|directory| {
+                    let store = trinix_security::store::DeviceStore::open(&directory)?;
                     if store
                         .peers()
                         .iter()
@@ -221,12 +221,12 @@ impl App {
         }
         ui.label("Nearby may not work on guest or shared Wi-Fi");
         ui.collapsing("Paired devices", |ui| {
-            if let Ok(directory) = mightymonitor_security::store::config_dir() {
-                if let Ok(mut store) = mightymonitor_security::store::DeviceStore::open(&directory)
+            if let Ok(directory) = trinix_security::store::config_dir() {
+                if let Ok(mut store) = trinix_security::store::DeviceStore::open(&directory)
                 {
                     for device in store.list() {
                         ui.horizontal(|ui| {
-                            ui.label(mightymonitor_security::pairing::sanitize_name(
+                            ui.label(trinix_security::pairing::sanitize_name(
                                 &device.friendly_name,
                             ));
                             if ui.button("Forget").clicked() {
@@ -236,7 +236,7 @@ impl App {
                                 if ui.button("Yes, forget").clicked() {
                                     if let Some(host) = &mut self.host {
                                         let _ = host.command(
-                                            mightymonitor_security::managed::Command::Forget(
+                                            trinix_security::managed::Command::Forget(
                                                 device.device_id.clone(),
                                             ),
                                         );
@@ -256,7 +256,7 @@ impl App {
                 ui.add(egui::TextEdit::singleline(&mut self.device_name).char_limit(32));
                 if ui.button("Save name").clicked() {
                     if let Ok(mut identity) =
-                        mightymonitor_security::pairing::DeviceIdentity::open(&directory)
+                        trinix_security::pairing::DeviceIdentity::open(&directory)
                     {
                         let _ = identity.set_friendly_name(&self.device_name);
                         self.device_name = identity.friendly_name().into();
@@ -303,17 +303,15 @@ impl App {
         }
     }
     fn connect(&mut self) {
-        if let Ok(offer) = mightymonitor_security::pairing::PairingOffer::parse(
+        if let Ok(offer) = trinix_security::pairing::PairingOffer::parse(
             self.address.trim(),
-            &mightymonitor_security::pairing::SystemClock,
+            &trinix_security::pairing::SystemClock,
         ) {
             self.pair_device(offer.address(), Some(offer));
             return;
         }
         self.disconnect();
-        if let Err(error) =
-            mightymonitor_security::Endpoint::parse(&self.address, self.allow_legacy)
-        {
+        if let Err(error) = trinix_security::Endpoint::parse(&self.address, self.allow_legacy) {
             self.output.lock().unwrap_or_else(|e| e.into_inner()).error = Some(error.to_string());
             return;
         }
@@ -358,8 +356,8 @@ impl eframe::App for App {
             self.last_browse = std::time::Instant::now();
         }
         if let Some(result) = self.browse.as_ref().and_then(|rx| rx.try_recv().ok()) {
-            let paired = mightymonitor_security::store::config_dir()
-                .and_then(|directory| mightymonitor_security::store::DeviceStore::open(&directory))
+            let paired = trinix_security::store::config_dir()
+                .and_then(|directory| trinix_security::store::DeviceStore::open(&directory))
                 .map(|store| store.list())
                 .unwrap_or_default();
             self.nearby.replace(result.iter().map(|device| {
@@ -416,7 +414,7 @@ impl eframe::App for App {
                     }
                     Ok(false) => {
                         let diagnostics = host.diagnostics().unwrap_or_default();
-                        self.host_message = if diagnostics.contains("mm-host listening on") {
+                        self.host_message = if diagnostics.contains("trinix-host listening on") {
                             format!("Sharing on {}", self.share_address)
                         } else {
                             "Starting sharing…".into()
@@ -459,7 +457,7 @@ impl eframe::App for App {
             .exact_width(174.0)
             .show(ctx, |ui| {
                 ui.add_space(18.0);
-                ui.label(egui::RichText::new("MightyMonitor").size(20.0).strong());
+                ui.label(egui::RichText::new("Trinix").size(20.0).strong());
                 ui.add_space(30.0);
                 ui.selectable_value(&mut self.page, Page::View, "View a screen");
                 ui.selectable_value(&mut self.page, Page::Share, "Share this screen");
@@ -547,7 +545,7 @@ impl eframe::App for App {
         );
         if self.page != Page::View && self.input_focused {
             self.command(crate::net::ControlAction::Input(
-                mightymonitor_core::InputEvent::ReleaseAll,
+                trinix_core::InputEvent::ReleaseAll,
             ));
             self.input_focused = false;
             self.input_modifiers = egui::Modifiers::NONE;
@@ -580,10 +578,10 @@ impl eframe::App for App {
                 ui.heading("Share this screen");
                 ui.add_space(10.0);
                 ui.label("Waiting for another device");
-                ui.label("On the other device, open MightyMonitor and press View a screen.");
+                ui.label("On the other device, open Trinix and press View a screen.");
                 if let Some(host) = &mut self.host {
                     let pairing = host.pairing();
-                    use mightymonitor_security::managed::{Status, Command};
+                    use trinix_security::managed::{Status, Command};
                     match pairing.state {
                         Some(Status::Open(seconds)) => {ui.label(format!("Pairing is open for {}:{:02}", seconds / 60, seconds % 60));}
                         Some(Status::Locked | Status::Expired) => {
@@ -659,14 +657,14 @@ impl eframe::App for App {
                     }
                 }
                 ui.collapsing("Paired devices", |ui| {
-                    if let Ok(directory) = mightymonitor_security::store::config_dir() {
-                        if let Ok(store) = mightymonitor_security::store::DeviceStore::open(&directory) {
+                    if let Ok(directory) = trinix_security::store::config_dir() {
+                        if let Ok(store) = trinix_security::store::DeviceStore::open(&directory) {
                             for device in store.list() {
                                 ui.horizontal(|ui| {
-                                    ui.label(mightymonitor_security::pairing::sanitize_name(&device.friendly_name));
+                                    ui.label(trinix_security::pairing::sanitize_name(&device.friendly_name));
                                     if ui.button("Forget").clicked() {self.forget_pending = Some(device.device_id.clone());}
                                     if self.forget_pending.as_ref() == Some(&device.device_id) && ui.button("Yes, forget").clicked() {
-                                        if let Some(host)=&mut self.host {let _ = host.command(mightymonitor_security::managed::Command::Forget(device.device_id));}
+                                        if let Some(host)=&mut self.host {let _ = host.command(trinix_security::managed::Command::Forget(device.device_id));}
                                         self.forget_pending = None;
                                     }
                                 });
@@ -805,7 +803,7 @@ impl eframe::App for App {
                         }
                     } else if self.input_focused {
                         self.command(crate::net::ControlAction::Input(
-                            mightymonitor_core::InputEvent::ReleaseAll,
+                            trinix_core::InputEvent::ReleaseAll,
                         ));
                         self.input_modifiers = egui::Modifiers::NONE;
                     }

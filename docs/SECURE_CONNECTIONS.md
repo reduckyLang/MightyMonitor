@@ -13,7 +13,7 @@ file access or unattended access. Persistent desktop pairing is also available t
 
 ## Transport
 
-The original MightyMonitor protocol runs inside TLS 1.3 using Rustls with the ring
+The original Trinix protocol runs inside TLS 1.3 using Rustls with the ring
 provider. Each sharing session creates a self-signed certificate and a random
 256-bit viewing token. The link contains the destination, SHA-256 certificate
 fingerprint and token, encoded with unpadded base64url. The receiver validates the

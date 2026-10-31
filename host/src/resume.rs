@@ -1,5 +1,5 @@
 //! Bounded, expiring host session bindings; no historical video or input is kept.
-use mightymonitor_security::{random_session_id, AuthenticatedPeer};
+use trinix_security::{random_session_id, AuthenticatedPeer};
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},

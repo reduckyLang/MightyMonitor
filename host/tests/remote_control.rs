@@ -1,20 +1,20 @@
 //! Authorization and disconnect cleanup exercised over real framed sockets.
-use mightymonitor_core::{
-    Bytes, Capture, Codec, CodecError, Encoder, InputEvent, Message, Role, TcpTransport, Transport,
-    PROTOCOL_VERSION,
-};
-use mightymonitor_host::{
-    input::InputTarget,
-    pipeline::{HostEncoder, Pipeline},
-    session::{serve_with_input, SessionConfig},
-    Error,
-};
 use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::Duration,
+};
+use trinix_core::{
+    Bytes, Capture, Codec, CodecError, Encoder, InputEvent, Message, Role, TcpTransport, Transport,
+    PROTOCOL_VERSION,
+};
+use trinix_host::{
+    input::InputTarget,
+    pipeline::{HostEncoder, Pipeline},
+    session::{serve_with_input, SessionConfig},
+    Error,
 };
 struct Source;
 impl Capture for Source {
