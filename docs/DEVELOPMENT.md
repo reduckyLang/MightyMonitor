@@ -39,7 +39,8 @@ progress. Check newer PRs before editing.
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Discovery library implemented and unit-tested; not wired into host/viewer. No pairing yet |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; discovery library implemented and unit-tested but not wired into host/viewer; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
+| Persistent pairing | Security API and desktop CLI: persistent identity/store, mutual commit-reveal SAS confirmation (TLS exporter plus both nonces), pinned paired view, forget, friendly names, code limiter and single-use QR-offer hooks; automated unit/loopback paired-video and Resume authorization tests | Discovery wiring, GUI and Android pairing absent; code-entry transport/QR rendering absent; physical devices and Windows runtime unverified; not released |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
@@ -56,7 +57,13 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 - `core/`: versioned messages/framing, generic transports, reconnect, bitrate,
   normalized input events, platform traits. See PROTOCOL.md and ABR.md.
 - `security/`: TLS 1.3, certificate pinning, private session invitations and
-  asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
+  asynchronous/blocking handshakes. `pairing.rs`: persistent identity and mutual
+  SAS/paired TLS; `store.rs`: bounded atomic credential store and display models;
+  `pairing_hooks.rs`: names, injectable clocks, code-entry limiter and single-use
+  offers; `peer.rs`: transport-established principals; `device_cli.rs` and
+  `bin/trinix-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
+- `host/src/resume.rs`: bounded expiring session-to-principal bindings;
+  `host/tests/authenticated_resume.rs` and `paired_view.rs`: loopback evidence.
 - `discovery/`: opt-in mDNS library, strict public TXT metadata and bounded browsing;
   not wired into host/viewer. See DISCOVERY.md. Real devices, Wi-Fi, Windows
   firewall and Android discovery are unverified. The backend normalizes duplicate
@@ -80,10 +87,27 @@ ANDROID instructions in `android/README.md` before changing their features.
 
 ## Security and lifecycle invariants
 
+- Discovery service names, TXT short IDs and friendly names are unauthenticated
+  routing/display hints, never identity. Authentication, revocation and Resume
+  use the full 32-byte paired certificate fingerprint/authenticated principal.
+  Resolve local short-ID selections to stored pins and reject ambiguity; connect
+  using the route plus the store/offer pin. A different key fails terminally.
+
 - A viewing link is a bearer secret. Do not broadcast it through discovery,
   store it in preferences, print it in diagnostics or put it in screenshots/PRs.
 - TLS pin/token failures are terminal: no fallback, public trust bypass or downgrade.
   Legacy plaintext viewing is explicit opt-in and cannot enable remote control.
+- Persistent pairing requires local 60-second mode and SAS confirmation on both
+  devices. Stored pins/secrets never come from discovery or display names. Forget
+  persists on each device; host rechecks it on connection and Resume. Store limits
+  are 64 peers/16 KiB, with atomic writes, Unix 0600 and fail-closed corruption.
+- Desktop TLS Resume binds a random ID to the transport-established principal;
+  registry limits are 16 sessions/five minutes, with validated sequence bounds.
+  Unknown/other-peer/revoked Resume never gets video. Legacy plaintext remains
+  explicitly unauthenticated. No input or historical video is replayed.
+- Pairing code/offer APIs have injectable clocks, expiry and single-use/attempt
+  limits. Keep limiter state across reconnects; QR offers contain pin/route/nonce,
+  never viewing tokens or pairing secrets. Local host confirmation is mandatory.
 - Sharing is view-only by default. Control needs local host permission plus a
   separate viewer request. Android also requires real OS Accessibility consent;
   optional keyboard enable/selection stays with the user. Wayland uses OS consent.
@@ -106,6 +130,9 @@ ANDROID instructions in `android/README.md` before changing their features.
    or treating nearby peers as trusted. Preserve explicit sharing/control consent.
    Plan certificate identity, pairing confirmation, revocation and persistence
    before replacing private links. Android discovery needs lifecycle/network tests.
+   Pairing identity/store, forget, the code limiter and single-use offer hooks, and
+   authenticated Resume are implemented in the security and host crates; discovery
+   wiring, GUI/QR presentation and Android remain.
 3. **Windows extended display:** implement/integrate a license-compatible virtual
    display driver and monitor/input mapping. Research driver signing/distribution.
    Do not automatically install a third-party root certificate or disable driver

@@ -11,7 +11,7 @@ mod desktop {
     use trinix_core::{Bytes, CodecError, Encoder};
     use trinix_host::{
         pipeline::{HostEncoder, Pipeline},
-        session::{serve_with_input, SessionConfig},
+        session::{serve_authenticated, serve_with_input, SessionConfig},
         Error,
     };
 
@@ -195,6 +195,8 @@ mod desktop {
         #[cfg(target_os = "windows")]
         let _ = enigo::set_dpi_awareness();
         let mut secure = false;
+        let mut paired = false;
+        let mut pair = false;
         let mut allow_control = false;
         let mut extend = false;
         let mut managed = false;
@@ -206,6 +208,24 @@ mod desktop {
         let mut idle_timeout_secs = 30;
         let mut args = std::env::args().skip(1);
         while let Some(flag) = args.next() {
+            if flag == "--paired" {
+                paired = true;
+                secure = true;
+                continue;
+            }
+            if flag == "--pair" || flag == "--pairing-mode" {
+                pair = true;
+                continue;
+            }
+            if flag == "--list-paired" || flag == "--unpair" {
+                let id = if flag == "--unpair" {
+                    args.next()
+                } else {
+                    None
+                };
+                trinix_security::device_cli::maintenance(&flag, id.as_deref())?;
+                return Ok(());
+            }
             if flag == "--secure" {
                 secure = true;
                 continue;
@@ -223,7 +243,7 @@ mod desktop {
                 continue;
             }
             if flag == "--help" {
-                println!("trinix-host [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("trinix-host [--pair|--paired|--list-paired|--unpair ID] [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -244,6 +264,48 @@ mod desktop {
         {
             return Err("invalid fps, bitrate or idle timeout".into());
         }
+        if pair && (paired || managed || allow_control || extend) {
+            return Err("--pair cannot be combined with sharing flags".into());
+        }
+        let directory = if pair || paired {
+            trinix_security::store::config_dir()?
+        } else {
+            std::path::PathBuf::new()
+        };
+        let device_identity = if pair || paired {
+            Some(std::sync::Arc::new(
+                trinix_security::pairing::DeviceIdentity::open(&directory)?,
+            ))
+        } else {
+            None
+        };
+        if pair {
+            let listener = tokio::net::TcpListener::bind(&bind).await?;
+            let mode = trinix_security::pairing::PairingMode::enable();
+            eprintln!("Pairing enabled for 60 seconds; compare codes on both devices.");
+            let identity = device_identity
+                .as_deref()
+                .ok_or("Device identity unavailable")?;
+            let peer = tokio::time::timeout(trinix_security::pairing::PAIRING_WINDOW, async {
+                let (stream, _) = listener.accept().await?;
+                trinix_security::pairing::asynchronous::pair_host(
+                    stream,
+                    identity,
+                    Some(&mode),
+                    trinix_security::device_cli::confirm,
+                )
+                .await
+            })
+            .await??;
+            let id = trinix_security::store::short_id(&peer.fingerprint);
+            let mut store = trinix_security::store::DeviceStore::open(&directory)?;
+            store.insert(peer)?;
+            if let Some(device) = store.list().into_iter().find(|d| d.device_id == id) {
+                eprintln!("Paired with {}.", device.friendly_name);
+            }
+            return Ok(());
+        }
+        let allow_control = allow_control && !paired;
         // Obtain Wayland system consent before publishing an invitation or starting
         // network handshake deadlines. The portal lives for this sharing lifetime.
         if allow_control && (!secure || monitor != -1) {
@@ -265,7 +327,7 @@ mod desktop {
             }
         });
         let listener = tokio::net::TcpListener::bind(&bind).await?;
-        let identity = if secure {
+        let identity = if secure && !paired {
             Some(std::sync::Arc::new(
                 trinix_security::ShareIdentity::generate()?,
             ))
@@ -286,6 +348,7 @@ mod desktop {
         let factory = std::sync::Arc::new(factory);
         let viewers = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
         let controller = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
+        let registry = trinix_host::resume::ResumeRegistry::default();
         let mut tasks = tokio::task::JoinSet::new();
         loop {
             tokio::select! {
@@ -294,19 +357,25 @@ mod desktop {
                 peer=listener.accept()=>{
                     let(stream,_)=peer?;
                     let Ok(permit)=viewers.clone().try_acquire_owned() else {drop(stream);continue;};
-                    let identity=identity.clone();let factory=factory.clone();let controller=controller.clone();
+                    let identity=identity.clone();let device_identity=device_identity.clone();let directory=directory.clone();let registry=registry.clone();let factory=factory.clone();let controller=controller.clone();
                     tasks.spawn(async move {
                         let _permit=permit;
-                        let transport:Box<dyn trinix_core::Transport>=if let Some(identity)=identity {Box::new(trinix_core::FramedTransport::from_stream(trinix_security::asynchronous::accept(stream,&identity).await?))} else {Box::new(trinix_core::TcpTransport::new(stream)?)};
+                        let (transport,peer):(Box<dyn trinix_core::Transport>,Option<trinix_security::AuthenticatedPeer>)=if paired {
+                            let (tls,peer)=trinix_security::pairing::asynchronous::accept_authenticated(stream,device_identity.as_deref().ok_or("Device identity unavailable")?,&directory).await?;
+                            (Box::new(trinix_core::FramedTransport::from_stream(tls)),Some(peer))
+                        } else if let Some(identity)=identity {
+                            let (tls,peer)=trinix_security::asynchronous::accept_authenticated(stream,&identity).await?;
+                            (Box::new(trinix_core::FramedTransport::from_stream(tls)),Some(peer))
+                        } else {(Box::new(trinix_core::TcpTransport::new(stream)?),None)};
                         let (pipeline,config,input)=tokio::task::spawn_blocking(move ||->Result<_,Error>{
                             let(capture,width,height)=factory.capture(fps,monitor)?;
                             let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
                             let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
                             let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(trinix_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn trinix_host::input::InputTarget>)}else{None};
-                            let config=SessionConfig{session_id:1,codec:trinix_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
+                            let config=SessionConfig{session_id:if secure {trinix_security::random_session_id()?} else {1},codec:trinix_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
                             Ok((pipeline,config,input))
                         }).await??;
-                        serve_with_input(transport,pipeline,config,input).await
+                        if let Some(peer)=peer {serve_authenticated(transport,pipeline,config,input,peer,registry).await} else {serve_with_input(transport,pipeline,config,input).await}
                     });
                 }
             }

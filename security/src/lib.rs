@@ -17,6 +17,12 @@ use zeroize::Zeroizing;
 #[cfg(feature = "async")]
 pub mod asynchronous;
 pub mod blocking;
+pub mod device_cli;
+pub mod pairing;
+mod pairing_hooks;
+mod peer;
+pub mod store;
+pub use peer::{random_session_id, AuthenticatedPeer};
 const MAGIC: &[u8; 8] = b"MMTLS1\r\n";
 const AUTH: &[u8; 8] = b"MMAUTH1\0";
 const ALPN: &[u8] = b"mightymonitor/secure-v1";
@@ -37,6 +43,17 @@ fn tls_error(error: impl fmt::Display) -> io::Error {
         io::ErrorKind::InvalidData,
         format!("Secure connection failed: {error}"),
     )
+}
+
+fn server_builder() -> io::Result<rustls::ConfigBuilder<ServerConfig, rustls::WantsVerifier>> {
+    ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(tls_error)
+}
+fn client_builder() -> io::Result<rustls::ConfigBuilder<ClientConfig, rustls::WantsVerifier>> {
+    ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(tls_error)
 }
 
 /// Session-local identity. A new identity rejects every previous invitation.
@@ -60,13 +77,10 @@ impl ShareIdentity {
         let certificate = cert.der().clone();
         let fingerprint = Sha256::digest(certificate.as_ref()).into();
         let key = PrivatePkcs8KeyDer::from(signing_key.serialize_der());
-        let mut config =
-            ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_protocol_versions(&[&rustls::version::TLS13])
-                .map_err(tls_error)?
-                .with_no_client_auth()
-                .with_single_cert(vec![certificate.clone()], key.into())
-                .map_err(tls_error)?;
+        let mut config = server_builder()?
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate.clone()], key.into())
+            .map_err(tls_error)?;
         config.alpn_protocols = vec![ALPN.to_vec()];
         config.max_early_data_size = 0;
         let mut token = Zeroizing::new([0; 32]);
@@ -141,12 +155,9 @@ impl Invitation {
         }
         let mut roots = RootCertStore::empty();
         roots.add(CertificateDer::from(cert)).map_err(tls_error)?;
-        let mut config =
-            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_protocol_versions(&[&rustls::version::TLS13])
-                .map_err(tls_error)?
-                .with_root_certificates(roots)
-                .with_no_client_auth();
+        let mut config = client_builder()?
+            .with_root_certificates(roots)
+            .with_no_client_auth();
         config.alpn_protocols = vec![ALPN.to_vec()];
         config.enable_early_data = false;
         Ok(Arc::new(config))
@@ -258,10 +269,32 @@ mod tests {
 pub enum Endpoint {
     Secure(Invitation),
     Legacy(SocketAddr),
+    Paired {
+        address: SocketAddr,
+        identity: Arc<pairing::DeviceIdentity>,
+        peer: store::Peer,
+    },
 }
 impl Endpoint {
     pub fn parse(value: &str, allow_legacy: bool) -> io::Result<Self> {
         let value = value.trim();
+        if let Some(value) = value.strip_prefix("paired://") {
+            let (id, route) = value
+                .split_once('@')
+                .ok_or_else(|| invalid("Use paired://ID@IP:PORT"))?;
+            let address: SocketAddr = route
+                .parse()
+                .map_err(|_| invalid("Invalid paired address"))?;
+            validate_address(address)?;
+            let directory = store::config_dir()?;
+            let peer = store::DeviceStore::open(&directory)?.find(id)?;
+            let identity = Arc::new(pairing::DeviceIdentity::open(&directory)?);
+            return Ok(Self::Paired {
+                address,
+                identity,
+                peer,
+            });
+        }
         if value.starts_with("mightymonitor://") {
             return Ok(Self::Secure(value.parse()?));
         }
@@ -278,9 +311,10 @@ impl Endpoint {
         match self {
             Self::Secure(i) => i.address(),
             Self::Legacy(a) => *a,
+            Self::Paired { address, .. } => *address,
         }
     }
     pub fn is_secure(&self) -> bool {
-        matches!(self, Self::Secure(_))
+        matches!(self, Self::Secure(_) | Self::Paired { .. })
     }
 }
