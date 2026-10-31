@@ -35,7 +35,7 @@ through a small docs PR whenever a task starts, opens a PR or merges.
 | P2 Protocol v3 + core hygiene | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
 | S1 User-message catalog (`ux/` crate) | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
 | P3 CI/supply-chain + pre-release pipeline | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; adds a repeatable pre-release pipeline |
-| S3 Android plain-language pass (incl. Android legacy toggle debug-only) | not started | #50 | P3 (queue order) | queued, not started |
+| S3 Android plain-language pass (incl. Android legacy toggle debug-only) | `feat/s3-android-plain` | #50, draft PR #59 | P3 (queue order) | in progress |
 | S4 Windows installer 7 -> 3 clicks | not started | #50 | S3 (queue order) | queued, not started |
 | S2 Getting-started docs and copy | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
 | S5 Wire message catalog into viewer/host | not started | #50 | P1, S1 | after P1 |
@@ -58,7 +58,7 @@ follow-ups: the Windows installer version string is fixed in the build script
 `scripts/package-linux.py` is outdated (it describes an X11-only development prototype).
 Labels `claimed`, `blocked` and `follow-up` mark issue state on
 GitHub. Legacy unencrypted viewing is an explicit opt-in (CLI plaintext mode and a
-viewer setting) and is not limited to debug builds. S3 plans to make only the Android
+viewer setting) and is not limited to debug builds. S3 makes only the Android
 viewer's legacy toggle debug-only; no planned task changes the CLI plaintext mode or the
 desktop viewer setting. Use it only on a trusted LAN. The browser viewer (M7) is not started and keeps
 its roadmap position.
