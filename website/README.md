@@ -66,7 +66,7 @@ clock. Offscreen/hidden scenes pause, and reduced motion disables autoplay.
 The initial workspace artwork remains visible without JavaScript. These are
 concept images, not app screenshots. No WebGL or external asset CDN is required.
 
-The editable app icon master is `../assets/brand/trinix.svg`; see that
+The app icon master is `../assets/brand/trinix-master.png`; see that
 folder's README for the design, provenance and synchronized export locations.
 
 Additional root Pages regression checks:
