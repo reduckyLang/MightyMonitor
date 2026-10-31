@@ -1,6 +1,6 @@
 [package]
-name = "mightymonitor-ux"
-description = "User-facing messages and error classification for MightyMonitor"
+name = "trinix-ux"
+description = "User-facing messages and error classification for Trinix"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,4 +8,4 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-mightymonitor-core = { path = "../core" }
+trinix-core = { path = "../core" }

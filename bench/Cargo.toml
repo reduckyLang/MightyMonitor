@@ -8,5 +8,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-mightymonitor-core = { path = "../core" }
+trinix-core = { path = "../core" }
 tokio.workspace = true

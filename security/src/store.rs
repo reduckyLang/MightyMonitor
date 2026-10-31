@@ -19,7 +19,7 @@ pub fn config_dir() -> io::Result<PathBuf> {
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config")));
     base.filter(|p| p.is_absolute())
-        .map(|p| p.join("mightymonitor"))
+        .map(|p| p.join("trinix"))
         .ok_or_else(|| invalid("No absolute configuration directory available"))
 }
 pub(crate) fn read_private(path: &Path) -> io::Result<Zeroizing<Vec<u8>>> {

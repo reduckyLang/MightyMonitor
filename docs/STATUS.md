@@ -65,7 +65,7 @@ components table, cargo-deny in CI note). No Rust source changes.
 M2-2B validation: native dev libraries installed locally; fmt, default workspace clippy/tests/build, feature build/clippy and all-feature tests pass, including feature verification on Rust 1.85. Windows cross-target all-targets check passes; full cross-linking is unavailable locally because MinGW dlltool is absent. Interactive Wayland smoke remains unrun because this environment has no Wayland session.
 
 2026-10-18: M2-4 host streaming pipeline implemented on feat/m2-4-host-pipeline.
-Added the portable mightymonitor-host library and Linux mm-host binary using X11
+Added the portable trinix-host library and Linux trinix-host binary using X11
 capture and GStreamer H.264, core split reader/writer sessions, Hello/Resume
 handshakes, Ping/Pong, NetStats-driven ABR, and forced keyframes on request and
 reconnect. A one-frame latest-capture slot drops replaced/stale frames; exposed
@@ -83,7 +83,7 @@ The roadmap tracks M2 as a whole, so its completion status is unchanged.
 2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.
 
 2026-10-18: M2-6 desktop viewer implemented on feat/m2-6-viewer. Added
-mightymonitor-viewer / mm-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
+the desktop viewer with pinned eframe 0.31.1, Linux codec-gst H.264
 I420 decoding, RGB texture presentation, connection controls, lifecycle state,
 fps/payload bitrate/RTT overlay and logged decode-to-texture-submission latency.
 The GUI feature can be disabled for the headless generic core ViewerSession;
@@ -208,7 +208,7 @@ installation/runtime/uninstallation checks. Physical devices and interactive
 Wayland input remain unverified. PR #44 is the remote-control review milestone.
 
 2026-10-19: Experimental Wayland extension is implemented on the separate
-`codex/virtual-display` branch after the remote-control milestone. It requests
+`virtual-display` branch after the remote-control milestone. It requests
 the portal's Virtual source, checks advertised support and the returned stream
 type, reuses encrypted H.264 viewing/control, and exposes Mirror/Extend in Share.
 Unsupported X11/Windows extension fails before publishing a viewing invitation.
@@ -255,8 +255,8 @@ graphics more space. Product alpha limitations and real release filtering stay.
 Root index.html and .nojekyll support Pages configured as main / (root), instead
 of showing README. The fixed relative redirect preserves repository subpaths,
 query strings and anchors. The Actions deployment still uploads website/dist.
-A real local browser check of /MightyMonitor/?preview=root#download reached
-/MightyMonitor/website/dist/?preview=root#download with all assets. Automated
+A real local browser check of /Trinix/?preview=root#download reached
+/Trinix/website/dist/?preview=root#download with all assets. Automated
 root-route and installer filtering tests pass; new website checks run on PRs.
 Do not claim this is deployed until the PR is merged and Pages finishes.
 
@@ -351,9 +351,9 @@ table is in ROADMAP.md.
 
 Not yet done: persistent device pairing and discovery UI (M8, in progress), Windows
 and X11 extended display (M9, spike not started), release signing and a stable
-release (M10; pre-release [`v0.1.0-alpha.1`](https://github.com/reduckyLang/MightyMonitor/releases/tag/v0.1.0-alpha.1) is published, unsigned, built from
-`357d22d`, tested on emulators, Xvfb and one KDE session only; the Windows installer
-version string is still `0.0.1-alpha.1` and the `.deb` description text is outdated),
+release (M10; unsigned test builds are on the
+[Releases page](https://github.com/reduckyLang/Trinix/releases), tested on emulators,
+Xvfb and one KDE session only; the `.deb` description text is outdated),
 physical-device acceptance on Windows 11 and phones, and the Simplicity track (S1-S8
 in #50). Of the #19 reviewer follow-ups, items (1) and (8) are planned in P2 and item (7)
 is partly planned there (the Resume handling already exists in the host session in
@@ -364,6 +364,36 @@ bincode 1.3) are planned in P3 and P2.
 
 Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
 milestone.
+
+## 2026-10-25 — M8 part 1: discovery library
+
+Added standalone opt-in mDNS advertising and bounded on-demand browsing, strict
+TXT parsing, fake-backend lifecycle/dedupe/expiry tests and an ignored multicast
+loopback test. Credential-exclusion tests use a real session invitation. This is
+library implementation and unit-test evidence, not host/viewer integration or
+pairing. Real devices, Wi-Fi, Windows firewall and Android remain unverified;
+this work is not a release. See DISCOVERY.md.
+
+Validation: workspace formatting, Clippy with JNI and warnings denied, codec-required
+workspace tests, workspace build and rustdoc with warnings denied pass. Six discovery
+integration tests pass; the real multicast loopback test remains ignored. The
+mdns-sd backend normalizes duplicate wire TXT keys before exposing them; duplicate
+rejection is verified at the pure-parser boundary (see DISCOVERY.md).
+Rust 1.85.0 discovery all-targets check also passes with the locked dependencies.
+
+
+## 2026-10-25 — discovery address and wire policy
+
+Added private on-subnet address filtering for registration and browsing, local
+interface enumeration and daemon interface restriction. Wire metadata derives
+from the core protocol version. Deterministic address-policy, fake-backend and
+registration rejection tests cover these boundaries. Physical multicast and
+cross-device acceptance remain unverified; this change is not a release.
+
+Validation: workspace formatting, discovery Clippy and rustdoc with warnings
+denied, nine discovery integration tests, Rust 1.85.0 all-targets discovery check,
+and workspace all-targets Clippy with JNI and warnings denied pass with locked
+dependencies. The real multicast loopback test remains ignored.
 
 ## 2026-10-25 — paired reconnect pin regression tests
 
@@ -380,11 +410,11 @@ gating desktop-only pairing items on the `async` feature.
 The pairing code is now derived from the TLS exporter and both parties' nonces,
 each committed before the handshake and revealed inside it (HKDF-SHA256). A
 mismatched reveal aborts before any prompt. ALPN is `pair-v2` and the preface is
-`MMDEV2`; earlier pairing builds are not compatible. New tests cover an HKDF
+`TXDEV2`; earlier pairing builds are not compatible. New tests cover an HKDF
 known-answer vector, nonce binding of the code, forged reveals in both directions
 and two-leg interception showing different codes. Also: paired-handshake errors are
 classified by `io::ErrorKind` (pin/secret/revocation terminal; network and timeout
 failures recoverable), Windows configuration lives under `%LOCALAPPDATA%`, a wrong
-offer nonce no longer consumes the genuine offer, and `mm-host --pair` prints the
+offer nonce no longer consumes the genuine offer, and `trinix-host --pair` prints the
 paired device name. The attempt limiter and pairing code remain library hooks and
-are not used by `mm-host --pair` or `mm-devices`.
+are not used by `trinix-host --pair` or `trinix-devices`.

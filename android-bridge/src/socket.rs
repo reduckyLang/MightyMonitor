@@ -1,10 +1,10 @@
 //! Bounded complete-frame writes for plaintext development and pinned TLS links.
-use mightymonitor_security::blocking::SecureChannel;
 use std::{
     io::{self, Read, Write},
     net::TcpStream,
     time::{Duration, Instant},
 };
+use trinix_security::blocking::SecureChannel;
 pub enum Connection {
     Plain(TcpStream),
     Secure(SecureChannel),

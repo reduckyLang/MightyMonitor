@@ -1,4 +1,4 @@
-# Releasing MightyMonitor
+# Releasing Trinix
 
 This document describes the pre-release pipeline: how to build and verify
 installer artifacts and how to publish a GitHub pre-release.
@@ -19,16 +19,16 @@ that the build succeeds and artifacts are correct before deciding to publish.
 2. Click **Run workflow**.
 3. Enter a `version` string following the pattern `MAJOR.MINOR.PATCH-alpha.N`,
    e.g. `0.1.0-alpha.2`. Use a version whose tag `v<version>` does not exist
-   yet; `0.1.0-alpha.1` is already released.
+   yet.
 4. Leave **publish** unchecked (default: false).
 5. Click **Run workflow**.
 
 The workflow calls `linux-installer.yml`, `windows-installer.yml`, and
 `android-viewer.yml` in parallel, then the `collect` job downloads all
 produced artifacts, renames the Android APK to include the version string
-(e.g. `mightymonitor-0.1.0-alpha.2-debug-signed.apk`), and computes
+(e.g. `trinix-0.1.0-alpha.2-debug-signed.apk`), and computes
 `SHA256SUMS`. The resulting bundle is uploaded as a workflow artifact named
-`mightymonitor-<version>-prerelease`.
+`trinix-<version>-prerelease`.
 
 ### Verifying artifacts
 
@@ -119,7 +119,7 @@ artifacts are production-ready.
 
 | Artifact | Pattern |
 |----------|---------|
-| Linux DEB | `mightymonitor_<version>_amd64.deb` |
-| Windows Setup | `MightyMonitor-<version>-windows-x64-setup.exe` |
-| Android APK | `mightymonitor-<version>-debug-signed.apk` |
+| Linux DEB | `trinix_<version>_amd64.deb` |
+| Windows Setup | `Trinix-<version>-windows-x64-setup.exe` |
+| Android APK | `trinix-<version>-debug-signed.apk` |
 | Checksums | `SHA256SUMS` |

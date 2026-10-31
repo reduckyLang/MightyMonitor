@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace --features mightymonitor-core/mock
+      - run: cargo test --workspace --features trinix-core/mock
       - run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
@@ -45,8 +45,8 @@ jobs:
         with:
           name: windows-desktop-development
           path: |
-            target/debug/mm-host.exe
-            target/debug/mm-viewer.exe
+            target/debug/trinix-host.exe
+            target/debug/trinix-viewer.exe
             docs/WINDOWS.md
           if-no-files-found: error
       - name: X11 capture smoke test
@@ -56,11 +56,11 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" cargo test -p host-linux -- --ignored x11_capture_smoke
       - name: Isolated real X11 control and cleanup smoke
         if: runner.os == 'Linux'
-        run: MM_ALLOW_INPUT_SMOKE=1 xvfb-run -a -s "-screen 0 640x480x24" cargo test -p mightymonitor-host --test x11_input -- --ignored --test-threads=1
+        run: MM_ALLOW_INPUT_SMOKE=1 xvfb-run -a -s "-screen 0 640x480x24" cargo test -p trinix-host --test x11_input -- --ignored --test-threads=1
       - run: cargo run -p bench --release -- --frames 100 --size 65536 --max-p99-ms 50
 
   msrv:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85.0
@@ -69,7 +69,7 @@ jobs:
       - run: cargo check --workspace --all-targets --locked
 
   pipewire:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85.0
@@ -82,7 +82,7 @@ jobs:
       - run: cargo test --workspace --all-features --locked
 
   deny:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2

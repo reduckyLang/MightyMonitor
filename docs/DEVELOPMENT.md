@@ -1,7 +1,6 @@
-# MightyMonitor project handover
+# Trinix development guide
 
-Last reviewed: 25 October 2026. This is the starting point for a new contributor
-or AI assistant. Verify repository/release state before relying on this snapshot.
+Last reviewed: 25 October 2026. This is the starting point for a new contributor. Verify repository/release state before relying on this snapshot.
 
 ## Intended finished app
 
@@ -40,7 +39,7 @@ progress. Check newer PRs before editing.
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; discovery library implemented and unit-tested but not wired into host/viewer; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
 | Persistent pairing | Security API and desktop CLI: persistent identity/store, mutual commit-reveal SAS confirmation (TLS exporter plus both nonces), pinned paired view, forget, friendly names, code limiter and single-use QR-offer hooks; automated unit/loopback paired-video and Resume authorization tests | Discovery wiring, GUI and Android pairing absent; code-entry transport/QR rendering absent; physical devices and Windows runtime unverified; not released |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
@@ -62,15 +61,19 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
   SAS/paired TLS; `store.rs`: bounded atomic credential store and display models;
   `pairing_hooks.rs`: names, injectable clocks, code-entry limiter and single-use
   offers; `peer.rs`: transport-established principals; `device_cli.rs` and
-  `bin/mm-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
+  `bin/trinix-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
 - `host/src/resume.rs`: bounded expiring session-to-principal bindings;
   `host/tests/authenticated_resume.rs` and `paired_view.rs`: loopback evidence.
+- `discovery/`: opt-in mDNS library, strict public TXT metadata and bounded browsing;
+  not wired into host/viewer. See DISCOVERY.md. Real devices, Wi-Fi, Windows
+  firewall and Android discovery are unverified. The backend normalizes duplicate
+  wire TXT keys before the strict parser; see DISCOVERY.md for that boundary.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.
-- `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
+- `host/`: `trinix-host`, capture/encoder pipeline, per-viewer sessions, native input,
   exclusive controller ownership and managed Stop lifecycle.
-- `viewer/`: eframe/egui `mm-viewer`, View/Share, QR, decoder, focused input,
+- `viewer/`: eframe/egui `trinix-viewer`, View/Share, QR, decoder, focused input,
   child-host lifecycle. `examples/receive_smoke.rs` receives actual video.
 - `android-bridge/`: original Rust phone host/client and JNI bridge.
 - `android/`: native Java Activity, MediaCodec/MediaProjection foreground service,
@@ -153,10 +156,10 @@ this file's evidence matrix current as work lands.
 
 ## Where to find current tasks
 
-- Tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50):
+- Tracking issue [#50](https://github.com/reduckyLang/Trinix/issues/50):
   ordered next tasks P1-P6, the Simplicity track (S1-S8), acceptance tests and
   follow-up checklists. Milestone issues are #2-#11; reviewer follow-ups are #19.
-- `docs/ROADMAP.md`, section "Current work / claimed tasks": task, owner role,
+- `docs/ROADMAP.md`, section "Current work": task,
   branch, issue/PR link and status. Update it by docs PR after every claim or merge.
 - `docs/STATUS.md`: dated progress log; its last entry is the current snapshot.
 - GitHub labels: `claimed`, `blocked`, `follow-up`, `wireless`,
@@ -164,7 +167,7 @@ this file's evidence matrix current as work lands.
 
 ## Quick start for a new contributor
 
-1. Read this file, `AGENTS.md`, `CONTRIBUTING.md` and `docs/CROSS_DEVICE.md`.
+1. Read this file, `CONTRIBUTING.md` and `docs/CROSS_DEVICE.md`.
 2. Run the checks in "Build and meaningful checks" below on a clean branch from `main`.
 3. Pick an unclaimed task from #50 (or ask in the issue), add a `claimed` comment with
    your branch name, open a draft PR early, and keep ROADMAP/STATUS current.
@@ -190,7 +193,7 @@ three real video/control tests on APIs 29/30/34/36. Instrumentation must grant
 Accessibility **after** its process restart and wait for the specific target
 editor's IME connection; prebinding or accepting any stale IME caused failures.
 
-For Linux Extend, start `mm-host --secure --extend --managed` with a local bind,
+For Linux Extend, start `trinix-host --secure --extend --managed` with a local bind,
 keep its stdin open, approve the virtual monitor, receive real H.264 video, send
 `STOP`, and compare active displays before/during/after. A closed stdin immediately
 stops a managed host. Keep its invitation private and delete test credentials.
@@ -204,8 +207,8 @@ multiple worktrees into one cargo target directory because stale output can misl
 
 ## Repository and PR workflow
 
-Upstream: `reduckyLang/MightyMonitor`. Contributors may work from forks.
-Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
+Upstream: `reduckyLang/Trinix`. Contributors may work from forks.
+Check `git remote -v` and clean/dirty state before working.
 Work happens on a branch with a PR to upstream. Never push to `main`; nobody
 pushes to `main` directly. PRs target upstream and are merged after review and
 green required checks. Use a descriptive branch prefix such as `feat/`, `docs/`,
@@ -228,84 +231,3 @@ Before each new PR:
 No new scheduling/hosting service is needed to keep the website fresh: update it
 with each milestone. Its release buttons must point only to real published
 installers from the configured upstream repository, with honest unavailable states.
-
-## Keeping this handover useful
-
-At each milestone update: the date, support/evidence matrix, remaining work,
-new module map entries, tests and known failure causes, relevant PRs, and website
-status copy. Link this guide from README and keep AGENTS.md pointing here. Keep
-personal conversation history, local machine identifiers, secrets and transient
-execution-session details out of the repository. This guide should explain the
-project sufficiently for a contributor with no access to previous chats.
-
-
-2026-10-23 website redesign: the static site now uses a split opening with
-original CSS perspective devices, moving local-connection paths, animated screen
-widgets and user-selected Mirror/Control/Extend previews. Three original animated
-feature illustrations replace the icon-only feature treatment. Neutral/green
-styling, locally bundled fonts, inline SVG, keyboard focus and real GitHub release
-installer filtering remain. Download cards now describe the actual EXE/DEB/APK
-formats. A global pause control and system reduced-motion rule cover looping
-artwork; the page pauses while hidden and starts paused without JavaScript.
-Responsive browser checks covered 320/390/768-pixel widths and desktop; installer
-filter/offline/rate-limit tests pass. This website milestone is isolated on current
-upstream main so it can merge independently of ongoing app/driver work. See
-website/DESIGN.md for design decisions and website/README.md for maintenance.
-
-
-2026-10-23 screen-playground identity and Pages root fix: the first linked-frame
-logo was replaced; the refined folded-screen M now has an editable SVG
-master under assets/brand and synchronized PNG/Windows ICO exports for the
-website, desktop/Linux packaging and Android. The website now renders original
-3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
-content with a locally vendored MIT Three.js build (integrity/license recorded).
-A manual rearrangement control and pointer perspective replace continuous device
-bobbing. Rendering is limited to 30fps and stops offscreen, in hidden tabs and
-when paused/reduced motion is active; manual changes still render while paused.
-The CSS illustration remains the fallback. Alternating feature stories give the
-graphics more space. Product alpha limitations and real release filtering stay.
-
-Root index.html and .nojekyll support Pages configured as main / (root), instead
-of showing README. The fixed relative redirect preserves repository subpaths,
-query strings and anchors. The Actions deployment still uploads website/dist.
-A real local browser check of /MightyMonitor/?preview=root#download reached
-/MightyMonitor/website/dist/?preview=root#download with all assets. Automated
-root-route and installer filtering tests pass; new website checks run on PRs.
-Do not claim this is deployed until the PR is merged and Pages finishes.
-
-## 23 October 2026 — generated website artwork revision
-
-Replaced the earlier homemade devices and vague “make room” copy with five
-image-generated studio assets. The hero moves a separate transparent window
-between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
-Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
-Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
-root Pages regression checks pass. Artwork is illustrative; app acceptance status
-is unchanged. Physical-device tests remain pending.
-
-## Website refinement — 23 October 2026
-
-Removed the rejected window-transfer animation and its playback controls.
-Mode buttons now switch between generated concept scenes. No continuous hero
-animation or render loop remains. Generated originals stay in local output.
-
-## 24 October 2026 — animated scene preview
-
-After PR #48 merged, added a separate website-only milestone on current upstream
-main. Generated scenes now play as Mirror/Control/Extend chapters with camera
-travel, directional wipes and a synchronized timeline. The rejected floating
-window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
-handling are included. Local download and root Pages regressions pass.
-
-
-## 25 October 2026 — persistent desktop pairing and authenticated Resume
-
-Implemented security-crate and host CLI pairing independently of discovery.
-Unit/loopback tests cover store restart/permissions/bounds/forget, SAS and
-rejected authorization, friendly-name persistence, code lockout/cooldown,
-single-use expiring offers, paired view-only fake video, and authenticated
-Resume identity, revocation, sequence, expiry and eviction behavior. Core
-reconnect and desktop viewer already learn the logical ID from HelloAck and
-need no protocol changes. Discovery wiring, GUI and Android pairing remain
-unimplemented. These checks do not establish physical-device acceptance,
-Windows runtime acceptance or release publication. See STATUS.md for commands.

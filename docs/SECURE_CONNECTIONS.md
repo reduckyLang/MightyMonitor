@@ -12,7 +12,7 @@ file access or unattended access. Persistent desktop pairing is also available t
 
 ## Transport
 
-The original MightyMonitor protocol runs inside TLS 1.3 using Rustls with the ring
+The original Trinix protocol runs inside TLS 1.3 using Rustls with the ring
 provider. Each sharing session creates a self-signed certificate and a random
 256-bit viewing token. The link contains the destination, SHA-256 certificate
 fingerprint and token, encoded with unpadded base64url. The receiver validates the
@@ -49,11 +49,11 @@ for the current commit; physical-device acceptance is a separate check.
 
 ## Persistent device pairing
 
-`mm-host --pair --bind ADDRESS:PORT` explicitly enables one interactive pairing
-attempt for up to 60 seconds. `mm-devices --pair ADDRESS:PORT` (security crate,
+`trinix-host --pair --bind ADDRESS:PORT` explicitly enables one interactive pairing
+attempt for up to 60 seconds. `trinix-devices --pair ADDRESS:PORT` (security crate,
 `async` feature) starts the other side. Both users compare the six-digit SAS
 and confirm locally. Dedicated pairing/viewing prefaces and ALPN (`pair-v2`,
-preface `MMDEV2`) prevent confusion with private links and with earlier builds.
+preface `TXDEV2`) prevent confusion with private links and with earlier builds.
 SAS comparison is required when exchanging initially untrusted certificates.
 Nearby devices, addresses and display names never establish trust.
 
@@ -76,8 +76,8 @@ unpair any device you do not recognize. The wire format is not compatible with
 earlier pairing builds; there is no downgrade path.
 
 The persistent self-signed certificate/private key is generated once. Configuration
-lives in `XDG_CONFIG_HOME/mightymonitor`, otherwise `~/.config/mightymonitor` on
-Unix, and `%LOCALAPPDATA%\mightymonitor` on Windows. `identity.bin` holds the identity,
+lives in `XDG_CONFIG_HOME/trinix`, otherwise `~/.config/trinix` on
+Unix, and `%LOCALAPPDATA%\trinix` on Windows. `identity.bin` holds the identity,
 `name.bin` its friendly name and `peers.bin` the versioned paired-device store.
 Private files use atomic sibling-temporary-file replacement; Unix directories
 are 0700 and files 0600. Oversized, corrupt, duplicate or stale store writes fail
@@ -100,7 +100,7 @@ local write failure may require forgetting an incomplete pairing and repeating i
 
 `DeviceStore::forget(device_id)` returns whether a peer existed and persists its
 removal; `forget_all()` persists an empty store. These APIs work on both devices.
-`mm-host --unpair ID`, `mm-devices --unpair ID` and the helper's `--forget-all`
+`trinix-host --unpair ID`, `trinix-devices --unpair ID` and the helper's `--forget-all`
 provide local maintenance. Forget on each device to remove both local records;
 revocation is not an unauthenticated remote erase operation. Host authorization
 reopens the store on every new paired connection and Resume. An already streaming
@@ -128,7 +128,7 @@ injectable for deterministic expiry/cooldown tests. Code entry alone does not
 replace pinned TLS, SAS or local confirmation in the current network API.
 
 `PairingMode::create_offer()` produces a versioned `PairingOffer` encoded as a
-compact `mightymonitor-pair://` base64url string. It carries a random 128-bit
+compact `trinix-pair://` base64url string. It carries a random 128-bit
 nonce, host certificate fingerprint, address hint and expiry (at most 60 seconds
 for the enabled mode); it contains no viewing token, long-lived pairing secret
 or private key. Parsing is bounded to 256 characters, validates expiry through

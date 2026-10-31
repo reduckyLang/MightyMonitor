@@ -1,6 +1,6 @@
 # Glossary
 
-Short, plain explanations of words you may meet in MightyMonitor.
+Short, plain explanations of words you may meet in Trinix.
 
 **Share**: let another device see what is on this device's screen.
 
@@ -27,11 +27,11 @@ visitors. It keeps devices apart from each other. Use your main Wi-Fi instead.
 
 **Firewall**: a built-in guard that controls which programs other devices
 can connect to. On Windows it may ask you to choose **Allow access** for
-MightyMonitor the first time you share. Keep **Private networks** ticked.
+Trinix the first time you share. Keep **Private networks** ticked.
 
 **VPN**: a program that sends your internet traffic through another
 location. It can keep two devices in the same room from reaching each other.
-Turn it off while you use MightyMonitor.
+Turn it off while you use Trinix.
 
 **SmartScreen / "Windows protected your PC"**: a Windows warning about programs
 from makers it does not know yet. This early version is not signed. If you
@@ -66,9 +66,9 @@ These appear in project documentation.
 
 **LAN**: local area network, meaning your home or office network.
 
-**TCP**: the network method MightyMonitor uses to carry data today.
+**TCP**: the network method Trinix uses to carry data today.
 
-**TLS**: encryption that keeps the connection private. MightyMonitor uses TLS
+**TLS**: encryption that keeps the connection private. Trinix uses TLS
 1.3.
 
 **Certificate fingerprint / SHA-256**: a short code that identifies a sharing

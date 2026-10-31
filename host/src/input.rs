@@ -1,6 +1,6 @@
 //! Explicitly authorized remote input. View-only sessions never create a backend.
 use crate::Error;
-use mightymonitor_core::{InputEvent, MouseButton, TouchPhase};
+use trinix_core::{InputEvent, MouseButton, TouchPhase};
 pub trait InputTarget: Send {
     fn activate(&mut self) -> bool {
         true

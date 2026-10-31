@@ -1,8 +1,8 @@
 //! Root-window GetImage capture, converted to tightly packed BGRA (opaque alpha).
 use std::time::{Duration, Instant};
 
-use mightymonitor_core::{Bytes, Capture};
 use thiserror::Error;
+use trinix_core::{Bytes, Capture};
 use x11rb::{
     connection::Connection,
     protocol::xproto::{ConnectionExt, ImageFormat, ImageOrder, VisualClass},

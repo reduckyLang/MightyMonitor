@@ -1,13 +1,4 @@
 #![forbid(unsafe_code)]
-use mightymonitor_core::{
-    Bytes, Capture, Codec, CodecError, Encoder, Message, Role, TcpTransport, Transport,
-    PROTOCOL_VERSION,
-};
-use mightymonitor_host::{
-    pipeline::{HostEncoder, Monitor, Pipeline},
-    session::{serve, SessionConfig},
-    Error,
-};
 use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -16,6 +7,15 @@ use std::{
     time::Duration,
 };
 use tokio::net::TcpListener;
+use trinix_core::{
+    Bytes, Capture, Codec, CodecError, Encoder, Message, Role, TcpTransport, Transport,
+    PROTOCOL_VERSION,
+};
+use trinix_host::{
+    pipeline::{HostEncoder, Monitor, Pipeline},
+    session::{serve, SessionConfig},
+    Error,
+};
 
 struct FakeCapture(u64);
 impl Capture for FakeCapture {
@@ -180,7 +180,7 @@ async fn host_streams_n_frames() {
     }
     send(
         &mut viewer,
-        Message::NetStats(mightymonitor_core::NetStats {
+        Message::NetStats(trinix_core::NetStats {
             rtt_ms: 50,
             loss_pct: 5.0,
             recv_kbps: 1000,

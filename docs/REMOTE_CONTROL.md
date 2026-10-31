@@ -25,9 +25,9 @@ current controller relinquishes control or disconnects.
   input acceptance is still required.
 - Android viewer: enable Control, touch the picture, and use Keyboard to type or
   send Enter. Hardware keyboard forwarding is also implemented.
-- Android host: explicitly enable MightyMonitor control in Android Accessibility
+- Android host: explicitly enable Trinix control in Android Accessibility
   settings, return to the app, and enable Allow remote control for this share.
-  The optional MightyMonitor keyboard improves text entry; enable/select it through
+  The optional Trinix keyboard improves text entry; enable/select it through
   Android keyboard settings. No permission or keyboard is enabled automatically.
   You can revoke control while sharing without stopping the video.
 

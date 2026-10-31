@@ -2,9 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <application android:label="MightyMonitor" android:icon="@drawable/mightymonitor" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+    <application android:label="Trinix" android:icon="@drawable/trinix" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
         <service android:name=".ScreenShareService" android:foregroundServiceType="mediaProjection" android:exported="false" />
-        <service android:name=".RemoteControlService" android:label="MightyMonitor control" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+        <service android:name=".RemoteControlService" android:label="Trinix control" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/remote_control" />
         </service>

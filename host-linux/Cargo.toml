@@ -1,6 +1,6 @@
 [package]
 name = "host-linux"
-description = "MightyMonitor Linux X11 and optional Wayland screen capture"
+description = "Trinix Linux X11 and optional Wayland screen capture"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-mightymonitor-core = { path = "../core" }
+trinix-core = { path = "../core" }
 thiserror.workspace = true
 x11rb = "0.13.2"
 

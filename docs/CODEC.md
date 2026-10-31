@@ -108,9 +108,9 @@ change these figures; they are not end-to-end or Wi-Fi measurements.
 
 The gstreamer-rs bindings are MIT/Apache-2.0. The GStreamer runtime is LGPL.
 The `avdec_h264` decoder (libav/gst-libav) is LGPL, like the rest of the runtime.
-The `x264enc` element is GPL. MightyMonitor loads these libraries dynamically
+The `x264enc` element is GPL. Trinix loads these libraries dynamically
 from the system runtime (on Windows, the official GStreamer runtime installed by
-Setup) and never bundles them in MightyMonitor's binaries or installer.
+Setup) and never bundles them in Trinix's binaries or installer.
 Bundling any of them needs a separate license review. The application itself is
 Apache-2.0. See NOTICE.
 
@@ -141,7 +141,7 @@ SHA-256 and installs it for the current user. Setup requires
 `gstreamer-1.0-0.dll`, `gstlibav.dll` and `gstx264.dll` to be present. The
 runtime, including the GPL-licensed x264 plugin, is therefore installed and used
 on Windows hosts, but it is obtained from the GStreamer project, loaded
-dynamically, and not bundled or statically linked in MightyMonitor's installer
+dynamically, and not bundled or statically linked in Trinix's installer
 or binaries. See [INSTALLERS.md](INSTALLERS.md) and NOTICE.
 
 Possible future alternatives for Windows are Windows Media Foundation H.264 or

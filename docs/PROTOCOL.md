@@ -1,6 +1,6 @@
-# MightyMonitor protocol
+# Trinix protocol
 
-MightyMonitor uses versioned, length-prefixed frames to carry messages over TCP
+Trinix uses versioned, length-prefixed frames to carry messages over TCP
 and other byte streams. This protocol is intended for LAN-only use. Framing
 provides message boundaries; it does not provide authentication or encryption.
 
@@ -245,7 +245,8 @@ drains them, so callers needing a complete history should drain regularly.
 IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
 and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
-that literal address; hostname discovery via mDNS is a later milestone, M8.
+that literal address; M8 has a standalone mDNS discovery library, not yet wired into host/viewer.
+Discovery does not grant trust; pairing is not implemented.
 
 ## Adaptive bitrate
 
@@ -294,3 +295,20 @@ not peer-provided native OS scan codes. Text is bounded Unicode; ReleaseAll
 releases held remote input. Reconnect discards queued input and requires a fresh
 control request. See REMOTE_CONTROL.md and the current core message definitions
 for validation bounds. Existing message kind values remain unchanged.
+
+## Protocol identifiers
+
+| Identifier | Value |
+| --- | --- |
+| TLS ALPN | `mightymonitor/secure-v1` |
+| TLS server name | `mightymonitor.local` |
+| Connection link scheme | `mightymonitor://` |
+| DNS-SD service type | `_mightymonitor._tcp.local.` |
+| Android application id | `com.mightymonitor.app` |
+| Android JNI library | `mightymonitor_android` |
+| Android stop-sharing intent action | `com.mightymonitor.STOP_SHARING` |
+| Invitation line prefix | `MM_INVITE` |
+| Environment variables | `MM_ALLOW_INPUT_SMOKE`, `MM_REQUIRE_CODECS`, `MM_STARTUP_ERROR` |
+
+These values are part of the wire and install contract. Changing any of them
+breaks interoperability with existing builds and needs a protocol version bump.

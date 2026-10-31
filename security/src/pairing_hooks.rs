@@ -184,7 +184,7 @@ impl PairingOffer {
         bytes.extend_from_slice(&self.fingerprint);
         bytes.extend_from_slice(&self.expires.to_le_bytes());
         bytes.extend_from_slice(self.address.to_string().as_bytes());
-        format!("mightymonitor-pair://{}", URL_SAFE_NO_PAD.encode(bytes))
+        format!("trinix-pair://{}", URL_SAFE_NO_PAD.encode(bytes))
     }
     pub fn parse(value: &str, clock: &dyn Clock) -> io::Result<Self> {
         // A single error deliberately hides which field was invalid.
@@ -193,7 +193,7 @@ impl PairingOffer {
                 return None;
             }
             let bytes = URL_SAFE_NO_PAD
-                .decode(value.strip_prefix("mightymonitor-pair://")?)
+                .decode(value.strip_prefix("trinix-pair://")?)
                 .ok()?;
             if bytes.len() < 60 || bytes[0] != 1 {
                 return None;
@@ -322,7 +322,7 @@ mod tests {
         let parsed = PairingOffer::parse(&encoded, clock.as_ref()).unwrap();
         assert_eq!(offer, parsed);
         let decoded = URL_SAFE_NO_PAD
-            .decode(encoded.strip_prefix("mightymonitor-pair://").unwrap())
+            .decode(encoded.strip_prefix("trinix-pair://").unwrap())
             .unwrap();
         let key = crate::store::read_private(&dir.0.join("identity.bin")).unwrap();
         let certificate_len = u32::from_le_bytes(key[8..12].try_into().unwrap()) as usize;
@@ -352,7 +352,7 @@ mod tests {
         assert!(mode.consume_offer(&expiring).is_err());
         assert!(PairingOffer::parse(&encoded, clock.as_ref()).is_err());
         assert!(mode.create_offer(&identity, offer.address()).is_err());
-        for invalid in ["", "mightymonitor-pair://!", &"x".repeat(257)] {
+        for invalid in ["", "trinix-pair://!", &"x".repeat(257)] {
             assert!(PairingOffer::parse(invalid, clock.as_ref()).is_err());
         }
     }

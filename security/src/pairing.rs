@@ -7,9 +7,9 @@ pub use crate::pairing_hooks::{
 use crate::store::Peer;
 use crate::store::{atomic_create, read_private};
 use std::path::Path;
-const PAIR_ALPN: &[u8] = b"mightymonitor/pair-v2";
+const PAIR_ALPN: &[u8] = b"trinix/pair-v2";
 #[cfg(feature = "async")]
-const PAIRED_ALPN: &[u8] = b"mightymonitor/paired-view-v1";
+const PAIRED_ALPN: &[u8] = b"trinix/paired-view-v1";
 pub const PAIRING_WINDOW: std::time::Duration = std::time::Duration::from_secs(60);
 pub struct DeviceIdentity {
     directory: std::path::PathBuf,
@@ -211,10 +211,10 @@ pub mod asynchronous {
     use tokio_rustls::{TlsAcceptor, TlsConnector};
     type Client = tokio_rustls::client::TlsStream<TcpStream>;
     type Server = tokio_rustls::server::TlsStream<TcpStream>;
-    const MAGIC_DEVICE: &[u8; 8] = b"MMDEV2\r\n";
-    const COMMIT_LABEL: &[u8] = b"MightyMonitor pairing commitment v2";
-    const SAS_LABEL: &[u8] = b"MightyMonitor pairing SAS v2";
-    const EXPORT_LABEL: &[u8] = b"MightyMonitor pairing SAS v2";
+    const MAGIC_DEVICE: &[u8; 8] = b"TXDEV2\r\n";
+    const COMMIT_LABEL: &[u8] = b"Trinix pairing commitment v2";
+    const SAS_LABEL: &[u8] = b"Trinix pairing SAS v2";
+    const EXPORT_LABEL: &[u8] = b"Trinix pairing SAS v2";
     const NONCE_LEN: usize = 32;
     /// Roles are bound into each commitment so one side's commitment cannot be
     /// reflected back as the other's.
@@ -737,7 +737,7 @@ mod tests {
         assert!(a.is_err());
         assert!(matches!(
             b,
-            Err(mightymonitor_core::TransportError::Authentication(_))
+            Err(trinix_core::TransportError::Authentication(_))
         ));
     }
     #[tokio::test]
@@ -777,7 +777,7 @@ mod tests {
         assert!(server.is_err());
         assert!(matches!(
             client,
-            Err(mightymonitor_core::TransportError::Authentication(_))
+            Err(trinix_core::TransportError::Authentication(_))
         ));
     }
 

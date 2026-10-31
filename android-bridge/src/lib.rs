@@ -1,10 +1,6 @@
 //! Android video client: original Rust protocol and bounded networking worker.
 //! Java is limited to platform UI/MediaCodec; no screen protocol is reimplemented there.
 #![deny(unsafe_op_in_unsafe_fn)]
-use mightymonitor_core::{
-    encode_stream_frame, pong_rtt_us, Codec, FrameDecoder, InputEvent, Message, MonotonicClock,
-    NetStats, Role, PROTOCOL_VERSION,
-};
 use std::{
     collections::VecDeque,
     io::{self, Read},
@@ -16,10 +12,14 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use trinix_core::{
+    encode_stream_frame, pong_rtt_us, Codec, FrameDecoder, InputEvent, Message, MonotonicClock,
+    NetStats, Role, PROTOCOL_VERSION,
+};
 pub mod hosting;
 mod socket;
-use mightymonitor_security::{blocking, Endpoint};
 use socket::{Connection, FrameWriter};
+use trinix_security::{blocking, Endpoint};
 #[cfg(feature = "jni")]
 mod native;
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -249,7 +249,7 @@ fn connection(
         },
         None => Message::Hello {
             proto_version: PROTOCOL_VERSION,
-            device_name: "MightyMonitor Android".into(),
+            device_name: "Trinix Android".into(),
             role: Role::Viewer,
             capabilities: vec!["h264".into(), "input-v1".into()],
         },

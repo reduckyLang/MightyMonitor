@@ -2,11 +2,11 @@
 
 use std::time::Duration;
 
-use mightymonitor_core::{
+use tokio::{net::TcpListener, time::timeout};
+use trinix_core::{
     mock::{MockCapture, MockDecoder, MockEncoder, MockInputInjector},
     Capture, Decoder, Encoder, InputInjector, Message, TcpTransport, Transport,
 };
-use tokio::{net::TcpListener, time::timeout};
 
 #[tokio::test]
 async fn mock_pipeline_capture_encode_send_decode() {

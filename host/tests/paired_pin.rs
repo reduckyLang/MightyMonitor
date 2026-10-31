@@ -2,16 +2,6 @@
 //! authentication failure: one attempt, no retry, no plaintext fallback, and no
 //! application data or pairing secret reaches the impostor.
 use async_trait::async_trait;
-use mightymonitor_core::{
-    BackoffPolicy, Connector, ReconnectingSession, SessionError, SessionState, SplitMix64,
-    Transport, TransportError,
-};
-use mightymonitor_security::{
-    asynchronous::connect_transport,
-    pairing::{asynchronous as paired, DeviceIdentity, PairingMode},
-    store::{DeviceStore, Peer},
-    Endpoint,
-};
 use std::{
     net::SocketAddr,
     path::PathBuf,
@@ -22,6 +12,16 @@ use std::{
     time::Duration,
 };
 use tokio::net::{TcpListener, TcpStream};
+use trinix_core::{
+    BackoffPolicy, Connector, ReconnectingSession, SessionError, SessionState, SplitMix64,
+    Transport, TransportError,
+};
+use trinix_security::{
+    asynchronous::connect_transport,
+    pairing::{asynchronous as paired, DeviceIdentity, PairingMode},
+    store::{DeviceStore, Peer},
+    Endpoint,
+};
 
 struct Directory(PathBuf);
 impl Directory {

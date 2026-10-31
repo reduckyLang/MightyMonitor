@@ -25,7 +25,7 @@ gradle assembleDebug
 Install app/build/outputs/apk/debug/app-debug.apk on an Android 8+ ARM device
 (or x86_64 emulator). Start sharing on the PC, copy its private connection link to the
 app, and press Connect. You can also scan the desktop QR code with your phone
-camera to open its private link in MightyMonitor. Opening a link does not start
+camera to open its private link in Trinix. Opening a link does not start
 a connection until you press Connect. Disconnect/backgrounding
 stops the Rust worker and decoder. Rotation uses the same surface when possible;
 a surface loss closes viewing. Connections use pinned TLS; links expire when sharing stops.

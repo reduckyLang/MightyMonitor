@@ -5,15 +5,15 @@ mod desktop {
     use codec_gst::encoder::{Encoder as GstEncoder, EncoderConfig, PixelFormat};
     #[cfg(target_os = "linux")]
     use host_linux::{LinuxCapture, X11Capture};
+    use std::time::Duration;
     #[cfg(target_os = "linux")]
-    use mightymonitor_core::Capture;
-    use mightymonitor_core::{Bytes, CodecError, Encoder};
-    use mightymonitor_host::{
+    use trinix_core::Capture;
+    use trinix_core::{Bytes, CodecError, Encoder};
+    use trinix_host::{
         pipeline::{HostEncoder, Pipeline},
         session::{serve_authenticated, serve_with_input, SessionConfig},
         Error,
     };
-    use std::time::Duration;
 
     #[cfg(target_os = "linux")]
     struct RgbaCapture(LinuxCapture<X11Capture>);
@@ -105,15 +105,15 @@ mod desktop {
             &self,
             width: u32,
             height: u32,
-        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+        ) -> Result<Option<Box<dyn trinix_host::input::InputTarget>>, Error> {
             match self {
                 Self::X11 => Ok(Some(Box::new(
-                    mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+                    trinix_host::input::desktop::DesktopInput::new(width, height)?,
                 ))),
                 #[cfg(feature = "pipewire")]
-                Self::Wayland { input, .. } => Ok(input.clone().map(|input| {
-                    Box::new(input) as Box<dyn mightymonitor_host::input::InputTarget>
-                })),
+                Self::Wayland { input, .. } => Ok(input
+                    .clone()
+                    .map(|input| Box::new(input) as Box<dyn trinix_host::input::InputTarget>)),
             }
         }
         fn capture(&self, _fps: u32, monitor: i32) -> Result<(DesktopCapture, u32, u32), Error> {
@@ -155,9 +155,9 @@ mod desktop {
             &self,
             width: u32,
             height: u32,
-        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+        ) -> Result<Option<Box<dyn trinix_host::input::InputTarget>>, Error> {
             Ok(Some(Box::new(
-                mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+                trinix_host::input::desktop::DesktopInput::new(width, height)?,
             )))
         }
         fn capture(
@@ -223,7 +223,7 @@ mod desktop {
                 } else {
                     None
                 };
-                mightymonitor_security::device_cli::maintenance(&flag, id.as_deref())?;
+                trinix_security::device_cli::maintenance(&flag, id.as_deref())?;
                 return Ok(());
             }
             if flag == "--secure" {
@@ -243,7 +243,7 @@ mod desktop {
                 continue;
             }
             if flag == "--help" {
-                println!("mm-host [--pair|--paired|--list-paired|--unpair ID] [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("trinix-host [--pair|--paired|--list-paired|--unpair ID] [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -268,38 +268,37 @@ mod desktop {
             return Err("--pair cannot be combined with sharing flags".into());
         }
         let directory = if pair || paired {
-            mightymonitor_security::store::config_dir()?
+            trinix_security::store::config_dir()?
         } else {
             std::path::PathBuf::new()
         };
         let device_identity = if pair || paired {
             Some(std::sync::Arc::new(
-                mightymonitor_security::pairing::DeviceIdentity::open(&directory)?,
+                trinix_security::pairing::DeviceIdentity::open(&directory)?,
             ))
         } else {
             None
         };
         if pair {
             let listener = tokio::net::TcpListener::bind(&bind).await?;
-            let mode = mightymonitor_security::pairing::PairingMode::enable();
+            let mode = trinix_security::pairing::PairingMode::enable();
             eprintln!("Pairing enabled for 60 seconds; compare codes on both devices.");
             let identity = device_identity
                 .as_deref()
                 .ok_or("Device identity unavailable")?;
-            let peer =
-                tokio::time::timeout(mightymonitor_security::pairing::PAIRING_WINDOW, async {
-                    let (stream, _) = listener.accept().await?;
-                    mightymonitor_security::pairing::asynchronous::pair_host(
-                        stream,
-                        identity,
-                        Some(&mode),
-                        mightymonitor_security::device_cli::confirm,
-                    )
-                    .await
-                })
-                .await??;
-            let id = mightymonitor_security::store::short_id(&peer.fingerprint);
-            let mut store = mightymonitor_security::store::DeviceStore::open(&directory)?;
+            let peer = tokio::time::timeout(trinix_security::pairing::PAIRING_WINDOW, async {
+                let (stream, _) = listener.accept().await?;
+                trinix_security::pairing::asynchronous::pair_host(
+                    stream,
+                    identity,
+                    Some(&mode),
+                    trinix_security::device_cli::confirm,
+                )
+                .await
+            })
+            .await??;
+            let id = trinix_security::store::short_id(&peer.fingerprint);
+            let mut store = trinix_security::store::DeviceStore::open(&directory)?;
             store.insert(peer)?;
             if let Some(device) = store.list().into_iter().find(|d| d.device_id == id) {
                 eprintln!("Paired with {}.", device.friendly_name);
@@ -330,7 +329,7 @@ mod desktop {
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure && !paired {
             Some(std::sync::Arc::new(
-                mightymonitor_security::ShareIdentity::generate()?,
+                trinix_security::ShareIdentity::generate()?,
             ))
         } else {
             None
@@ -345,11 +344,11 @@ mod desktop {
                 "WARNING: non-loopback bind exposes streaming without authentication or encryption"
             );
         }
-        eprintln!("mm-host listening on {}", listener.local_addr()?);
+        eprintln!("trinix-host listening on {}", listener.local_addr()?);
         let factory = std::sync::Arc::new(factory);
         let viewers = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
         let controller = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
-        let registry = mightymonitor_host::resume::ResumeRegistry::default();
+        let registry = trinix_host::resume::ResumeRegistry::default();
         let mut tasks = tokio::task::JoinSet::new();
         loop {
             tokio::select! {
@@ -361,19 +360,19 @@ mod desktop {
                     let identity=identity.clone();let device_identity=device_identity.clone();let directory=directory.clone();let registry=registry.clone();let factory=factory.clone();let controller=controller.clone();
                     tasks.spawn(async move {
                         let _permit=permit;
-                        let (transport,peer):(Box<dyn mightymonitor_core::Transport>,Option<mightymonitor_security::AuthenticatedPeer>)=if paired {
-                            let (tls,peer)=mightymonitor_security::pairing::asynchronous::accept_authenticated(stream,device_identity.as_deref().ok_or("Device identity unavailable")?,&directory).await?;
-                            (Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),Some(peer))
+                        let (transport,peer):(Box<dyn trinix_core::Transport>,Option<trinix_security::AuthenticatedPeer>)=if paired {
+                            let (tls,peer)=trinix_security::pairing::asynchronous::accept_authenticated(stream,device_identity.as_deref().ok_or("Device identity unavailable")?,&directory).await?;
+                            (Box::new(trinix_core::FramedTransport::from_stream(tls)),Some(peer))
                         } else if let Some(identity)=identity {
-                            let (tls,peer)=mightymonitor_security::asynchronous::accept_authenticated(stream,&identity).await?;
-                            (Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),Some(peer))
-                        } else {(Box::new(mightymonitor_core::TcpTransport::new(stream)?),None)};
+                            let (tls,peer)=trinix_security::asynchronous::accept_authenticated(stream,&identity).await?;
+                            (Box::new(trinix_core::FramedTransport::from_stream(tls)),Some(peer))
+                        } else {(Box::new(trinix_core::TcpTransport::new(stream)?),None)};
                         let (pipeline,config,input)=tokio::task::spawn_blocking(move ||->Result<_,Error>{
                             let(capture,width,height)=factory.capture(fps,monitor)?;
                             let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
                             let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
-                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
-                            let config=SessionConfig{session_id:if secure {mightymonitor_security::random_session_id()?} else {1},codec:mightymonitor_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
+                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(trinix_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn trinix_host::input::InputTarget>)}else{None};
+                            let config=SessionConfig{session_id:if secure {trinix_security::random_session_id()?} else {1},codec:trinix_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
                             Ok((pipeline,config,input))
                         }).await??;
                         if let Some(peer)=peer {serve_authenticated(transport,pipeline,config,input,peer,registry).await} else {serve_with_input(transport,pipeline,config,input).await}
@@ -385,10 +384,10 @@ mod desktop {
 }
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), mightymonitor_host::Error> {
+async fn main() -> Result<(), trinix_host::Error> {
     desktop::run().await
 }
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 fn main() {
-    eprintln!("mm-host capture currently requires Linux X11 or Windows with GStreamer");
+    eprintln!("trinix-host capture currently requires Linux X11 or Windows with GStreamer");
 }

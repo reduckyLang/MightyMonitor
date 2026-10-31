@@ -7,15 +7,15 @@ fn launch() -> Result<i32, Box<dyn std::error::Error>> {
     let root = PathBuf::from(
         env::var_os("LOCALAPPDATA").ok_or("Windows local application folder unavailable")?,
     )
-    .join("MightyMonitor")
+    .join("Trinix")
     .join("gstreamer-1.28.8");
     let bin = root.join("bin");
     if !bin.join("gstreamer-1.0-0.dll").is_file() {
-        return Err("The video runtime is missing. Run the MightyMonitor installer again.".into());
+        return Err("The video runtime is missing. Run the Trinix installer again.".into());
     }
     let mut paths = vec![bin];
     paths.extend(env::split_paths(&env::var_os("PATH").unwrap_or_default()));
-    let executable = env::current_exe()?.with_file_name("mm-viewer.exe");
+    let executable = env::current_exe()?.with_file_name("trinix-viewer.exe");
     let mut command = Command::new(executable);
     command
         .env("PATH", env::join_paths(paths)?)
@@ -51,7 +51,7 @@ fn main() {
             }
             // The script is constant; diagnostic text is passed as environment data.
             let _ = std::process::Command::new("powershell.exe")
-                .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:MM_STARTUP_ERROR, 'MightyMonitor') | Out-Null"])
+                .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:MM_STARTUP_ERROR, 'Trinix') | Out-Null"])
                 .env("MM_STARTUP_ERROR", error.to_string()).status();
             std::process::exit(1);
         }

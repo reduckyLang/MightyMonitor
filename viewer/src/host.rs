@@ -13,7 +13,7 @@ pub struct HostProcess {
     child: Child,
     log: File,
     log_path: PathBuf,
-    invitation: Arc<Mutex<Option<mightymonitor_security::Invitation>>>,
+    invitation: Arc<Mutex<Option<trinix_security::Invitation>>>,
     invitation_worker: Option<std::thread::JoinHandle<()>>,
 }
 impl HostProcess {
@@ -42,13 +42,15 @@ impl HostProcess {
         }
         validate(address, fps, bitrate)?;
         let binary = std::env::current_exe()?.with_file_name(if cfg!(target_os = "windows") {
-            "mm-host.exe"
+            "trinix-host.exe"
         } else {
-            "mm-host"
+            "trinix-host"
         });
         if !binary.is_file() {
-            return Err(io::Error::new(io::ErrorKind::NotFound,
-                "Sharing component missing. Reinstall MightyMonitor with its screen-sharing component."));
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Sharing component missing. Reinstall Trinix with its screen-sharing component.",
+            ));
         }
         let mut command = Command::new(binary);
         command.args([
@@ -81,7 +83,7 @@ impl HostProcess {
             .map_err(io::Error::other)?
             .as_nanos();
         let log_path =
-            std::env::temp_dir().join(format!("mightymonitor-{}-{stamp}.log", std::process::id()));
+            std::env::temp_dir().join(format!("trinix-{}-{stamp}.log", std::process::id()));
         let mut options = OpenOptions::new();
         options.read(true).write(true).create_new(true);
         #[cfg(unix)]
@@ -142,7 +144,7 @@ impl HostProcess {
             }
         }
     }
-    pub fn invitation(&self) -> Option<mightymonitor_security::Invitation> {
+    pub fn invitation(&self) -> Option<trinix_security::Invitation> {
         self.invitation
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -216,7 +218,7 @@ mod tests {
     #[test]
     fn failed_host_exposes_diagnostics_and_cleans_log() {
         let mut command = std::process::Command::new("/bin/ls");
-        command.arg("/mightymonitor-test-nonexistent-path");
+        command.arg("/trinix-test-nonexistent-path");
         let mut host = super::HostProcess::spawn(command).unwrap();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
         while !host.exited().unwrap() {
@@ -226,7 +228,7 @@ mod tests {
         assert!(host
             .diagnostics()
             .unwrap()
-            .contains("mightymonitor-test-nonexistent-path"));
+            .contains("trinix-test-nonexistent-path"));
         let log = host.log_path.clone();
         drop(host);
         assert!(!log.exists());

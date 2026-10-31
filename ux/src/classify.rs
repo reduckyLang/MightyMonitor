@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind};
 
-use mightymonitor_core::{FrameError, TransportError};
+use trinix_core::{FrameError, TransportError};
 
 use crate::catalog::{Platform, UserError, UserMessage};
 
@@ -121,7 +121,7 @@ mod tests {
     use std::fmt;
     use std::io::{Error as IoError, ErrorKind};
 
-    use mightymonitor_core::{FrameError, TransportError};
+    use trinix_core::{FrameError, TransportError};
 
     use crate::catalog::UserError;
 

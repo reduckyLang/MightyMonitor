@@ -70,8 +70,8 @@ name = "android-bridge"
 version = "0.0.1"
 dependencies = [
  "jni 0.21.1",
- "mightymonitor-core",
- "mightymonitor-security",
+ "trinix-core",
+ "trinix-security",
 ]
 
 [[package]]
@@ -264,8 +264,8 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "bench"
 version = "0.0.1"
 dependencies = [
- "mightymonitor-core",
  "tokio",
+ "trinix-core",
 ]
 
 [[package]]
@@ -547,8 +547,8 @@ dependencies = [
  "gstreamer",
  "gstreamer-app",
  "gstreamer-video",
- "mightymonitor-core",
  "thiserror 2.0.21",
+ "trinix-core",
 ]
 
 [[package]]
@@ -1097,6 +1097,15 @@ dependencies = [
  "crc32fast",
  "miniz_oxide 0.9.1",
  "zlib-rs",
+]
+
+[[package]]
+name = "flume"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
+dependencies = [
+ "spin",
 ]
 
 [[package]]
@@ -1677,10 +1686,10 @@ version = "0.0.1"
 dependencies = [
  "ashpd",
  "futures-util",
- "mightymonitor-core",
  "pipewire",
  "thiserror 2.0.21",
  "tokio",
+ "trinix-core",
  "x11rb",
 ]
 
@@ -1784,6 +1793,16 @@ checksum = "3acae9609540aa318d1bc588455225fb2085b9ed0c4f6bd0d9d5bcd86f1a0344"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "if-addrs"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69b2eeee38fef3aa9b4cc5f1beea8a2444fc00e7377cafae396de3f5c2065e24"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2063,6 +2082,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mdns-sd"
+version = "0.13.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "328f4e1041f7cfeb3affccb814ddbe2f004856a2ce769c8bf22080d74c5204c6"
+dependencies = [
+ "fastrand",
+ "flume",
+ "if-addrs",
+ "mio",
+ "socket2 0.5.10",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2102,70 +2134,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mightymonitor-core"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "bincode",
- "serde",
- "thiserror 2.0.21",
- "tokio",
-]
-
-[[package]]
-name = "mightymonitor-host"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "codec-gst",
- "enigo",
- "host-linux",
- "mightymonitor-core",
- "mightymonitor-security",
- "mightymonitor-viewer",
- "socket2",
- "tokio",
- "x11rb",
-]
-
-[[package]]
-name = "mightymonitor-security"
-version = "0.0.1"
-dependencies = [
- "base64",
- "getrandom 0.2.17",
- "mightymonitor-core",
- "rcgen",
- "rustls",
- "sha2",
- "subtle",
- "time",
- "tokio",
- "tokio-rustls",
- "zeroize",
-]
-
-[[package]]
-name = "mightymonitor-ux"
-version = "0.0.1"
-dependencies = [
- "mightymonitor-core",
-]
-
-[[package]]
-name = "mightymonitor-viewer"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "codec-gst",
- "eframe",
- "mightymonitor-core",
- "mightymonitor-security",
- "qrcode",
- "tokio",
-]
-
-[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2198,6 +2166,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
 dependencies = [
  "libc",
+ "log",
  "wasi",
  "windows-sys 0.61.2",
 ]
@@ -3411,12 +3380,31 @@ dependencies = [
 
 [[package]]
 name = "socket2"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
+dependencies = [
+ "libc",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "socket2"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "spin"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
+dependencies = [
+ "lock_api",
 ]
 
 [[package]]
@@ -3678,7 +3666,7 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2",
+ "socket2 0.6.5",
  "tokio-macros",
  "tracing",
  "windows-sys 0.61.2",
@@ -3820,6 +3808,82 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "trinix-core"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "serde",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
+name = "trinix-discovery"
+version = "0.0.1"
+dependencies = [
+ "base64",
+ "if-addrs",
+ "mdns-sd",
+ "rcgen",
+ "trinix-core",
+ "trinix-security",
+]
+
+[[package]]
+name = "trinix-host"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "codec-gst",
+ "enigo",
+ "host-linux",
+ "socket2 0.6.5",
+ "tokio",
+ "trinix-core",
+ "trinix-security",
+ "trinix-viewer",
+ "x11rb",
+]
+
+[[package]]
+name = "trinix-security"
+version = "0.0.1"
+dependencies = [
+ "base64",
+ "getrandom 0.2.17",
+ "rcgen",
+ "rustls",
+ "sha2",
+ "subtle",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "trinix-core",
+ "zeroize",
+]
+
+[[package]]
+name = "trinix-ux"
+version = "0.0.1"
+dependencies = [
+ "trinix-core",
+]
+
+[[package]]
+name = "trinix-viewer"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "codec-gst",
+ "eframe",
+ "qrcode",
+ "tokio",
+ "trinix-core",
+ "trinix-security",
 ]
 
 [[package]]

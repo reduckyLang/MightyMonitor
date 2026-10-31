@@ -4,7 +4,7 @@ On Linux, install the X11/PipeWire and GStreamer prerequisites in [LINUX.md](LIN
 and [CODEC.md](CODEC.md), including the H.264 encoder plugins. Wayland uses the system screen-selection dialog; X11 uses `DISPLAY`:
 
 ```sh
-cargo run -p mightymonitor-host --bin mm-host -- --secure --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
+cargo run -p trinix-host --bin trinix-host -- --secure --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
 ```
 
 `--bind` is the TCP listen address (default `127.0.0.1:5000`; use a LAN address
@@ -71,7 +71,7 @@ produce no output until it catches up.
 Pipeline::monitor returns snapshots with queue_len, max_queue_len, captured,
 dropped, sent and max_send_age. Age is capture-start to send initiation; TCP
 buffers and viewer read delays can still add delivery latency. A blocked send
-has a two-second deadline in mm-host; a partial/timed-out write ends that
+has a two-second deadline in trinix-host; a partial/timed-out write ends that
 connection rather than retrying a corrupt stream. Capture continues replacing
 the slot during writes. Input and revocation are handled by the session reader even while encoding or
 writing waits. Outgoing control replies use a bounded channel; flooding ends the
@@ -112,20 +112,20 @@ Wayland extension uses `--extend` and system Virtual-monitor support. See
 
 ## Pairing CLI
 
-`mm-host --pair` (alias `--pairing-mode`) opens a separate 60-second pairing
+`trinix-host --pair` (alias `--pairing-mode`) opens a separate 60-second pairing
 window on `--bind ADDRESS:PORT`, accepts one attempt and exits after confirmation
 or failure. It does not open screen capture. Run the security helper with
-`cargo run -p mightymonitor-security --features async --bin mm-devices -- --pair ADDRESS:PORT`
+`cargo run -p trinix-security --features async --bin trinix-devices -- --pair ADDRESS:PORT`
 on the other device. Compare the SAS on both devices and type `yes` locally on
 each. No unattended approval is provided.
 
-`mm-host --paired --bind ADDRESS:PORT` listens for pinned, secret-authenticated
+`trinix-host --paired --bind ADDRESS:PORT` listens for pinned, secret-authenticated
 stored peers and shares view-only video. `--allow-control` has no effect in this
 mode. The private-link `--secure` flow remains separate. Pairing cannot be
 combined with `--paired`, `--managed`, `--allow-control` or `--extend`.
-`mm-host --list-paired` prints the short ID, friendly name, paired-at and last-seen
-timestamps; `mm-host --unpair ID` removes a local pairing without capture.
-The `mm-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-all`
+`trinix-host --list-paired` prints the short ID, friendly name, paired-at and last-seen
+timestamps; `trinix-host --unpair ID` removes a local pairing without capture.
+The `trinix-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-all`
 on either device. No command prints long-lived pairing credentials. The
 intentional SAS prompt is for local comparison, not diagnostics collection.
 See SECURE_CONNECTIONS.md for configuration paths, API hooks and revocation limits.
