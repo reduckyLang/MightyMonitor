@@ -129,3 +129,26 @@ The `mm-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-al
 on either device. No command prints long-lived pairing credentials. The
 intentional SAS prompt is for local comparison, not diagnostics collection.
 See SECURE_CONNECTIONS.md for configuration paths, API hooks and revocation limits.
+
+## Desktop Share pairing
+
+Each `--secure` share now opens a 60-second pairing window and a separate device
+endpoint on the selected interface. Only that endpoint's filtered private
+on-subnet route and allow-listed metadata are advertised while sharing; dropping
+the advertisement stops discovery. The existing private-link endpoint is unchanged.
+The GUI shows the countdown, pairing QR, Renew when expired/locked, incoming
+six-digit code with Allow / Don't allow, and paired names with confirmed Forget.
+Allow also confirms that the two displayed codes match. Both devices must confirm;
+the offer never bypasses local Allow. Paired viewing stays view-only.
+
+Three failed attempts lock the window across connections. Renew replaces the
+mode and invalidates the previous single-use offer. A used, expired or old offer
+is rejected. The limiter counts failed confirmations/offers rather than typed
+codes. The local channel, bounds and device endpoint preface are specified in
+[SECURE_CONNECTIONS.md](SECURE_CONNECTIONS.md#desktop-share-endpoint-and-local-channel).
+Managed stdin closure stops sharing even while pairing is pending.
+
+Nearby may not work on guest or shared Wi-Fi. Copy a private viewing link from
+Connect another way and paste it on the other device. Android discovery/pairing,
+in-app QR scanning and physical Wi-Fi/Windows runtime acceptance remain unverified
+or absent; the new rendering has not been visually checked on a desktop.

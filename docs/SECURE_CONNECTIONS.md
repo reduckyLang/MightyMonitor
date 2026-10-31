@@ -2,13 +2,14 @@
 
 Desktop Share and Android Share generate a fresh connection link for each sharing
 session. Start sharing, copy the link, transfer it directly to your other device,
-and paste it into View. A phone camera can scan the desktop QR code and open
-the link in the Android app; press Connect to begin viewing. Anyone holding the link can view while that sharing session
+and paste it into View a screen. Desktop Share now renders a short-lived pairing
+offer as its QR code; Android pairing and in-app scanning are not implemented.
+Private viewing links remain available through Connect another way. Anyone holding the link can view while that sharing session
 is running. Keep it private; stopping sharing closes the connection and invalidates
 that session's link. Restarting sharing generates a new identity and token.
 
 Links authorize viewing only. They do not authorize keyboard, mouse, touch, audio,
-file access or unattended access. Persistent desktop pairing is also available through the security API and CLI, as described below.
+file access or unattended access. Persistent desktop pairing is also available through the desktop UI, security API and CLI, as described below.
 
 ## Transport
 
@@ -36,7 +37,7 @@ host. Old alpha viewers cannot connect to it.
 
 Viewing old plaintext hosts requires explicitly enabling the older-alpha option
 under Connection settings. A secure link never silently downgrades to that mode.
-Do not expose development listeners to the internet. Discovery wiring, desktop pairing UI and Android pairing remain future work.
+Do not expose development listeners to the internet. Desktop Nearby and pairing are wired; Android pairing remains future work.
 
 ## Validation
 
@@ -100,15 +101,20 @@ host:port text become `Device`; names never authorize a connection.
 Unix timestamp and last-seen Unix timestamp, without routes or credentials.
 Host paired authentication updates last-seen; this is not presence detection.
 
-SAS confirmation and host-shown code entry are distinct modes. The network
-handshake implements SAS confirmation on both devices. `PairingCode` and
-`PairingAttemptLimiter` are reusable hooks for later code-entry wiring, with
-unbiased six-digit generation, constant-time comparison, a 60-second lifetime,
-one successful use and lockout after three wrong entries. Keep one host-owned
-limiter across reconnects. Correct input cannot clear lockout. Only an explicit
-local restart after a 60-second cooldown creates a new attempt. `Clock` is
-injectable for deterministic expiry/cooldown tests. Code entry alone does not
-replace pinned TLS, SAS or local confirmation in the current network API.
+Desktop first pairing compares a mutual six-digit TLS-exporter code on both
+devices. No code is typed. The sharing device must choose Allow and confirm that
+the codes match; the other device must choose Yes, codes match. Either denial or
+timeout cancels the attempt without a returned credential. Paired reconnects need
+no code and remain view-only.
+
+The live `pair_host` handshake retains a host-owned `PairingAttemptLimiter` in
+its `PairingMode` across connections. Failed/denied/malformed attempts, failed
+offers and timeouts count toward three failures. Once locked, it rejects before
+certificate processing, including valid offers from new connections. A local
+Renew after lockout or expiry replaces the mode, limiter and offer immediately;
+reconnect never resets them. The separate legacy `verify`/`restart` code-entry
+hook retains its cooldown for API compatibility; desktop pairing uses failure
+accounting, not typed code entry. Offer clocks are injectable for expiry tests.
 
 `PairingMode::create_offer()` produces a versioned `PairingOffer` encoded as a
 compact `mightymonitor-pair://` base64url string. It carries a random 128-bit
@@ -125,7 +131,8 @@ adapters. Invalid presentation consumes the outstanding offer. Replacing or
 dropping its `PairingMode` revokes it; expiry also rejects it. A connection that
 fails before presenting a nonce cannot consume an offer it has not presented.
 Offers still require explicit local host confirmation; there is no setting to
-bypass it. QR rendering, code-entry transport, discovery and GUI are not included.
+bypass it. Desktop QR rendering, offer paste and Nearby routing are wired.
+Android pairing and in-app QR scanning remain absent.
 
 ## Authenticated desktop Resume
 
@@ -160,3 +167,32 @@ the local store; offer-based pairing uses the offer pin, never advertised data.
 Pin mismatch is terminal, with no fallback. Authentication lookups, revocation and
 Resume use the full fingerprint/authenticated principal. Local short-ID selections
 (including forget/unpair) resolve to stored fingerprints and reject ambiguity.
+
+## Desktop Share endpoint and local channel
+
+Every secure desktop share opens a 60-second pairing window automatically. The
+existing private-link listener and per-share identity remain unchanged. A second
+listener on the same selected interface with an automatically assigned port is
+the device endpoint advertised through discovery. Existing handshakes send a
+certificate preface before TLS; ALPN cannot dispatch those incompatible prefaces
+without changing private-link clients. The device endpoint sends `MMROUTE1`, then
+reads one byte within five seconds: 1 selects pairing, 0 selects stored paired
+viewing. Each continues through its existing certificate preface and TLS ALPN.
+The selector grants no authority. The discovery port routes to both operations;
+no additional TXT keys are needed. Paired viewing never enables control.
+
+Managed host stdout carries `MM_INVITE <private-link>`, `MM_PAIR OPEN <seconds>`,
+`MM_PAIR LOCKED`, `MM_PAIR EXPIRED`, `MM_PAIR_CODE <six-digits>` and
+`MM_PAIR_OFFER <compact-offer>`. Only MM_INVITE carries a bearer viewing secret;
+codes and offers are intentional local presentation data, never diagnostics or
+discovery records. Stdin accepts exactly `CONFIRM_PAIR`, `DENY_PAIR`,
+`RENEW_PAIR`, `FORGET <16-lowercase-hex-id>` and `STOP`, each newline terminated.
+Lines are bounded to 1024 bytes, queues to 16 commands; malformed commands fail
+closed. Closed stdin still stops a managed share. Terminal secure sharing accepts
+the same commands; terminal stdin closure alone does not stop an unmanaged share.
+
+Advertisement exists only during sharing and drops with its guard. Its only TXT
+fields are friendly name, short ID and wire version; the service port supplies
+the route. No viewing link, token, offer, pairing secret or full fingerprint is
+broadcast. Only filtered private on-subnet routes qualify. Nearby may not work
+on guest or shared Wi-Fi; paste a private viewing link through the fallback.

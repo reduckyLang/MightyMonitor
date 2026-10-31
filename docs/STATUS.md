@@ -348,3 +348,60 @@ and Rust 1.85 all-target checks passed sequentially. Four existing live desktop/
 portal tests remain ignored. Physical-device, Windows runtime and discovery
 integration acceptance remain unverified; discovery wiring is not implemented.
 This change is not released.
+
+## 2026-10-25 — M8 desktop discovery and pairing UI
+
+Implemented desktop secure-Share advertisement and a bounded background Nearby
+list, sanitized names and paired badges, mutual six-digit confirmation, stored
+pinned view-only reconnects, paired-device Forget with confirmation, and editable
+persistent device names. Home labels remain Share this screen / View a screen.
+Share opens a 60-second pairing window automatically, presents its countdown and
+single-use offer QR, and provides Renew after expiry or lockout. Offer paste is
+supported; in-app scanning is absent. A presented offer still requires local
+Allow with matching-code confirmation on both devices. No code is typed.
+
+The unchanged private-link listener remains available through the paste-a-link
+fallback. A separate device endpoint on the same interface routes pairing and
+paired viewing using the bounded MMROUTE1 selector before existing TLS prefaces
+and ALPN. It requires no additional TXT keys. Only friendly name, short device ID,
+wire version and the service port are advertised, with private on-subnet route
+filtering and a lifetime-bound advertisement guard. Discovery never broadcasts a
+viewing link, token, pairing offer, pairing secret or full fingerprint. Identity
+comes only from the stored full key pin, never a discovery name or short ID.
+
+The live host-owned PairingAttemptLimiter counts failed/denied/malformed attempts,
+offers and timeouts across connections. Three failures lock the window before
+further certificate processing. Renew replaces the mode/limiter and invalidates
+old offers; the atomic offer store consumes a presented nonce before consent.
+The bounded local status/command channel carries countdown/code/offer presentation,
+confirmation, denial, renewal and Forget alongside MM_INVITE. Closed managed stdin
+still stops sharing. Existing streams require Stop sharing for immediate closure
+after Forget; subsequent authentication and Resume reject forgotten credentials.
+
+Automated evidence: pure UI models and regex route-text exclusion (including
+sanitized names), strict bounded parser/injection checks, routed loopback offer
+pairing requiring Allow and matching codes, pinned reconnect and persisted Forget,
+live malformed-attempt lockout/renewal, metadata exclusion and offer expiry.
+Existing security tests cover mutual confirmation/denial/timeout, atomic concurrent
+single-use offers, spoofed-key pin rejection and store bounds; paired-video,
+authenticated Resume, discovery fake-backend and private-link suites remain passing.
+Denial now cancels the other pending confirmation promptly. The managed-host
+closed-stdin test does not open screen capture or inject input.
+
+Verification passed sequentially with the shared target directory: formatting,
+workspace Clippy with android-bridge/jni and warnings denied, workspace tests with
+MM_REQUIRE_CODECS=1 and android-bridge/jni, workspace build, rustdoc with warnings
+denied, Rust 1.85 all-targets check, and both website test scripts. The exact
+regex version already in Cargo.lock is reused for display-only tests and recorded
+in NOTICE; no new runtime third-party package is introduced.
+
+Not verified: real multi-device, Wi-Fi, guest/shared-network behavior, physical
+devices or Windows runtime. Egui rendering was not visually checked on this
+headless system. Android discovery/pairing, in-app QR scanning, Home redesign and
+text-size control remain outside this change. Full mockup layout, spoken-code
+accessibility and physical click-count acceptance remain follow-up UI work.
+Nearby may not work on guest or shared Wi-Fi; pasting a private viewing link is
+the fallback and cannot bypass network isolation. Local persistence on two devices
+is not an atomic distributed transaction; a final-acknowledgement interruption or
+local write failure can require Forget and pairing again. This is implementation
+and automated evidence, not physical acceptance or a release.
