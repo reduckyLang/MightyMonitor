@@ -47,8 +47,13 @@ connector disables dialing/retry: the main listener accepts replacement sockets.
 The first frame on each connection is a keyframe. A viewer requests another by
 sending Resume with the logical session id from HelloAck. Resume as the first
 message also receives HelloAck/VideoConfig and starts sequence numbers after
-last_seq. The current executable uses logical session id 1 across accepted
-connections. Live video intentionally skips replay of historical frames: resume
+last_seq. TLS sessions receive random 64-bit logical IDs bound to the authenticated
+transport principal. A shared registry retains at most 16 sessions for five
+minutes after the last sent frame; Resume rechecks identity, pairing revocation
+and `last_seq <= highest sequence reserved for sending`. Invalid Resume receives
+a generic rejected HelloAck and closes before video. Sequence continues after
+the server's highest reserved sequence. Explicit legacy plaintext uses ID 1 and
+retains unauthenticated compatibility behavior. Live video intentionally skips replay of historical frames: resume
 starts from fresh capture and a keyframe. This is the host's live-stream policy
 rather than the generic replay behavior described in PROTOCOL.md.
 
@@ -104,3 +109,23 @@ last accepted target so subsequent feedback can retry.
 Optional input uses `--secure --allow-control` and a separate viewer grant.
 Wayland extension uses `--extend` and system Virtual-monitor support. See
 [REMOTE_CONTROL.md](REMOTE_CONTROL.md) and [EXTENDED_DISPLAYS.md](EXTENDED_DISPLAYS.md).
+
+## Pairing CLI
+
+`trinix-host --pair` (alias `--pairing-mode`) opens a separate 60-second pairing
+window on `--bind ADDRESS:PORT`, accepts one attempt and exits after confirmation
+or failure. It does not open screen capture. Run the security helper with
+`cargo run -p trinix-security --features async --bin trinix-devices -- --pair ADDRESS:PORT`
+on the other device. Compare the SAS on both devices and type `yes` locally on
+each. No unattended approval is provided.
+
+`trinix-host --paired --bind ADDRESS:PORT` listens for pinned, secret-authenticated
+stored peers and shares view-only video. `--allow-control` has no effect in this
+mode. The private-link `--secure` flow remains separate. Pairing cannot be
+combined with `--paired`, `--managed`, `--allow-control` or `--extend`.
+`trinix-host --list-paired` prints the short ID, friendly name, paired-at and last-seen
+timestamps; `trinix-host --unpair ID` removes a local pairing without capture.
+The `trinix-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-all`
+on either device. No command prints long-lived pairing credentials. The
+intentional SAS prompt is for local comparison, not diagnostics collection.
+See SECURE_CONNECTIONS.md for configuration paths, API hooks and revocation limits.

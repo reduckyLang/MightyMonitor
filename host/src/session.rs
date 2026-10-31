@@ -78,9 +78,32 @@ pub async fn serve_transport<E: HostEncoder>(
 /// supplying an input target. Each connection starts without an input grant.
 pub async fn serve_with_input<E: HostEncoder>(
     transport: Box<dyn Transport>,
-    mut pipeline: Pipeline<E>,
+    pipeline: Pipeline<E>,
     config: SessionConfig,
     input: Option<Box<dyn crate::input::InputTarget>>,
+) -> Result<(), Error> {
+    serve_bound(transport, pipeline, config, input, None).await
+}
+/// Secure sessions must use the transport-established identity and shared registry.
+pub async fn serve_authenticated<E: HostEncoder>(
+    transport: Box<dyn Transport>,
+    pipeline: Pipeline<E>,
+    config: SessionConfig,
+    input: Option<Box<dyn crate::input::InputTarget>>,
+    peer: trinix_security::AuthenticatedPeer,
+    registry: crate::resume::ResumeRegistry,
+) -> Result<(), Error> {
+    serve_bound(transport, pipeline, config, input, Some((peer, registry))).await
+}
+async fn serve_bound<E: HostEncoder>(
+    transport: Box<dyn Transport>,
+    mut pipeline: Pipeline<E>,
+    mut config: SessionConfig,
+    input: Option<Box<dyn crate::input::InputTarget>>,
+    binding: Option<(
+        trinix_security::AuthenticatedPeer,
+        crate::resume::ResumeRegistry,
+    )>,
 ) -> Result<(), Error> {
     let control_available = input.is_some();
     let input = input.map(crate::input::InputLease);
@@ -186,13 +209,38 @@ pub async fn serve_with_input<E: HostEncoder>(
             proto_version,
             role: Role::Viewer,
             ..
-        } => proto_version == PROTOCOL_VERSION,
+        } => {
+            if proto_version != PROTOCOL_VERSION {
+                false
+            } else if let Some((peer, registry)) = &binding {
+                if peer.is_current() {
+                    config.session_id = registry.create(peer)?;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                true
+            }
+        }
         Message::Resume {
             session_id,
             last_seq,
-        } if session_id == config.session_id => {
-            seq = last_seq;
-            true
+        } => {
+            if let Some((peer, registry)) = &binding {
+                if let Some(sent) = registry.resume(session_id, peer, last_seq) {
+                    config.session_id = session_id;
+                    seq = sent;
+                    true
+                } else {
+                    false
+                }
+            } else if session_id == config.session_id {
+                seq = last_seq;
+                true
+            } else {
+                false
+            }
         }
         _ => false,
     };
@@ -200,13 +248,13 @@ pub async fn serve_with_input<E: HostEncoder>(
         &mut writer,
         if supports_input {
             Message::HelloAckV2 {
-                session_id: config.session_id,
+                session_id: if accepted { config.session_id } else { 0 },
                 accepted,
                 control_available,
             }
         } else {
             Message::HelloAck {
-                session_id: config.session_id,
+                session_id: if accepted { config.session_id } else { 0 },
                 accepted,
             }
         },
@@ -258,8 +306,29 @@ pub async fn serve_with_input<E: HostEncoder>(
                     .await?
                 }
                 Message::KeyframeRequest => force = true,
-                Message::Resume { session_id, .. } if session_id == config.session_id => {
+                Message::Resume {
+                    session_id,
+                    last_seq,
+                } if session_id == config.session_id
+                    && (binding.is_none()
+                        || (last_seq <= seq
+                            && binding.as_ref().is_some_and(|(peer, registry)| {
+                                registry.resume(session_id, peer, last_seq).is_some()
+                            }))) =>
+                {
                     force = true
+                }
+                Message::Resume { .. } => {
+                    send(
+                        &mut writer,
+                        Message::HelloAck {
+                            session_id: 0,
+                            accepted: false,
+                        },
+                        config.write_timeout,
+                    )
+                    .await?;
+                    return Err("invalid viewer handshake".into());
                 }
                 Message::NetStats(stats) => {
                     // A live bitrate rejection is recoverable: keep streaming at
@@ -320,6 +389,10 @@ pub async fn serve_with_input<E: HostEncoder>(
         if !pipeline.sending(captured) {
             force = true;
             continue;
+        }
+        // Reserve the sequence before writing: a partial write can reach the peer.
+        if let Some((_, registry)) = &binding {
+            registry.sent(config.session_id, seq);
         }
         let write_started = std::time::Instant::now();
         if writer.send(kind, &payload, config.write_timeout).await? != SendOutcome::Sent {

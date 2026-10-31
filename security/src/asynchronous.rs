@@ -91,6 +91,39 @@ pub async fn connect_transport(
 ) -> Result<Box<dyn trinix_core::Transport>, trinix_core::TransportError> {
     use trinix_core::{FramedTransport, TcpTransport, TransportError};
     match endpoint {
+        Endpoint::Paired {
+            address,
+            identity,
+            peer,
+        } => {
+            let current = crate::store::DeviceStore::open(identity.directory())
+                .and_then(|s| s.find_by_fingerprint(&peer.fingerprint))
+                .map_err(|e| TransportError::Authentication(e.to_string()))?;
+            if current.fingerprint != peer.fingerprint
+                || !bool::from(current.secret.as_slice().ct_eq(peer.secret.as_slice()))
+            {
+                return Err(TransportError::Authentication(
+                    "Pairing was changed or revoked".into(),
+                ));
+            }
+            let stream = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                TcpStream::connect(address),
+            )
+            .await
+            .map_err(|_| TransportError::Timeout("connect"))??;
+            let tls = crate::pairing::asynchronous::connect(stream, identity, peer)
+                .await
+                .map_err(|error| match error.kind() {
+                    // Pin, secret and revocation failures are terminal; network
+                    // and timeout failures remain recoverable.
+                    io::ErrorKind::PermissionDenied | io::ErrorKind::InvalidData => {
+                        TransportError::Authentication("Paired authentication rejected".into())
+                    }
+                    _ => TransportError::Io(error),
+                })?;
+            Ok(Box::new(FramedTransport::from_stream(tls)))
+        }
         Endpoint::Legacy(address) => Ok(Box::new(TcpTransport::connect(*address).await?)),
         Endpoint::Secure(invitation) => {
             let stream = tokio::time::timeout(
@@ -110,4 +143,16 @@ pub async fn connect_transport(
             Ok(Box::new(FramedTransport::from_stream(tls)))
         }
     }
+}
+
+/// Authenticate the private-link principal before exposing it to the host.
+pub async fn accept_authenticated(
+    stream: TcpStream,
+    identity: &ShareIdentity,
+) -> io::Result<(
+    tokio_rustls::server::TlsStream<TcpStream>,
+    AuthenticatedPeer,
+)> {
+    let tls = accept(stream, identity).await?;
+    Ok((tls, identity.authenticated_peer()))
 }

@@ -163,22 +163,30 @@ reconnect or replay frames.
 
 ## Reconnect and resume
 
-Resume is `Message::Resume`, stable kind **9**, encoded with the same bincode
-settings as all typed messages. The host session handles Resume: it validates
-the logical session id, continues the sequence after `last_seq`, and forces an
-IDR; the core reconnect module only sends the request and does not replay video.
-`PROTOCOL_VERSION` is **3**; peers using another version are rejected. Resume is unauthenticated: bind it
-to pairing/authentication in a later milestone before trusting a session claim.
+Resume is now `Message::Resume`, stable kind **9**, encoded with the same bincode
+settings as all typed messages. `PROTOCOL_VERSION` is **3**; peers using another
+version are rejected. The host session validates the logical session id, forces an
+IDR, and does not replay video. Desktop TLS Resume is bound to
+the authenticated transport principal: a paired device or a distinct per-share
+private-link principal. The host uses unpredictable 64-bit logical session IDs
+and a bounded registry (16 entries, five minutes since the last sent frame).
+Unknown, expired, evicted, revoked or other-principal IDs and `last_seq` beyond
+the server's highest sent/reserved sequence receive generic HelloAck rejection
+(session_id 0) followed by close, without video. A paired principal is rechecked
+against the persisted store, including after transport authentication. Explicit
+legacy plaintext mode retains unauthenticated Resume for compatibility.
+See SECURE_CONNECTIONS.md for pairing and authorization limits.
 
-After reconnect the client sends Resume first. The host session accepts it only
-for the matching logical session id, continues sequence numbering from
-`last_seq`, and forces an IDR; previous video frames are not replayed. The
-initial `last_seq` is zero, so the next video frame has sequence one. The
-reconnecting client forwards the caller's last-consumed sequence; callers update
-`set_last_seq` only after consuming a frame. `Resumed` means the Resume request
-was written, not acknowledged by the peer. The initial connection performs no
-Resume or application handshake automatically. `connect_initial` makes one
-attempt and returns initial connection failures directly.
+After reconnect the client sends Resume first. A replay-capable peer may replay frames **after**
+`last_seq` for the identified logical session. The desktop live-video host instead
+continues after its highest sent/reserved sequence and requests a fresh IDR;
+it does not replay historical frames. The initial `last_seq` is zero;
+`last_seq == 0` requests replay after sequence zero, not an unspecified-position
+sentinel. The session forwards this value without implementing peer-side replay. The caller updates `set_last_seq`
+only after consuming a frame; opaque frame payloads are never interpreted by the
+session. `Resumed` means the request was written, not acknowledged by the peer.
+The initial connection performs no Resume or application handshake automatically.
+`connect_initial` makes one attempt and returns initial connection failures directly.
 
 `ReconnectingSession` drops connections on I/O, framing, EOF, and write timeout
 errors. `recv()` reconnects and continues receiving. Read timeouts return to the
