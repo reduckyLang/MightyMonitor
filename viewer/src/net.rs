@@ -63,8 +63,60 @@ pub enum ControlAction {
     Input(InputEvent),
 }
 pub type SharedOutput = Arc<Mutex<Output>>;
+enum SessionEndpoint {
+    Link(mightymonitor_security::Endpoint),
+    Paired {
+        address: std::net::SocketAddr,
+        directory: std::path::PathBuf,
+        fingerprint: [u8; 32],
+    },
+}
+impl SessionEndpoint {
+    fn is_secure(&self) -> bool {
+        match self {
+            Self::Link(endpoint) => endpoint.is_secure(),
+            Self::Paired { .. } => true,
+        }
+    }
+    async fn connect(&self) -> Result<Box<dyn Transport>, TransportError> {
+        match self {
+            Self::Link(endpoint) => {
+                mightymonitor_security::asynchronous::connect_transport(endpoint).await
+            }
+            Self::Paired {
+                address,
+                directory,
+                fingerprint,
+            } => {
+                let identity = mightymonitor_security::pairing::DeviceIdentity::open(directory)
+                    .map_err(TransportError::Io)?;
+                let store = mightymonitor_security::store::DeviceStore::open(directory)
+                    .map_err(TransportError::Io)?;
+                let peer = store
+                    .peers()
+                    .iter()
+                    .find(|peer| &peer.fingerprint == fingerprint)
+                    .ok_or_else(|| {
+                        TransportError::Authentication("Pair this device again.".into())
+                    })?;
+                let stream = crate::devices::dial(*address, false)
+                    .await
+                    .map_err(TransportError::Io)?;
+                let tls =
+                    mightymonitor_security::pairing::asynchronous::connect(stream, &identity, peer)
+                        .await
+                        .map_err(|_| {
+                            TransportError::Authentication(
+                                "This device has changed. Pair it again.".into(),
+                            )
+                        })?;
+                Ok(Box::new(FramedTransport::from_stream(tls)))
+            }
+        }
+    }
+}
 struct Dial {
-    endpoint: mightymonitor_security::Endpoint,
+    endpoint: SessionEndpoint,
     first: Option<Box<dyn Transport>>,
 }
 #[async_trait]
@@ -72,7 +124,7 @@ impl Connector for Dial {
     async fn connect(&mut self) -> Result<Box<dyn Transport>, TransportError> {
         let transport = match self.first.take() {
             Some(t) => t,
-            None => mightymonitor_security::asynchronous::connect_transport(&self.endpoint).await?,
+            None => self.endpoint.connect().await?,
         };
         Ok(transport)
     }
@@ -108,7 +160,10 @@ impl<D: Decoder> ViewerSession<D> {
         }
     }
     pub async fn run(mut self, address: String) {
-        let result = self.drive(address).await;
+        let result = match mightymonitor_security::Endpoint::parse(&address, true) {
+            Ok(endpoint) => self.drive(SessionEndpoint::Link(endpoint)).await,
+            Err(error) => Err(error.into()),
+        };
         let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());
         out.state = State::Closed;
         out.controlling = false;
@@ -116,13 +171,31 @@ impl<D: Decoder> ViewerSession<D> {
             out.error = Some(e.to_string());
         }
     }
-    async fn drive(&mut self, address: String) -> Result<(), Error> {
-        let endpoint = mightymonitor_security::Endpoint::parse(&address, true)?;
+    pub async fn run_paired(
+        mut self,
+        address: std::net::SocketAddr,
+        directory: std::path::PathBuf,
+        fingerprint: [u8; 32],
+    ) {
+        let result = self
+            .drive(SessionEndpoint::Paired {
+                address,
+                directory,
+                fingerprint,
+            })
+            .await;
+        let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());
+        out.state = State::Closed;
+        out.controlling = false;
+        if result.is_err() {
+            out.error = Some("Couldn't connect. Pair this device again.".into());
+        }
+    }
+    async fn drive(&mut self, endpoint: SessionEndpoint) -> Result<(), Error> {
         let handshake_timeout = Duration::from_secs(if endpoint.is_secure() { 15 } else { 5 });
         let (transport, id, control_available) = loop {
             match tokio::time::timeout(handshake_timeout, async {
-                let mut t =
-                    mightymonitor_security::asynchronous::connect_transport(&endpoint).await?;
+                let mut t = endpoint.connect().await?;
                 send_transport(
                     t.as_mut(),
                     Message::Hello {

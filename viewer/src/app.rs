@@ -13,6 +13,16 @@ enum Page {
 
 pub struct App {
     page: Page,
+    nearby: crate::ui::NearbyModel,
+    routes: Vec<mightymonitor_discovery::Device>,
+    browse: Option<std::sync::mpsc::Receiver<Vec<mightymonitor_discovery::Device>>>,
+    last_browse: std::time::Instant,
+    pair_flow: crate::ui::PairFlow,
+    pair_events: Option<std::sync::mpsc::Receiver<crate::devices::PairEvent>>,
+    pair_decision: Option<tokio::sync::oneshot::Sender<bool>>,
+    pair_target: Option<std::net::SocketAddr>,
+    forget_pending: Option<String>,
+    device_name: String,
     themed: bool,
     fullscreen: bool,
     address: String,
@@ -40,6 +50,23 @@ impl App {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             page: Page::View,
+            nearby: crate::ui::NearbyModel::default(),
+            routes: Vec::new(),
+            browse: None,
+            last_browse: std::time::Instant::now() - std::time::Duration::from_secs(10),
+            pair_flow: crate::ui::PairFlow::Idle,
+            pair_events: None,
+            pair_decision: None,
+            pair_target: None,
+            forget_pending: None,
+            device_name: mightymonitor_security::store::config_dir()
+                .and_then(|directory| {
+                    mightymonitor_security::pairing::DeviceIdentity::open(&directory)
+                })
+                .map_or_else(
+                    |_| "Device".into(),
+                    |identity| identity.friendly_name().into(),
+                ),
             themed: false,
             fullscreen: false,
             address: String::new(),
@@ -100,7 +127,189 @@ impl App {
             self.disconnect();
         }
     }
+    fn connect_paired(&mut self, address: std::net::SocketAddr, fingerprint: [u8; 32]) {
+        self.disconnect();
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
+        if let (Ok(directory), Ok(decoder)) = (
+            mightymonitor_security::store::config_dir(),
+            codec_gst::decoder::Decoder::new(),
+        ) {
+            let session = ViewerSession::new(decoder);
+            self.output = session.output.clone();
+            self.commands = Some(session.commands.clone());
+            self.task = Some(self.runtime.spawn(session.run_paired(
+                address,
+                directory,
+                fingerprint,
+            )));
+        }
+    }
+    fn pair_device(
+        &mut self,
+        address: std::net::SocketAddr,
+        offer: Option<mightymonitor_security::pairing::PairingOffer>,
+    ) {
+        if self.pair_events.is_some() {
+            return;
+        }
+        let Ok(directory) = mightymonitor_security::store::config_dir() else {
+            self.pair_flow = crate::ui::PairFlow::Failed;
+            return;
+        };
+        let (tx, rx) = std::sync::mpsc::sync_channel(2);
+        self.pair_events = Some(rx);
+        self.pair_target = Some(address);
+        self.pair_flow = crate::ui::PairFlow::Idle;
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
+        self.runtime
+            .spawn(crate::devices::pair(address, directory, offer, tx));
+    }
+    fn devices_ui(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Nearby devices");
+        ui.label("Pick a device that is sharing its screen.");
+        if self.nearby.searching {
+            ui.label("Looking for devices…");
+        } else if self.nearby.rows.is_empty() {
+            ui.label("No devices found nearby.");
+        }
+        let mut selected = None;
+        for (index, row) in self.nearby.rows.iter().enumerate() {
+            if ui
+                .add_enabled_ui(self.pair_events.is_none(), |ui| {
+                    ui.add_sized(
+                        [ui.available_width(), 40.0],
+                        egui::Button::new(format!(
+                            "{}   {}",
+                            row.name,
+                            if row.paired { "Paired" } else { "New" }
+                        )),
+                    )
+                })
+                .inner
+                .clicked()
+            {
+                selected = Some(index);
+            }
+        }
+        if let Some(device) = selected.and_then(|index| self.routes.get(index)).cloned() {
+            if let Some(address) = device.addresses.first().copied() {
+                let selected = mightymonitor_security::store::config_dir().and_then(|directory| {
+                    let store = mightymonitor_security::store::DeviceStore::open(&directory)?;
+                    if store
+                        .peers()
+                        .iter()
+                        .any(|peer| peer.id() == device.metadata.id())
+                    {
+                        store.find(device.metadata.id()).map(Some)
+                    } else {
+                        Ok(None)
+                    }
+                });
+                match selected {
+                    Ok(Some(peer)) => self.connect_paired(address, peer.fingerprint),
+                    Ok(None) => self.pair_device(address, None),
+                    Err(_) => {
+                        self.pair_flow = crate::ui::PairFlow::Failed;
+                    }
+                }
+            }
+        }
+        if ui.button("Search again").clicked() && self.browse.is_none() {
+            self.nearby.searching = true;
+            self.browse = crate::devices::browse().ok();
+            self.last_browse = std::time::Instant::now();
+        }
+        ui.label("Nearby may not work on guest or shared Wi-Fi");
+        ui.collapsing("Paired devices", |ui| {
+            if let Ok(directory) = mightymonitor_security::store::config_dir() {
+                if let Ok(mut store) = mightymonitor_security::store::DeviceStore::open(&directory)
+                {
+                    for device in store.list() {
+                        ui.horizontal(|ui| {
+                            ui.label(mightymonitor_security::pairing::sanitize_name(
+                                &device.friendly_name,
+                            ));
+                            if ui.button("Forget").clicked() {
+                                self.forget_pending = Some(device.device_id.clone());
+                            }
+                            if self.forget_pending.as_ref() == Some(&device.device_id) {
+                                if ui.button("Yes, forget").clicked() {
+                                    if let Some(host) = &mut self.host {
+                                        let _ = host.command(
+                                            mightymonitor_security::managed::Command::Forget(
+                                                device.device_id.clone(),
+                                            ),
+                                        );
+                                    } else {
+                                        let _ = store.unpair(&device.device_id);
+                                    }
+                                    self.forget_pending = None;
+                                }
+                                if ui.button("Cancel").clicked() {
+                                    self.forget_pending = None;
+                                }
+                            }
+                        });
+                    }
+                }
+                ui.label("This device");
+                ui.add(egui::TextEdit::singleline(&mut self.device_name).char_limit(32));
+                if ui.button("Save name").clicked() {
+                    if let Ok(mut identity) =
+                        mightymonitor_security::pairing::DeviceIdentity::open(&directory)
+                    {
+                        let _ = identity.set_friendly_name(&self.device_name);
+                        self.device_name = identity.friendly_name().into();
+                    }
+                }
+            }
+        });
+        match &self.pair_flow {
+            crate::ui::PairFlow::Check(code) | crate::ui::PairFlow::Waiting(code) => {
+                ui.heading("Check the code");
+                ui.label("Check that both devices show the same code.");
+                ui.label(
+                    egui::RichText::new(format!("{} {}", &code[..3], &code[3..]))
+                        .size(56.0)
+                        .monospace(),
+                );
+                if matches!(self.pair_flow, crate::ui::PairFlow::Check(_)) {
+                    let mut choice = None;
+                    ui.horizontal(|ui| {
+                        if ui.button("Yes, codes match").clicked() {
+                            choice = Some(true);
+                        }
+                        if ui.button("No").clicked() {
+                            choice = Some(false);
+                        }
+                    });
+                    if let Some(choice) = choice {
+                        self.pair_flow.confirm(choice);
+                        if let Some(decision) = self.pair_decision.take() {
+                            let _ = decision.send(choice);
+                        }
+                    }
+                } else {
+                    ui.label("Waiting for the other device… They need to press Yes too.");
+                }
+            }
+            crate::ui::PairFlow::Failed => {
+                ui.label("Pairing did not finish. Start again on both devices.");
+            }
+            crate::ui::PairFlow::Paired => {
+                ui.label("Paired. Next time, pick it from the list. No code needed.");
+            }
+            _ => {}
+        }
+    }
     fn connect(&mut self) {
+        if let Ok(offer) = mightymonitor_security::pairing::PairingOffer::parse(
+            self.address.trim(),
+            &mightymonitor_security::pairing::SystemClock,
+        ) {
+            self.pair_device(offer.address(), Some(offer));
+            return;
+        }
         self.disconnect();
         if let Err(error) =
             mightymonitor_security::Endpoint::parse(&self.address, self.allow_legacy)
@@ -140,6 +349,51 @@ impl Drop for App {
 }
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        if self.page == Page::View
+            && self.browse.is_none()
+            && self.last_browse.elapsed() >= std::time::Duration::from_secs(10)
+        {
+            self.nearby.searching = true;
+            self.browse = crate::devices::browse().ok();
+            self.last_browse = std::time::Instant::now();
+        }
+        if let Some(result) = self.browse.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            let paired = mightymonitor_security::store::config_dir()
+                .and_then(|directory| mightymonitor_security::store::DeviceStore::open(&directory))
+                .map(|store| store.list())
+                .unwrap_or_default();
+            self.nearby.replace(result.iter().map(|device| {
+                (
+                    device.metadata.name().into(),
+                    paired
+                        .iter()
+                        .any(|peer| peer.device_id == device.metadata.id()),
+                )
+            }));
+            self.routes = result;
+            self.browse = None;
+        }
+        if let Some(event) = self.pair_events.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            match event {
+                crate::devices::PairEvent::Code(code, decision) => {
+                    if self.pair_flow.code(&code) {
+                        self.pair_decision = Some(decision);
+                    }
+                }
+                crate::devices::PairEvent::Done(result) => {
+                    self.pair_events = None;
+                    self.pair_decision = None;
+                    self.pair_flow = if result.is_ok() {
+                        crate::ui::PairFlow::Paired
+                    } else {
+                        crate::ui::PairFlow::Failed
+                    };
+                    if let (Ok(fingerprint), Some(address)) = (result, self.pair_target.take()) {
+                        self.connect_paired(address, fingerprint);
+                    }
+                }
+            }
+        }
         if self.task.as_ref().is_some_and(|task| task.is_finished()) {
             self.task = None;
         }
@@ -226,6 +480,12 @@ impl eframe::App for App {
                     "Sharing is off"
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if self.host.is_some() && ui.button("Stop sharing").clicked() {
+                        self.host = None;
+                        self.share_qr = None;
+                        self.host_message = "Sharing stopped".into();
+                        self.host_error = false;
+                    }
                     if self.texture.is_some()
                         && ui
                             .button(if self.fullscreen {
@@ -247,29 +507,36 @@ impl eframe::App for App {
             self.page == Page::View,
             |ui| {
                 ui.add_space(16.0);
-                ui.heading("View a screen");
-                ui.horizontal(|ui| {
-                    ui.add_sized(
-                        [ui.available_width() - 130.0, 40.0],
-                        egui::TextEdit::singleline(&mut self.address)
-                            .hint_text("Paste a connection link"),
-                    );
-                    if self.task.is_some() {
-                        if ui.button("Disconnect").clicked() {
-                            self.disconnect();
+                egui::ScrollArea::vertical()
+                    .max_height(340.0)
+                    .show(ui, |ui| {
+                        self.devices_ui(ui);
+                    });
+                ui.collapsing("Can't find your device? Use a link", |ui| {
+                    ui.horizontal(|ui| {
+                        ui.add_sized(
+                            [ui.available_width() - 130.0, 40.0],
+                            egui::TextEdit::singleline(&mut self.address)
+                                .hint_text("Paste a connection link")
+                                .char_limit(1024),
+                        );
+                        if self.task.is_some() {
+                            if ui.button("Disconnect").clicked() {
+                                self.disconnect();
+                            }
+                        } else if ui
+                            .add_enabled(
+                                !self.address.trim().is_empty(),
+                                egui::Button::new("Connect"),
+                            )
+                            .clicked()
+                        {
+                            self.address = self.address.trim().to_owned();
+                            self.connect();
                         }
-                    } else if ui
-                        .add_enabled(
-                            !self.address.trim().is_empty(),
-                            egui::Button::new("Connect"),
-                        )
-                        .clicked()
-                    {
-                        self.address = self.address.trim().to_owned();
-                        self.connect();
-                    }
+                    });
                 });
-                ui.collapsing("Connection settings", |ui| {
+                ui.collapsing("Technical details", |ui| {
                     ui.checkbox(
                         &mut self.allow_legacy,
                         "Connect to an older alpha (unencrypted)",
@@ -308,12 +575,36 @@ impl eframe::App for App {
         drop(out);
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.page == Page::Share {
+                egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(24.0);
                 ui.heading("Share this screen");
                 ui.add_space(10.0);
-                ui.label("Scan with your phone or copy the connection link");
+                ui.label("Waiting for another device");
+                ui.label("On the other device, open MightyMonitor and press View a screen.");
+                if let Some(host) = &mut self.host {
+                    let pairing = host.pairing();
+                    use mightymonitor_security::managed::{Status, Command};
+                    match pairing.state {
+                        Some(Status::Open(seconds)) => {ui.label(format!("Pairing is open for {}:{:02}", seconds / 60, seconds % 60));}
+                        Some(Status::Locked | Status::Expired) => {
+                            ui.label("Pairing is closed");
+                            if ui.button("Renew").clicked() {let _ = host.command(Command::Renew);}
+                        }
+                        Some(Status::Code(code)) => {
+                            ui.heading("Another device wants to see this screen");
+                            ui.label("Check that both devices show the same code. Allow only a device you know.");
+                            ui.label(egui::RichText::new(format!("{} {}", &code[..3], &code[3..])).size(56.0).monospace());
+                            ui.horizontal(|ui| {
+                                if ui.button("Allow · Yes, codes match").clicked() {let _ = host.command(Command::Confirm);}
+                                if ui.button("Don't allow").clicked() {let _ = host.command(Command::Deny);}
+                            });
+                        }
+                        _=>{}
+                    }
+                }
+                ui.collapsing("Connect another way", |ui| {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&self.share_address).size(28.0).strong());
+
                     let invitation = self.host.as_ref().and_then(|host| host.invitation());
                     if ui
                         .add_enabled(
@@ -327,11 +618,8 @@ impl eframe::App for App {
                         }
                     }
                 });
-                let link = self
-                    .host
-                    .as_ref()
-                    .and_then(|host| host.invitation())
-                    .map(|invite| invite.to_link());
+                });
+                let link = self.host.as_ref().and_then(|host| host.pairing().offer);
                 match link {
                     Some(link) => {
                         if self
@@ -347,6 +635,8 @@ impl eframe::App for App {
                     None => self.share_qr = None,
                 }
                 if let Some((_, code)) = &self.share_qr {
+                    ui.label("QR code for pairing");
+                    ui.small("In-app scanning is not available yet.");
                     ui.add_space(16.0);
                     let modules = code.width();
                     let scale = (240.0 / (modules + 8) as f32).floor().max(2.0);
@@ -368,6 +658,22 @@ impl eframe::App for App {
                         }
                     }
                 }
+                ui.collapsing("Paired devices", |ui| {
+                    if let Ok(directory) = mightymonitor_security::store::config_dir() {
+                        if let Ok(store) = mightymonitor_security::store::DeviceStore::open(&directory) {
+                            for device in store.list() {
+                                ui.horizontal(|ui| {
+                                    ui.label(mightymonitor_security::pairing::sanitize_name(&device.friendly_name));
+                                    if ui.button("Forget").clicked() {self.forget_pending = Some(device.device_id.clone());}
+                                    if self.forget_pending.as_ref() == Some(&device.device_id) && ui.button("Yes, forget").clicked() {
+                                        if let Some(host)=&mut self.host {let _ = host.command(mightymonitor_security::managed::Command::Forget(device.device_id));}
+                                        self.forget_pending = None;
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
                 ui.add_space(18.0);
                 ui.add_enabled_ui(self.host.is_none(), |ui| {
                     ui.horizontal(|ui| {
@@ -380,15 +686,7 @@ impl eframe::App for App {
                     self.host.is_none(),
                     egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
                 );
-                if self.host.is_some() {
-                    if ui.button("Stop sharing").clicked() {
-                        self.host = None;
-                        self.share_qr = None;
-                        self.host_message = "Sharing stopped".into();
-                        self.host_error = false;
-                    }
-                } else {
-                    if ui
+                if self.host.is_none() && ui
                         .add_enabled(
                             true,
                             egui::Button::new(if self.extend { "Share extra display" } else { "Share this screen" })
@@ -414,7 +712,6 @@ impl eframe::App for App {
                             }
                         }
                     }
-                }
                 if self.host_error {
                     ui.colored_label(
                         egui::Color32::from_rgb(166, 48, 36),
@@ -422,7 +719,7 @@ impl eframe::App for App {
                     );
                 }
                 ui.add_space(20.0);
-                ui.collapsing("Settings", |ui| {
+                ui.collapsing("Technical details", |ui| {
                     ui.add_enabled_ui(self.host.is_none(), |ui| {
                         ui.label("Sharing address");
                         ui.text_edit_singleline(&mut self.share_address);
@@ -441,6 +738,7 @@ impl eframe::App for App {
                         ui.label(&self.host_message);
                     });
                 }
+                });
             } else {
                 ui.horizontal(|ui| {
                     ui.label(match state {
@@ -465,7 +763,8 @@ impl eframe::App for App {
                     }
                 });
                 if let Some(error) = error {
-                    ui.colored_label(egui::Color32::from_rgb(166, 48, 36), error);
+                    ui.colored_label(egui::Color32::from_rgb(166, 48, 36), "Couldn't connect. Check that the other device is sharing.");
+                    ui.collapsing("Technical details", |ui| {ui.label(error);});
                 }
                 if let Some(texture) = &self.texture {
                     let size = texture.size_vec2();

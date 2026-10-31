@@ -15,6 +15,7 @@ default = ["gui"]
 gui = ["dep:eframe", "dep:qrcode"]
 
 [dependencies]
+mightymonitor-discovery = { path = "../discovery" }
 qrcode = { version = "=0.14.1", default-features = false, optional = true }
 mightymonitor-core = { path = "../core" }
 mightymonitor-security = { path = "../security", features = ["async"] }
@@ -26,6 +27,7 @@ eframe = { version = "=0.31.1", default-features = false, features = ["default_f
 codec-gst = { path = "../codec-gst" }
 
 [dev-dependencies]
+regex = "=1.13.1"
 tokio = { workspace = true, features = ["test-util"] }
 
 [[example]]
