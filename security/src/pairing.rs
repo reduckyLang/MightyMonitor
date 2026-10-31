@@ -152,6 +152,7 @@ impl DeviceIdentity {
 /// spaced by two seconds, including failures. Dropping a permit releases capacity.
 pub struct PairingMode {
     offers: crate::pairing_hooks::Offers,
+    limiter: io::Result<PairingAttemptLimiter>,
     end: std::time::Instant,
     busy: std::sync::atomic::AtomicBool,
     last: std::sync::Mutex<Option<std::time::Instant>>,
@@ -170,6 +171,7 @@ impl PairingMode {
     }
     pub fn with_clock(clock: Arc<dyn Clock>) -> Self {
         Self {
+            limiter: PairingAttemptLimiter::new(clock.clone()),
             offers: crate::pairing_hooks::Offers::new(clock),
             end: std::time::Instant::now() + PAIRING_WINDOW,
             busy: std::sync::atomic::AtomicBool::new(false),
@@ -187,7 +189,18 @@ impl PairingMode {
     pub fn consume_offer(&self, offer: &PairingOffer) -> io::Result<()> {
         self.offers.consume(&offer.nonce)
     }
+    pub fn locked(&self) -> bool {
+        self.limiter
+            .as_ref()
+            .map_or(true, |limiter| limiter.locked())
+    }
+    pub fn record_failure(&self) {
+        if let Ok(limiter) = &self.limiter {
+            let _ = limiter.failed_attempt();
+        }
+    }
     pub fn enter(&self) -> io::Result<PairingPermit<'_>> {
+        self.limiter.as_ref().map_err(|_| denied())?.check_open()?;
         let now = std::time::Instant::now();
         let mut last = self.last.lock().unwrap_or_else(|p| p.into_inner());
         if now >= self.end
@@ -311,6 +324,33 @@ pub mod asynchronous {
         let value = std::str::from_utf8(&bytes).map_err(|_| denied())?;
         Ok(sanitize_name(value))
     }
+    async fn confirm_both<S, Fut>(tls: &mut S, confirmation: Fut) -> io::Result<()>
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+        Fut: std::future::Future<Output = bool>,
+    {
+        let (mut reader, mut writer) = tokio::io::split(tls);
+        let local = async {
+            let accepted = confirmation.await;
+            writer.write_u8(u8::from(accepted)).await?;
+            writer.flush().await?;
+            if accepted {
+                Ok(())
+            } else {
+                Err(denied())
+            }
+        };
+        let remote = async {
+            if reader.read_u8().await? == 1 {
+                Ok(())
+            } else {
+                Err(denied())
+            }
+        };
+        // A denial cancels an outstanding local prompt on either device.
+        tokio::try_join!(local, remote)?;
+        Ok(())
+    }
     fn sas(bytes: [u8; 32]) -> String {
         let n = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) % 1_000_000;
         format!("{n:06}")
@@ -368,12 +408,7 @@ pub mod asynchronous {
                 .1
                 .export_keying_material([0; 32], b"MightyMonitor pairing SAS v1", None)
                 .map_err(tls_error)?);
-            let accepted = confirm(code).await;
-            tls.write_all(&[u8::from(accepted)]).await?;
-            tls.flush().await?;
-            if !accepted || tls.read_u8().await? != 1 {
-                return Err(denied());
-            }
+            confirm_both(&mut tls, confirm(code)).await?;
             let mut secret = Zeroizing::new([0; 32]);
             tls.read_exact(secret.as_mut()).await?;
             tls.write_all(&[1]).await?;
@@ -394,11 +429,17 @@ pub mod asynchronous {
         Fut: std::future::Future<Output = bool>,
     {
         let mode = mode.ok_or_else(denied)?;
-        let _permit = mode.enter()?;
+        let _permit = match mode.enter() {
+            Ok(permit) => permit,
+            Err(error) => {
+                mode.record_failure();
+                return Err(error);
+            }
+        };
         let remaining = mode
             .end
             .saturating_duration_since(std::time::Instant::now());
-        tokio::time::timeout(remaining, async {
+        let result = tokio::time::timeout(remaining, async {
             let (mut tls, fingerprint) = server(stream, identity, true).await?;
             match tls.read_u8().await? {
                 0 => {}
@@ -415,14 +456,10 @@ pub mod asynchronous {
                 .1
                 .export_keying_material([0; 32], b"MightyMonitor pairing SAS v1", None)
                 .map_err(tls_error)?);
-            let accepted = confirm(code).await;
-            if tls.read_u8().await? != 1 || !accepted {
-                let _ = tls.write_all(&[0]).await;
-                return Err(denied());
-            }
+            confirm_both(&mut tls, confirm(code)).await?;
+            mode.limiter.as_ref().map_err(|_| denied())?.check_open()?;
             let mut secret = Zeroizing::new([0; 32]);
             getrandom::getrandom(secret.as_mut()).map_err(tls_error)?;
-            tls.write_all(&[1]).await?;
             tls.write_all(secret.as_slice()).await?;
             tls.flush().await?;
             if tls.read_u8().await? != 1 {
@@ -431,7 +468,12 @@ pub mod asynchronous {
             Ok(Peer::new(fingerprint, secret, name))
         })
         .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "Pairing timed out"))?
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "Pairing timed out"))
+        .and_then(|result| result);
+        if result.is_err() {
+            mode.record_failure();
+        }
+        result
     }
     pub async fn connect(
         stream: TcpStream,
@@ -733,6 +775,40 @@ mod tests {
         // Full exporter separation is checked independently; six-digit SAS can collide.
         assert!(DeviceStore::open(&hd.0).unwrap().peers().is_empty());
         assert!(DeviceStore::open(&vd.0).unwrap().peers().is_empty());
+    }
+    #[tokio::test]
+    async fn denial_interrupts_the_other_pending_confirmation() {
+        let hd = Directory::new();
+        let vd = Directory::new();
+        let host = DeviceIdentity::open(&hd.0).unwrap();
+        let viewer = DeviceIdentity::open(&vd.0).unwrap();
+        for deny_host in [true, false] {
+            let mode = PairingMode::enable();
+            let (client, server) = sockets().await;
+            let (h, v) = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                tokio::join!(
+                    pair_host(server, &host, Some(&mode), |_| async {
+                        if deny_host {
+                            false
+                        } else {
+                            std::future::pending::<bool>().await
+                        }
+                    }),
+                    pair_client(client, &viewer, |_| async {
+                        if deny_host {
+                            std::future::pending::<bool>().await
+                        } else {
+                            false
+                        }
+                    })
+                )
+            })
+            .await
+            .unwrap();
+            assert!(h.is_err() && v.is_err());
+            assert!(DeviceStore::open(&hd.0).unwrap().list().is_empty());
+            assert!(DeviceStore::open(&vd.0).unwrap().list().is_empty());
+        }
     }
     #[tokio::test]
     async fn disabled_pairing_and_concurrent_attempt_rejected() {

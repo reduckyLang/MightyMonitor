@@ -25,14 +25,12 @@ pub fn sanitize_name(value: &str) -> String {
         .take(32)
         .collect();
     // Reject the original too: filtering ':' must not disguise host:port input.
-    let ip_like = value
-        .split(|c: char| !c.is_ascii_digit() && c != '.')
-        .any(|s| {
-            s.split('.')
-                .filter(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
-                .count()
-                >= 4
-        });
+    let ip_like = value.split(|c: char| !c.is_numeric() && c != '.').any(|s| {
+        s.split('.')
+            .filter(|p| !p.is_empty() && p.chars().all(|c| c.is_numeric()))
+            .count()
+            >= 4
+    });
     let port_like = value_contains_port(value.as_str());
     if value.trim().is_empty() || ip_like || port_like {
         "Device".into()
@@ -44,7 +42,7 @@ fn value_contains_port(value: &str) -> bool {
     value
         .split(':')
         .skip(1)
-        .any(|s| s.chars().take_while(|c| c.is_ascii_digit()).count() >= 2)
+        .any(|s| s.chars().take_while(|c| c.is_numeric()).count() >= 2)
 }
 pub(crate) fn default_name() -> String {
     let name = std::env::var("COMPUTERNAME")
@@ -112,6 +110,23 @@ impl PairingAttemptLimiter {
                 restart_after: now.saturating_add(60),
             }),
         })
+    }
+    /// Reject before certificate processing once the shared window is locked.
+    pub fn check_open(&self) -> io::Result<()> {
+        let state = self.state.lock().map_err(|_| denied())?;
+        if state.failures >= 3 || self.clock.now() >= state.expires {
+            return Err(denied());
+        }
+        Ok(())
+    }
+    /// Count a failed confirmation, malformed request or rejected offer.
+    pub fn failed_attempt(&self) -> io::Result<()> {
+        let mut state = self.state.lock().map_err(|_| denied())?;
+        state.failures = state.failures.saturating_add(1);
+        Ok(())
+    }
+    pub fn locked(&self) -> bool {
+        self.state.lock().map_or(true, |state| state.failures >= 3)
     }
     pub fn display_code(&self) -> Zeroizing<String> {
         self.state
