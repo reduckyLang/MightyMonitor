@@ -243,7 +243,7 @@ mod desktop {
                 continue;
             }
             if flag == "--help" {
-                println!("mm-host [--pair|--paired|--list-paired|--unpair ID] [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("trinix-host [--pair|--paired|--list-paired|--unpair ID] [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -286,19 +286,23 @@ mod desktop {
             let identity = device_identity
                 .as_deref()
                 .ok_or("Device identity unavailable")?;
-            let peer =
-                tokio::time::timeout(trinix_security::pairing::PAIRING_WINDOW, async {
-                    let (stream, _) = listener.accept().await?;
-                    trinix_security::pairing::asynchronous::pair_host(
-                        stream,
-                        identity,
-                        Some(&mode),
-                        trinix_security::device_cli::confirm,
-                    )
-                    .await
-                })
-                .await??;
-            trinix_security::store::DeviceStore::open(&directory)?.insert(peer)?;
+            let peer = tokio::time::timeout(trinix_security::pairing::PAIRING_WINDOW, async {
+                let (stream, _) = listener.accept().await?;
+                trinix_security::pairing::asynchronous::pair_host(
+                    stream,
+                    identity,
+                    Some(&mode),
+                    trinix_security::device_cli::confirm,
+                )
+                .await
+            })
+            .await??;
+            let id = trinix_security::store::short_id(&peer.fingerprint);
+            let mut store = trinix_security::store::DeviceStore::open(&directory)?;
+            store.insert(peer)?;
+            if let Some(device) = store.list().into_iter().find(|d| d.device_id == id) {
+                eprintln!("Paired with {}.", device.friendly_name);
+            }
             return Ok(());
         }
         let allow_control = allow_control && !paired;
@@ -313,8 +317,7 @@ mod desktop {
             std::thread::spawn(move || {
                 let mut input = std::io::stdin().lock();
                 while let Ok(Some(line)) = trinix_security::managed::read_line(&mut input) {
-                    let Some(command) = trinix_security::managed::Command::parse(&line)
-                    else {
+                    let Some(command) = trinix_security::managed::Command::parse(&line) else {
                         break;
                     };
                     let stop = command == trinix_security::managed::Command::Stop;
@@ -323,8 +326,7 @@ mod desktop {
                     }
                 }
                 if managed {
-                    let _ =
-                        command_tx.blocking_send(trinix_security::managed::Command::Stop);
+                    let _ = command_tx.blocking_send(trinix_security::managed::Command::Stop);
                 }
             });
         }

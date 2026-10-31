@@ -1,11 +1,11 @@
 //! Bounded, expiring host session bindings; no historical video or input is kept.
-use trinix_security::{random_session_id, AuthenticatedPeer};
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::Instant;
+use trinix_security::{random_session_id, AuthenticatedPeer};
 const LIMIT: usize = 16;
 const TTL: Duration = Duration::from_secs(300);
 struct Entry {

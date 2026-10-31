@@ -7,9 +7,9 @@ pub use crate::pairing_hooks::{
 use crate::store::Peer;
 use crate::store::{atomic_create, read_private};
 use std::path::Path;
-const PAIR_ALPN: &[u8] = b"mightymonitor/pair-v1";
+const PAIR_ALPN: &[u8] = b"trinix/pair-v2";
 #[cfg(feature = "async")]
-const PAIRED_ALPN: &[u8] = b"mightymonitor/paired-view-v1";
+const PAIRED_ALPN: &[u8] = b"trinix/paired-view-v1";
 pub const PAIRING_WINDOW: std::time::Duration = std::time::Duration::from_secs(60);
 pub struct DeviceIdentity {
     directory: std::path::PathBuf,
@@ -88,6 +88,7 @@ impl DeviceIdentity {
             Err(e) => Err(e),
         }
     }
+    #[cfg_attr(not(feature = "async"), allow(dead_code))]
     pub(crate) fn directory(&self) -> &Path {
         &self.directory
     }
@@ -223,6 +224,84 @@ pub mod asynchronous {
     use tokio_rustls::{TlsAcceptor, TlsConnector};
     type Client = tokio_rustls::client::TlsStream<TcpStream>;
     type Server = tokio_rustls::server::TlsStream<TcpStream>;
+    const MAGIC_DEVICE: &[u8; 8] = b"TXDEV2\r\n";
+    const COMMIT_LABEL: &[u8] = b"Trinix pairing commitment v2";
+    const SAS_LABEL: &[u8] = b"Trinix pairing SAS v2";
+    const EXPORT_LABEL: &[u8] = b"Trinix pairing SAS v2";
+    const NONCE_LEN: usize = 32;
+    /// Roles are bound into each commitment so one side's commitment cannot be
+    /// reflected back as the other's.
+    #[derive(Clone, Copy)]
+    pub(super) enum Role {
+        Viewer = 1,
+        Host = 2,
+    }
+    pub(super) fn new_nonce() -> io::Result<Zeroizing<[u8; NONCE_LEN]>> {
+        let mut nonce = Zeroizing::new([0; NONCE_LEN]);
+        getrandom::getrandom(nonce.as_mut()).map_err(tls_error)?;
+        Ok(nonce)
+    }
+    pub(super) fn commitment(role: Role, nonce: &[u8; NONCE_LEN]) -> [u8; 32] {
+        let mut hash = Sha256::new();
+        hash.update(COMMIT_LABEL);
+        hash.update([role as u8]);
+        hash.update(nonce);
+        hash.finalize().into()
+    }
+    fn hmac_sha256(key: &[u8], parts: &[&[u8]]) -> [u8; 32] {
+        let mut block = [0u8; 64];
+        if key.len() > 64 {
+            block[..32].copy_from_slice(&Sha256::digest(key));
+        } else {
+            block[..key.len()].copy_from_slice(key);
+        }
+        let mut inner = Sha256::new();
+        inner.update(block.map(|b| b ^ 0x36));
+        for part in parts {
+            inner.update(part);
+        }
+        let mut outer = Sha256::new();
+        outer.update(block.map(|b| b ^ 0x5c));
+        outer.update(inner.finalize());
+        outer.finalize().into()
+    }
+    /// First HKDF-SHA256 output block (RFC 5869 extract, then expand with counter 1).
+    pub(super) fn hkdf_first_block(salt: &[u8], ikm: &[u8], info: &[u8]) -> [u8; 32] {
+        let prk = hmac_sha256(salt, &[ikm]);
+        hmac_sha256(&prk, &[info, &[1]])
+    }
+    /// The code binds the TLS exporter to BOTH nonces. Each nonce was committed
+    /// before the handshake and revealed inside it, so neither can be chosen after
+    /// the other party's handshake values are known.
+    pub(super) fn sas(
+        exporter: [u8; 32],
+        viewer_nonce: &[u8; NONCE_LEN],
+        host_nonce: &[u8; NONCE_LEN],
+    ) -> String {
+        let mut salt = [0u8; 2 * NONCE_LEN];
+        salt[..NONCE_LEN].copy_from_slice(viewer_nonce);
+        salt[NONCE_LEN..].copy_from_slice(host_nonce);
+        let okm = hkdf_first_block(&salt, &exporter, SAS_LABEL);
+        let n = u32::from_be_bytes([okm[0], okm[1], okm[2], okm[3]]) % 1_000_000;
+        format!("{n:06}")
+    }
+    /// Each side writes its nonce, then reads and verifies the peer's against the
+    /// commitment received before TLS. A mismatch is terminal and prompts nobody.
+    pub(super) async fn reveal<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+        tls: &mut S,
+        own: &[u8; NONCE_LEN],
+        peer_role: Role,
+        peer_commitment: &[u8; 32],
+    ) -> io::Result<[u8; NONCE_LEN]> {
+        tls.write_all(own).await?;
+        tls.flush().await?;
+        let mut peer = [0; NONCE_LEN];
+        tls.read_exact(&mut peer).await?;
+        if !bool::from(commitment(peer_role, &peer).ct_eq(peer_commitment)) {
+            return Err(denied());
+        }
+        Ok(peer)
+    }
     async fn write_cert(stream: &mut TcpStream, cert: &[u8]) -> io::Result<()> {
         stream.write_all(&(cert.len() as u16).to_le_bytes()).await?;
         stream.write_all(cert).await?;
@@ -241,15 +320,25 @@ pub mod asynchronous {
         mut stream: TcpStream,
         identity: &DeviceIdentity,
         pin: Option<[u8; 32]>,
-        pair: bool,
-    ) -> io::Result<(Client, [u8; 32])> {
+        own_commitment: Option<&[u8; 32]>,
+    ) -> io::Result<(Client, [u8; 32], Option<[u8; 32]>)> {
+        let pair = own_commitment.is_some();
         let mut magic = [0; 8];
         stream.read_exact(&mut magic).await?;
-        if &magic != b"MMDEV1\r\n" {
+        if &magic != MAGIC_DEVICE {
             return Err(invalid("Invalid device endpoint"));
         }
         stream.write_all(&[u8::from(pair)]).await?;
+        if let Some(commitment) = own_commitment {
+            stream.write_all(commitment).await?;
+        }
         let cert = read_cert(&mut stream).await?;
+        let mut peer_commitment = None;
+        if pair {
+            let mut value = [0; 32];
+            stream.read_exact(&mut value).await?;
+            peer_commitment = Some(value);
+        }
         let fingerprint: [u8; 32] = Sha256::digest(&cert).into();
         if pin.is_some_and(|p| !bool::from(p.ct_eq(&fingerprint))) {
             return Err(denied());
@@ -274,20 +363,30 @@ pub mod asynchronous {
         if !bool::from(Sha256::digest(leaf.as_ref()).as_slice().ct_eq(&fingerprint)) {
             return Err(denied());
         }
-        Ok((tls, fingerprint))
+        Ok((tls, fingerprint, peer_commitment))
     }
     pub(super) async fn server(
         mut stream: TcpStream,
         identity: &DeviceIdentity,
-        pair: bool,
-    ) -> io::Result<(Server, [u8; 32])> {
-        stream.write_all(b"MMDEV1\r\n").await?;
+        own_commitment: Option<&[u8; 32]>,
+    ) -> io::Result<(Server, [u8; 32], Option<[u8; 32]>)> {
+        let pair = own_commitment.is_some();
+        stream.write_all(MAGIC_DEVICE).await?;
         stream.flush().await?;
         let request = stream.read_u8().await?;
         if request != u8::from(pair) {
             return Err(denied());
         }
+        let mut peer_commitment = None;
+        if pair {
+            let mut value = [0; 32];
+            stream.read_exact(&mut value).await?;
+            peer_commitment = Some(value);
+        }
         write_cert(&mut stream, identity.certificate.as_ref()).await?;
+        if let Some(commitment) = own_commitment {
+            stream.write_all(commitment).await?;
+        }
         let cert = read_cert(&mut stream).await?;
         let fingerprint: [u8; 32] = Sha256::digest(&cert).into();
         let alpn = if pair { PAIR_ALPN } else { PAIRED_ALPN };
@@ -306,9 +405,9 @@ pub mod asynchronous {
         if !bool::from(Sha256::digest(leaf.as_ref()).as_slice().ct_eq(&fingerprint)) {
             return Err(denied());
         }
-        Ok((tls, fingerprint))
+        Ok((tls, fingerprint, peer_commitment))
     }
-    async fn exchange_name<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
+    pub(super) async fn exchange_name<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
         tls: &mut S,
         name: &str,
     ) -> io::Result<String> {
@@ -351,10 +450,6 @@ pub mod asynchronous {
         tokio::try_join!(local, remote)?;
         Ok(())
     }
-    fn sas(bytes: [u8; 32]) -> String {
-        let n = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) % 1_000_000;
-        format!("{n:06}")
-    }
     /// Confirmation future must represent a fresh local user decision, never a
     /// pre-approved setting. Entire attempt, including user interaction, is bounded.
     pub async fn pair_client<F, Fut>(
@@ -395,19 +490,24 @@ pub mod asynchronous {
             if offer.is_some_and(|o| o.expires_at() <= SystemClock.now()) {
                 return Err(denied());
             }
-            let (mut tls, fingerprint) =
-                client(stream, identity, offer.map(|o| o.fingerprint()), true).await?;
+            let nonce = new_nonce()?;
+            let own = commitment(Role::Viewer, &nonce);
+            let (mut tls, fingerprint, host_commitment) =
+                client(stream, identity, offer.map(|o| o.fingerprint()), Some(&own)).await?;
+            let host_commitment = host_commitment.ok_or_else(denied)?;
             tls.write_u8(u8::from(offer.is_some())).await?;
             if let Some(offer) = offer {
                 tls.write_all(&offer.nonce).await?;
             }
             tls.flush().await?;
             let name = exchange_name(&mut tls, identity.friendly_name()).await?;
-            let code = sas(tls
+            let host_nonce = reveal(&mut tls, &nonce, Role::Host, &host_commitment).await?;
+            let exporter = tls
                 .get_ref()
                 .1
-                .export_keying_material([0; 32], b"MightyMonitor pairing SAS v1", None)
-                .map_err(tls_error)?);
+                .export_keying_material([0; 32], EXPORT_LABEL, None)
+                .map_err(tls_error)?;
+            let code = sas(exporter, &nonce, &host_nonce);
             confirm_both(&mut tls, confirm(code)).await?;
             let mut secret = Zeroizing::new([0; 32]);
             tls.read_exact(secret.as_mut()).await?;
@@ -440,22 +540,28 @@ pub mod asynchronous {
             .end
             .saturating_duration_since(std::time::Instant::now());
         let result = tokio::time::timeout(remaining, async {
-            let (mut tls, fingerprint) = server(stream, identity, true).await?;
+            let nonce = new_nonce()?;
+            let own = commitment(Role::Host, &nonce);
+            let (mut tls, fingerprint, viewer_commitment) =
+                server(stream, identity, Some(&own)).await?;
+            let viewer_commitment = viewer_commitment.ok_or_else(denied)?;
             match tls.read_u8().await? {
                 0 => {}
                 1 => {
-                    let mut nonce = [0; 16];
-                    tls.read_exact(&mut nonce).await?;
-                    mode.offers.consume(&nonce)?;
+                    let mut offer_nonce = [0; 16];
+                    tls.read_exact(&mut offer_nonce).await?;
+                    mode.offers.consume(&offer_nonce)?;
                 }
                 _ => return Err(denied()),
             }
             let name = exchange_name(&mut tls, identity.friendly_name()).await?;
-            let code = sas(tls
+            let viewer_nonce = reveal(&mut tls, &nonce, Role::Viewer, &viewer_commitment).await?;
+            let exporter = tls
                 .get_ref()
                 .1
-                .export_keying_material([0; 32], b"MightyMonitor pairing SAS v1", None)
-                .map_err(tls_error)?);
+                .export_keying_material([0; 32], EXPORT_LABEL, None)
+                .map_err(tls_error)?;
+            let code = sas(exporter, &viewer_nonce, &nonce);
             confirm_both(&mut tls, confirm(code)).await?;
             mode.limiter.as_ref().map_err(|_| denied())?.check_open()?;
             let mut secret = Zeroizing::new([0; 32]);
@@ -481,7 +587,7 @@ pub mod asynchronous {
         peer: &Peer,
     ) -> io::Result<Client> {
         tokio::time::timeout(HANDSHAKE_TIMEOUT, async {
-            let (mut tls, _) = client(stream, identity, Some(peer.fingerprint), false).await?;
+            let (mut tls, _, _) = client(stream, identity, Some(peer.fingerprint), None).await?;
             tls.write_all(peer.secret.as_slice()).await?;
             tls.flush().await?;
             if tls.read_u8().await? != 1 {
@@ -507,7 +613,7 @@ pub mod asynchronous {
         directory: &Path,
     ) -> io::Result<(Server, AuthenticatedPeer)> {
         tokio::time::timeout(HANDSHAKE_TIMEOUT, async {
-            let (mut tls, fingerprint) = server(stream, identity, false).await?;
+            let (mut tls, fingerprint, _) = server(stream, identity, None).await?;
             let mut secret = Zeroizing::new([0; 32]);
             tls.read_exact(secret.as_mut()).await?;
             let mut store = crate::store::DeviceStore::open(directory)?;
@@ -538,6 +644,7 @@ mod tests {
     use super::asynchronous::*;
     use super::*;
     use crate::store::{tests::Directory, DeviceStore};
+    use std::sync::atomic::Ordering;
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
@@ -830,54 +937,173 @@ mod tests {
         drop(permit);
         assert!(mode.enter().is_err());
     }
+    #[test]
+    fn hkdf_matches_rfc5869_case_1_first_block() {
+        let ikm = [0x0b; 22];
+        let salt: Vec<u8> = (0..=0x0c).collect();
+        let info: Vec<u8> = (0xf0..=0xf9).collect();
+        let okm = hkdf_first_block(&salt, &ikm, &info);
+        let expected = "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf";
+        let hex: String = okm.iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(hex, expected);
+    }
+    #[test]
+    fn sas_binds_both_nonces_and_the_exporter() {
+        let (exporter, viewer, host) = ([1; 32], [2; 32], [3; 32]);
+        let base = sas(exporter, &viewer, &host);
+        assert_eq!(base.len(), 6);
+        assert_eq!(base, sas(exporter, &viewer, &host));
+        // With the same exporter, changing either nonce changes the code.
+        // (Single-bit changes; a collision has probability 1e-6 per case.)
+        let mut differing = 0;
+        for bit in 0..8 {
+            let mut v = viewer;
+            v[0] ^= 1 << bit;
+            let mut h = host;
+            h[31] ^= 1 << bit;
+            differing += usize::from(sas(exporter, &v, &host) != base);
+            differing += usize::from(sas(exporter, &viewer, &h) != base);
+        }
+        assert!(differing >= 15);
+        assert_ne!(sas([9; 32], &viewer, &host), base);
+        // The roles are not interchangeable.
+        assert_ne!(sas(exporter, &host, &viewer), base);
+        // A commitment binds a role and a nonce.
+        let c = commitment(Role::Viewer, &viewer);
+        assert_ne!(c, commitment(Role::Host, &viewer));
+        assert_ne!(c, commitment(Role::Viewer, &host));
+    }
     #[tokio::test]
-    async fn mitm_terminating_two_tls_legs_has_different_exporter_material() {
+    async fn viewer_nonce_not_matching_its_commitment_is_rejected_before_any_prompt() {
+        let hd = Directory::new();
+        let ad = Directory::new();
+        let host = DeviceIdentity::open(&hd.0).unwrap();
+        let attacker = DeviceIdentity::open(&ad.0).unwrap();
+        let mode = PairingMode::enable();
+        let (client_socket, server_socket) = sockets().await;
+        let prompted = std::sync::atomic::AtomicBool::new(false);
+        let forged = async {
+            let committed = new_nonce().unwrap();
+            let revealed = new_nonce().unwrap();
+            let own = commitment(Role::Viewer, &committed);
+            let (mut tls, _, host_commitment) = client(client_socket, &attacker, None, Some(&own))
+                .await
+                .unwrap();
+            let host_commitment = host_commitment.unwrap();
+            tls.write_u8(0).await.unwrap();
+            exchange_name(&mut tls, "attacker").await.unwrap();
+            // Reveal a nonce that differs from the one committed before TLS.
+            let result = reveal(&mut tls, &revealed, Role::Host, &host_commitment).await;
+            // The host never answers with a decision: it rejects at the reveal.
+            let mut byte = [0; 1];
+            let read = tls.read(&mut byte).await;
+            (result.is_ok(), matches!(read, Ok(0) | Err(_)))
+        };
+        let (host_result, (forged_accepted_host_nonce, closed)) = tokio::join!(
+            pair_host(server_socket, &host, Some(&mode), |_| async {
+                prompted.store(true, Ordering::SeqCst);
+                true
+            }),
+            forged
+        );
+        assert_eq!(
+            host_result.err().map(|e| e.kind()),
+            Some(io::ErrorKind::PermissionDenied)
+        );
+        assert!(
+            forged_accepted_host_nonce,
+            "the genuine host reveal verifies"
+        );
+        assert!(closed);
+        assert!(!prompted.load(Ordering::SeqCst));
+        assert!(DeviceStore::open(&hd.0).unwrap().peers().is_empty());
+    }
+    #[tokio::test]
+    async fn host_nonce_not_matching_its_commitment_is_rejected_before_any_prompt() {
+        let vd = Directory::new();
+        let ad = Directory::new();
+        let viewer = DeviceIdentity::open(&vd.0).unwrap();
+        let attacker = DeviceIdentity::open(&ad.0).unwrap();
+        let (client_socket, server_socket) = sockets().await;
+        let prompted = std::sync::atomic::AtomicBool::new(false);
+        let forged_host = async {
+            let committed = new_nonce().unwrap();
+            let revealed = new_nonce().unwrap();
+            let own = commitment(Role::Host, &committed);
+            let (mut tls, _, viewer_commitment) =
+                server(server_socket, &attacker, Some(&own)).await.unwrap();
+            let viewer_commitment = viewer_commitment.unwrap();
+            assert_eq!(tls.read_u8().await.unwrap(), 0);
+            exchange_name(&mut tls, "attacker").await.unwrap();
+            let verified = reveal(&mut tls, &revealed, Role::Viewer, &viewer_commitment).await;
+            verified.is_ok()
+        };
+        let (client_result, genuine_viewer_verified) = tokio::join!(
+            pair_client(client_socket, &viewer, |_| async {
+                prompted.store(true, Ordering::SeqCst);
+                true
+            }),
+            forged_host
+        );
+        assert_eq!(
+            client_result.err().map(|e| e.kind()),
+            Some(io::ErrorKind::PermissionDenied)
+        );
+        assert!(genuine_viewer_verified);
+        assert!(!prompted.load(Ordering::SeqCst));
+        assert!(DeviceStore::open(&vd.0).unwrap().peers().is_empty());
+    }
+    #[tokio::test]
+    async fn mitm_terminating_two_pairing_legs_shows_different_codes() {
         let hd = Directory::new();
         let vd = Directory::new();
         let ad = Directory::new();
         let host = DeviceIdentity::open(&hd.0).unwrap();
         let viewer = DeviceIdentity::open(&vd.0).unwrap();
         let attacker = DeviceIdentity::open(&ad.0).unwrap();
+        let host_mode = PairingMode::enable();
+        let attacker_mode = PairingMode::enable();
         let (attack_to_host, host_socket) = sockets().await;
         let (viewer_socket, attack_to_viewer) = sockets().await;
+        let codes = std::sync::Mutex::new(std::collections::HashMap::new());
+        let note = |who: &'static str, code: String| {
+            codes.lock().unwrap().insert(who, code);
+        };
+        // The intermediary runs the complete protocol on both legs with its own
+        // commitments and nonces; it cannot reuse either party's.
         let (h, ah, av, v) = tokio::join!(
-            super::asynchronous::server(host_socket, &host, true),
-            super::asynchronous::client(attack_to_host, &attacker, None, true),
-            super::asynchronous::server(attack_to_viewer, &attacker, true),
-            super::asynchronous::client(viewer_socket, &viewer, None, true)
+            pair_host(host_socket, &host, Some(&host_mode), |code| {
+                note("host", code);
+                async { true }
+            }),
+            pair_client(attack_to_host, &attacker, |code| {
+                note("attacker-to-host", code);
+                async { true }
+            }),
+            pair_host(attack_to_viewer, &attacker, Some(&attacker_mode), |code| {
+                note("attacker-to-viewer", code);
+                async { true }
+            }),
+            pair_client(viewer_socket, &viewer, |code| {
+                note("viewer", code);
+                async { true }
+            })
         );
-        let h = h.unwrap().0;
-        let ah = ah.unwrap().0;
-        let av = av.unwrap().0;
-        let v = v.unwrap().0;
-        let label = b"MightyMonitor pairing SAS v1";
-        let host_material = h
-            .get_ref()
-            .1
-            .export_keying_material([0; 32], label, None)
-            .unwrap();
-        let viewer_material = v
-            .get_ref()
-            .1
-            .export_keying_material([0; 32], label, None)
-            .unwrap();
-        assert_eq!(
-            host_material,
-            ah.get_ref()
-                .1
-                .export_keying_material([0; 32], label, None)
-                .unwrap()
-        );
-        assert_eq!(
-            viewer_material,
-            av.get_ref()
-                .1
-                .export_keying_material([0; 32], label, None)
-                .unwrap()
-        );
-        assert_ne!(host_material, viewer_material);
-        assert!(DeviceStore::open(&hd.0).unwrap().peers().is_empty());
-        assert!(DeviceStore::open(&vd.0).unwrap().peers().is_empty());
+        let codes = codes.into_inner().unwrap();
+        // Each leg is internally consistent...
+        assert_eq!(codes["host"], codes["attacker-to-host"]);
+        assert_eq!(codes["viewer"], codes["attacker-to-viewer"]);
+        // ...but the two honest parties are shown different codes, so a user who
+        // compares them rejects the pairing.
+        assert_ne!(codes["host"], codes["viewer"]);
+        // Each honest party paired with the intermediary's key, not the other's.
+        let h = h.unwrap();
+        let v = v.unwrap();
+        assert_eq!(h.fingerprint, attacker.fingerprint());
+        assert_eq!(v.fingerprint, attacker.fingerprint());
+        assert_ne!(h.fingerprint, viewer.fingerprint());
+        assert_ne!(v.fingerprint, host.fingerprint());
+        drop((ah, av));
     }
     #[tokio::test(start_paused = true)]
     async fn stalled_pairing_times_out_without_state() {

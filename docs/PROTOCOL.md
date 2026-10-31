@@ -165,7 +165,8 @@ reconnect or replay frames.
 
 Resume is now `Message::Resume`, stable kind **9**, encoded with the same bincode
 settings as all typed messages. `PROTOCOL_VERSION` is **3**; peers using another
-version are rejected. Desktop TLS Resume is bound to
+version are rejected. The host session validates the logical session id, forces an
+IDR, and does not replay video. Desktop TLS Resume is bound to
 the authenticated transport principal: a paired device or a distinct per-share
 private-link principal. The host uses unpredictable 64-bit logical session IDs
 and a bounded registry (16 entries, five minutes since the last sent frame).
@@ -246,7 +247,7 @@ and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
 that literal address. Desktop M8 discovery now routes to a separate device
 endpoint supporting persistent pairing and paired viewing. Discovery never
-grants trust. See SECURE_CONNECTIONS.md for the MMROUTE1 selector, TLS ALPN,
+grants trust. See SECURE_CONNECTIONS.md for the TXROUTE1 selector, TLS ALPN,
 mutual code confirmation, local status/command channel and lockout/offer rules.
 Nearby may not work on guest or shared Wi-Fi; private-link paste remains available.
 
@@ -305,9 +306,6 @@ for validation bounds. Existing message kind values remain unchanged.
 | TLS ALPN | `mightymonitor/secure-v1` |
 | TLS server name | `mightymonitor.local` |
 | Connection link scheme | `mightymonitor://` |
-| Pairing offer scheme | `mightymonitor-pair://` |
-| Pairing code exporter label | `MightyMonitor pairing SAS v1` |
-| Device endpoint route preface | `MMROUTE1` |
 | DNS-SD service type | `_mightymonitor._tcp.local.` |
 | Android application id | `com.mightymonitor.app` |
 | Android JNI library | `mightymonitor_android` |

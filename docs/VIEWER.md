@@ -132,7 +132,7 @@ is open; replacement snapshots remove stale entries. The pure `ui` state module
 and bounded local parsers are headless-testable. The routing worker keeps network
 routes out of display rows. Nearby may not work on guest or shared Wi-Fi. Open
 **Can't find your device? Use a link**, paste a private viewing link, and Connect.
-The same fallback accepts a single-use `mightymonitor-pair://` offer copied from
+The same fallback accepts a single-use `trinix-pair://` offer copied from
 a QR externally; the application does not scan QR codes yet. An offer still needs
 Allow and matching-code confirmation on both devices.
 

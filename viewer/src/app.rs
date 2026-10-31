@@ -60,9 +60,7 @@ impl App {
             pair_target: None,
             forget_pending: None,
             device_name: trinix_security::store::config_dir()
-                .and_then(|directory| {
-                    trinix_security::pairing::DeviceIdentity::open(&directory)
-                })
+                .and_then(|directory| trinix_security::pairing::DeviceIdentity::open(&directory))
                 .map_or_else(
                     |_| "Device".into(),
                     |identity| identity.friendly_name().into(),
@@ -222,8 +220,7 @@ impl App {
         ui.label("Nearby may not work on guest or shared Wi-Fi");
         ui.collapsing("Paired devices", |ui| {
             if let Ok(directory) = trinix_security::store::config_dir() {
-                if let Ok(mut store) = trinix_security::store::DeviceStore::open(&directory)
-                {
+                if let Ok(mut store) = trinix_security::store::DeviceStore::open(&directory) {
                     for device in store.list() {
                         ui.horizontal(|ui| {
                             ui.label(trinix_security::pairing::sanitize_name(

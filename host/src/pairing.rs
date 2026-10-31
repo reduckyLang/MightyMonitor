@@ -1,9 +1,4 @@
 //! Per-share pairing lifecycle. Discovery is public routing metadata only.
-use trinix_security::{
-    managed::Command,
-    pairing::{asynchronous::pair_host, DeviceIdentity, PairingMode, PAIRING_WINDOW},
-    store::DeviceStore,
-};
 use std::{
     io,
     net::SocketAddr,
@@ -12,6 +7,11 @@ use std::{
     time::Instant,
 };
 use tokio::sync::oneshot;
+use trinix_security::{
+    managed::Command,
+    pairing::{asynchronous::pair_host, DeviceIdentity, PairingMode, PAIRING_WINDOW},
+    store::DeviceStore,
+};
 struct Window {
     mode: Arc<PairingMode>,
     end: Instant,
@@ -47,10 +47,7 @@ impl SharePairing {
         Ok(this)
     }
     pub fn metadata(&self) -> io::Result<trinix_discovery::txt::Metadata> {
-        trinix_discovery::txt::Metadata::new(
-            self.identity.friendly_name(),
-            &self.identity.id(),
-        )
+        trinix_discovery::txt::Metadata::new(self.identity.friendly_name(), &self.identity.id())
     }
     fn publish_offer(&self) -> io::Result<()> {
         let window = self
@@ -190,7 +187,7 @@ impl SharePairing {
 pub async fn route(stream: &mut tokio::net::TcpStream) -> io::Result<bool> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        stream.write_all(b"MMROUTE1").await?;
+        stream.write_all(b"TXROUTE1").await?;
         match stream.read_u8().await? {
             0 => Ok(false),
             1 => Ok(true),
@@ -204,9 +201,9 @@ pub async fn route(stream: &mut tokio::net::TcpStream) -> io::Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use trinix_security::pairing::{asynchronous, Clock, PairingOffer, SystemClock};
     use std::sync::atomic::{AtomicU64, Ordering};
     use tokio::net::{TcpListener, TcpStream};
+    use trinix_security::pairing::{asynchronous, Clock, PairingOffer, SystemClock};
     struct Directory(PathBuf);
     impl Directory {
         fn new() -> Self {

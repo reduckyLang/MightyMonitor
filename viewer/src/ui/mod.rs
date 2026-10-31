@@ -1,6 +1,6 @@
 //! Pure bounded presentation state; route and credential data stays elsewhere.
-use trinix_security::pairing::{sanitize_name, Clock};
 use std::sync::Arc;
+use trinix_security::pairing::{sanitize_name, Clock};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NearbyRow {
     pub name: String,

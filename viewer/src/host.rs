@@ -119,9 +119,7 @@ impl HostProcess {
                     .name("mm-invitation".into())
                     .spawn(move || {
                         let mut input = BufReader::new(stdout);
-                        while let Ok(Some(line)) =
-                            trinix_security::managed::read_line(&mut input)
-                        {
+                        while let Ok(Some(line)) = trinix_security::managed::read_line(&mut input) {
                             if let Some(link) = line.strip_prefix("MM_INVITE ") {
                                 if let Ok(value) = link.parse() {
                                     if let Ok(mut shared) = shared.lock() {

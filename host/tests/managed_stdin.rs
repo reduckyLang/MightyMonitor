@@ -8,7 +8,7 @@ use std::{
 fn closed_stdin_stops_managed_share() {
     let directory = std::env::temp_dir().join(format!("mm-managed-test-{}", std::process::id()));
     std::fs::create_dir(&directory).unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_mm-host"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_trinix-host"));
     command
         .args(["--secure", "--managed", "--bind", "127.0.0.1:0"])
         .env("XDG_CONFIG_HOME", &directory)

@@ -40,7 +40,7 @@ progress. Check newer PRs before editing.
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
 | Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
-| Persistent pairing | Security API and desktop CLI: persistent identity/store, mutual TLS-exporter SAS confirmation, pinned paired view, forget, friendly names, code limiter and single-use QR-offer hooks; automated unit/loopback paired-video and Resume authorization tests | Desktop discovery/pairing UI wired; Android pairing and in-app scanning absent; physical devices and Windows runtime unverified; not released |
+| Persistent pairing | Security API and desktop CLI: persistent identity/store, mutual commit-reveal SAS confirmation (TLS exporter plus both nonces), pinned paired view, forget, friendly names, code limiter and single-use QR-offer hooks; automated unit/loopback paired-video and Resume authorization tests | Discovery wiring, GUI and Android pairing absent; code-entry transport/QR rendering absent; physical devices and Windows runtime unverified; not released |
 | Discovery and pairing UI | Per-share opt-in advertisement, bounded background Nearby list, mutual code confirmation, paired view, QR offer/paste, countdown/Renew and confirmed Forget; pure model/parser and routed loopback tests | No real multi-device/Wi-Fi/guest-network or physical tests; Windows runtime and egui rendering unverified; Android and in-app QR scanning absent |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
@@ -62,7 +62,7 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
   SAS/paired TLS; `store.rs`: bounded atomic credential store and display models;
   `pairing_hooks.rs`: names, injectable clocks, code-entry limiter and single-use
   offers; `peer.rs`: transport-established principals; `device_cli.rs` and
-  `bin/mm-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
+  `bin/trinix-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
 - `host/src/pairing.rs`: per-share window, local decisions, routed device endpoint
   and advertisement metadata. `security/src/managed.rs`: strict bounded local
   command/status protocol. `viewer/src/devices.rs`: background browse/pairing

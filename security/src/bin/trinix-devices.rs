@@ -28,16 +28,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(flag @ ("--list-paired" | "--unpair" | "--forget-all")) => {
             device_cli::maintenance(flag, args.next().as_deref())?
         }
-        _ => {
-            return Err(
-                "Use mm-devices --pair ADDRESS:PORT | --list-paired | --unpair ID | --forget-all"
-                    .into(),
-            )
-        }
+        _ => return Err(
+            "Use trinix-devices --pair ADDRESS:PORT | --list-paired | --unpair ID | --forget-all"
+                .into(),
+        ),
     }
     Ok(())
 }
 #[cfg(not(feature = "async"))]
 fn main() {
-    eprintln!("mm-devices requires the async feature");
+    eprintln!("trinix-devices requires the async feature");
 }

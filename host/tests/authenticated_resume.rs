@@ -1,4 +1,5 @@
 //! Loopback authentication and server-side Resume authorization, without capture APIs.
+use std::{path::PathBuf, time::Duration};
 use trinix_core::{
     Bytes, Capture, Codec, CodecError, Encoder, FramedTransport, Message, Role, Transport,
     PROTOCOL_VERSION,
@@ -15,7 +16,6 @@ use trinix_security::{
     store::DeviceStore,
     AuthenticatedPeer, ShareIdentity,
 };
-use std::{path::PathBuf, time::Duration};
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {

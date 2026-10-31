@@ -50,18 +50,35 @@ for the current commit; physical-device acceptance is a separate check.
 
 ## Persistent device pairing
 
-`mm-host --pair --bind ADDRESS:PORT` explicitly enables one interactive pairing
-attempt for up to 60 seconds. `mm-devices --pair ADDRESS:PORT` (security crate,
+`trinix-host --pair --bind ADDRESS:PORT` explicitly enables one interactive pairing
+attempt for up to 60 seconds. `trinix-devices --pair ADDRESS:PORT` (security crate,
 `async` feature) starts the other side. Both users compare the six-digit SAS
-and confirm locally. TLS 1.3 exporter material binds the SAS to that handshake;
-a TLS-terminating intermediary has different exporter material on each leg.
-Dedicated pairing/viewing prefaces and ALPN prevent confusion with private links.
+and confirm locally. Dedicated pairing/viewing prefaces and ALPN (`pair-v2`,
+preface `TXDEV2`) prevent confusion with private links and with earlier builds.
 SAS comparison is required when exchanging initially untrusted certificates.
 Nearby devices, addresses and display names never establish trust.
 
+SAS construction (commit-reveal). Before the TLS handshake each side sends
+`SHA-256(label || role || nonce)` for a fresh random 256-bit nonce. Inside TLS
+each side reveals its nonce; the peer verifies it against the commitment and
+aborts terminally on a mismatch, before any confirmation prompt. The code is the
+first block of HKDF-SHA256 (salt = viewer nonce || host nonce, input = TLS 1.3
+exporter material, fixed info string), reduced to six decimal digits. Because
+both nonces are fixed by commitments before either handshake completes and are
+revealed only afterwards, an intermediary that terminates the two TLS legs cannot
+search handshake values (for example server randoms) offline for a pair of legs
+that display the same code: each honest side contributes a nonce the intermediary
+cannot know when it chooses its own handshake values. Its remaining chance is a
+single guess of about one in a million per attempt, and attempts are serialized,
+spaced and time-limited by the host. This protects only the exchange of initially
+untrusted certificates when both users really compare the code. A six-digit code is
+short; pair on a trusted network, do not confirm a code you did not compare, and
+unpair any device you do not recognize. The wire format is not compatible with
+earlier pairing builds; there is no downgrade path.
+
 The persistent self-signed certificate/private key is generated once. Configuration
-lives in `XDG_CONFIG_HOME/mightymonitor`, otherwise `~/.config/mightymonitor` on
-Unix, and `%APPDATA%/mightymonitor` on Windows. `identity.bin` holds the identity,
+lives in `XDG_CONFIG_HOME/trinix`, otherwise `~/.config/trinix` on
+Unix, and `%LOCALAPPDATA%\trinix` on Windows. `identity.bin` holds the identity,
 `name.bin` its friendly name and `peers.bin` the versioned paired-device store.
 Private files use atomic sibling-temporary-file replacement; Unix directories
 are 0700 and files 0600. Oversized, corrupt, duplicate or stale store writes fail
@@ -84,7 +101,7 @@ local write failure may require forgetting an incomplete pairing and repeating i
 
 `DeviceStore::forget(device_id)` returns whether a peer existed and persists its
 removal; `forget_all()` persists an empty store. These APIs work on both devices.
-`mm-host --unpair ID`, `mm-devices --unpair ID` and the helper's `--forget-all`
+`trinix-host --unpair ID`, `trinix-devices --unpair ID` and the helper's `--forget-all`
 provide local maintenance. Forget on each device to remove both local records;
 revocation is not an unauthenticated remote erase operation. Host authorization
 reopens the store on every new paired connection and Resume. An already streaming
@@ -117,7 +134,7 @@ hook retains its cooldown for API compatibility; desktop pairing uses failure
 accounting, not typed code entry. Offer clocks are injectable for expiry tests.
 
 `PairingMode::create_offer()` produces a versioned `PairingOffer` encoded as a
-compact `mightymonitor-pair://` base64url string. It carries a random 128-bit
+compact `trinix-pair://` base64url string. It carries a random 128-bit
 nonce, host certificate fingerprint, address hint and expiry (at most 60 seconds
 for the enabled mode); it contains no viewing token, long-lived pairing secret
 or private key. Parsing is bounded to 256 characters, validates expiry through
@@ -127,7 +144,9 @@ inside the intentionally transferred offer; display models expose no addresses.
 atomically consumes the nonce inside TLS before SAS confirmation: denial or
 failure after presentation cannot reuse it, and concurrent double-use has one
 winner. `consume_offer()` provides the same single-use operation for service
-adapters. Invalid presentation consumes the outstanding offer. Replacing or
+adapters. A presented nonce is compared before the offer is taken, so a wrong
+nonce is rejected without consuming the genuine offer; an expired offer is dropped.
+Presenting the right nonce consumes it even if confirmation then fails. Replacing or
 dropping its `PairingMode` revokes it; expiry also rejects it. A connection that
 fails before presenting a nonce cannot consume an offer it has not presented.
 Offers still require explicit local host confirmation; there is no setting to
@@ -148,11 +167,20 @@ receive `HelloAck { accepted: false, session_id: 0 }` then close without video.
 Live video resumes at the server's next sequence with a fresh keyframe; historical
 video and input are never replayed. Mid-stream Resume still requests an IDR.
 Explicit legacy plaintext sessions retain their unauthenticated compatibility
-behavior and must not be treated as authenticated identities. The blocking
+behavior and must not be treated as authenticated identities. In that mode a
+mid-stream Resume carrying the fixed legacy session id is accepted without any
+identity or `last_seq` check and only requests a keyframe. The blocking
 Android transport remains private-link based; persistent pairing is not wired there.
 
-Loopback automated coverage includes mutual SAS/denial/timeout, TLS interception
-exporter separation, unpaired/revoked/wrong-pin/wrong-secret rejection, store
+Attempt-limiting state (the spacing between attempts, the single active attempt
+and `PairingAttemptLimiter` lockout) is held in process memory: it applies to the
+whole host process rather than per peer, and a restart clears it. A single
+unauthenticated peer can therefore occupy or lock the window, which is a
+denial-of-service limit rather than a trust bypass.
+
+Loopback automated coverage includes mutual SAS/denial/timeout, commitment/reveal
+mismatch in both directions, nonce binding of the code, two-leg interception
+showing different codes, unpaired/revoked/wrong-pin/wrong-secret rejection, store
 persistence and bounds, name/code/offer hooks, view-only paired video, and Resume
 identity/sequence/expiry/eviction checks. Physical pairing, LAN recovery, Windows
 runtime and Android pairing are not verified by those tests. This work is not a
@@ -175,7 +203,7 @@ existing private-link listener and per-share identity remain unchanged. A second
 listener on the same selected interface with an automatically assigned port is
 the device endpoint advertised through discovery. Existing handshakes send a
 certificate preface before TLS; ALPN cannot dispatch those incompatible prefaces
-without changing private-link clients. The device endpoint sends `MMROUTE1`, then
+without changing private-link clients. The device endpoint sends `TXROUTE1`, then
 reads one byte within five seconds: 1 selects pairing, 0 selects stored paired
 viewing. Each continues through its existing certificate preface and TLS ALPN.
 The selector grants no authority. The discovery port routes to both operations;

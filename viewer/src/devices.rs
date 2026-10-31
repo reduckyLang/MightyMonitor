@@ -1,9 +1,9 @@
 //! Background discovery and explicit pairing decisions, independent of drawing.
+use std::{io, net::SocketAddr, path::PathBuf, sync::mpsc, time::Duration};
 use trinix_security::{
     pairing::{DeviceIdentity, PairingOffer},
     store::DeviceStore,
 };
-use std::{io, net::SocketAddr, path::PathBuf, sync::mpsc, time::Duration};
 /// The device endpoint routes pairing and paired viewing before pinned TLS.
 pub async fn dial(address: SocketAddr, pair: bool) -> io::Result<tokio::net::TcpStream> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -11,7 +11,7 @@ pub async fn dial(address: SocketAddr, pair: bool) -> io::Result<tokio::net::Tcp
         let mut stream = tokio::net::TcpStream::connect(address).await?;
         let mut magic = [0; 8];
         stream.read_exact(&mut magic).await?;
-        if &magic != b"MMROUTE1" {
+        if &magic != b"TXROUTE1" {
             return Err(io::Error::other("Invalid device response"));
         }
         stream.write_u8(u8::from(pair)).await?;
@@ -61,10 +61,8 @@ pub async fn pair(
                 .await?
             }
             None => {
-                trinix_security::pairing::asynchronous::pair_client(
-                    stream, &identity, confirm,
-                )
-                .await?
+                trinix_security::pairing::asynchronous::pair_client(stream, &identity, confirm)
+                    .await?
             }
         };
         let fingerprint = peer.fingerprint;

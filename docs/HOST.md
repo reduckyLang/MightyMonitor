@@ -112,20 +112,20 @@ Wayland extension uses `--extend` and system Virtual-monitor support. See
 
 ## Pairing CLI
 
-`mm-host --pair` (alias `--pairing-mode`) opens a separate 60-second pairing
+`trinix-host --pair` (alias `--pairing-mode`) opens a separate 60-second pairing
 window on `--bind ADDRESS:PORT`, accepts one attempt and exits after confirmation
 or failure. It does not open screen capture. Run the security helper with
-`cargo run -p mightymonitor-security --features async --bin mm-devices -- --pair ADDRESS:PORT`
+`cargo run -p trinix-security --features async --bin trinix-devices -- --pair ADDRESS:PORT`
 on the other device. Compare the SAS on both devices and type `yes` locally on
 each. No unattended approval is provided.
 
-`mm-host --paired --bind ADDRESS:PORT` listens for pinned, secret-authenticated
+`trinix-host --paired --bind ADDRESS:PORT` listens for pinned, secret-authenticated
 stored peers and shares view-only video. `--allow-control` has no effect in this
 mode. The private-link `--secure` flow remains separate. Pairing cannot be
 combined with `--paired`, `--managed`, `--allow-control` or `--extend`.
-`mm-host --list-paired` prints the short ID, friendly name, paired-at and last-seen
-timestamps; `mm-host --unpair ID` removes a local pairing without capture.
-The `mm-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-all`
+`trinix-host --list-paired` prints the short ID, friendly name, paired-at and last-seen
+timestamps; `trinix-host --unpair ID` removes a local pairing without capture.
+The `trinix-devices` helper supports `--list-paired`, `--unpair ID` and `--forget-all`
 on either device. No command prints long-lived pairing credentials. The
 intentional SAS prompt is for local comparison, not diagnostics collection.
 See SECURE_CONNECTIONS.md for configuration paths, API hooks and revocation limits.

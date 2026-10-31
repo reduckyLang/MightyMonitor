@@ -1,4 +1,5 @@
 //! Paired authentication reaches the video protocol with view authority only.
+use std::{path::PathBuf, time::Duration};
 use trinix_core::{
     Bytes, Capture, Codec, CodecError, Encoder, FramedTransport, Message, Role, Transport,
     PROTOCOL_VERSION,
@@ -12,7 +13,6 @@ use trinix_security::{
     pairing::{asynchronous as paired, DeviceIdentity, PairingMode},
     store::DeviceStore,
 };
-use std::{path::PathBuf, time::Duration};
 struct Directory(PathBuf);
 impl Drop for Directory {
     fn drop(&mut self) {

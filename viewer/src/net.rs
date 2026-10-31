@@ -102,14 +102,13 @@ impl SessionEndpoint {
                 let stream = crate::devices::dial(*address, false)
                     .await
                     .map_err(TransportError::Io)?;
-                let tls =
-                    trinix_security::pairing::asynchronous::connect(stream, &identity, peer)
-                        .await
-                        .map_err(|_| {
-                            TransportError::Authentication(
-                                "This device has changed. Pair it again.".into(),
-                            )
-                        })?;
+                let tls = trinix_security::pairing::asynchronous::connect(stream, &identity, peer)
+                    .await
+                    .map_err(|_| {
+                        TransportError::Authentication(
+                            "This device has changed. Pair it again.".into(),
+                        )
+                    })?;
                 Ok(Box::new(FramedTransport::from_stream(tls)))
             }
         }

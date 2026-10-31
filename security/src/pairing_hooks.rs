@@ -199,7 +199,7 @@ impl PairingOffer {
         bytes.extend_from_slice(&self.fingerprint);
         bytes.extend_from_slice(&self.expires.to_le_bytes());
         bytes.extend_from_slice(self.address.to_string().as_bytes());
-        format!("mightymonitor-pair://{}", URL_SAFE_NO_PAD.encode(bytes))
+        format!("trinix-pair://{}", URL_SAFE_NO_PAD.encode(bytes))
     }
     pub fn parse(value: &str, clock: &dyn Clock) -> io::Result<Self> {
         // A single error deliberately hides which field was invalid.
@@ -208,7 +208,7 @@ impl PairingOffer {
                 return None;
             }
             let bytes = URL_SAFE_NO_PAD
-                .decode(value.strip_prefix("mightymonitor-pair://")?)
+                .decode(value.strip_prefix("trinix-pair://")?)
                 .ok()?;
             if bytes.len() < 60 || bytes[0] != 1 {
                 return None;
@@ -230,7 +230,7 @@ impl PairingOffer {
     }
 }
 /// One outstanding offer per locally enabled mode. Replacement revokes the old
-/// offer. Taking it is atomic and consumes it before validation or TLS consent.
+/// offer. A matching nonce is taken atomically before TLS consent; a mismatch leaves the offer intact.
 pub(crate) struct Offers {
     clock: Arc<dyn Clock>,
     pending: Mutex<Option<PairingOffer>>,
@@ -267,10 +267,17 @@ impl Offers {
     }
     pub(crate) fn consume(&self, nonce: &[u8; 16]) -> io::Result<()> {
         let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
-        let offer = pending.take().ok_or_else(denied)?;
-        if self.clock.now() >= offer.expires || !bool::from(offer.nonce.ct_eq(nonce)) {
+        let offer = pending.as_ref().ok_or_else(denied)?;
+        if self.clock.now() >= offer.expires {
+            *pending = None;
             return Err(denied());
         }
+        // A wrong nonce must not burn the genuine offer; the nonce is compared
+        // first and the offer is taken only on an exact match.
+        if !bool::from(offer.nonce.ct_eq(nonce)) {
+            return Err(denied());
+        }
+        *pending = None;
         Ok(())
     }
 }
@@ -330,7 +337,7 @@ mod tests {
         let parsed = PairingOffer::parse(&encoded, clock.as_ref()).unwrap();
         assert_eq!(offer, parsed);
         let decoded = URL_SAFE_NO_PAD
-            .decode(encoded.strip_prefix("mightymonitor-pair://").unwrap())
+            .decode(encoded.strip_prefix("trinix-pair://").unwrap())
             .unwrap();
         let key = crate::store::read_private(&dir.0.join("identity.bin")).unwrap();
         let certificate_len = u32::from_le_bytes(key[8..12].try_into().unwrap()) as usize;
@@ -351,14 +358,16 @@ mod tests {
         let fresh = mode.create_offer(&identity, offer.address()).unwrap();
         let mut forged = fresh.clone();
         forged.nonce[0] ^= 1;
+        // A wrong nonce is rejected without burning the genuine offer.
         assert!(mode.consume_offer(&forged).is_err());
+        assert!(mode.consume_offer(&fresh).is_ok());
         assert!(mode.consume_offer(&fresh).is_err());
         let expiring = mode.create_offer(&identity, offer.address()).unwrap();
         clock.0.store(161, Ordering::Relaxed);
         assert!(mode.consume_offer(&expiring).is_err());
         assert!(PairingOffer::parse(&encoded, clock.as_ref()).is_err());
         assert!(mode.create_offer(&identity, offer.address()).is_err());
-        for invalid in ["", "mightymonitor-pair://!", &"x".repeat(257)] {
+        for invalid in ["", "trinix-pair://!", &"x".repeat(257)] {
             assert!(PairingOffer::parse(invalid, clock.as_ref()).is_err());
         }
     }
