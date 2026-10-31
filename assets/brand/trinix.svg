@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <title>Trinix — folded screens</title>
-  <rect x="16" y="16" width="480" height="480" rx="108" fill="#EDF4E7"/>
-  <g transform="translate(0 -24)">
-  <path d="M196 184 256 229 316 184V323L269 360Q256 370 243 360L196 323Z" fill="#ABD45B"/>
-  <path d="M113 157Q113 130 137 146L196 184V369Q196 383 184 391L139 419Q113 435 113 405Z" fill="#184C37"/>
-  <path d="M399 157Q399 130 375 146L316 184V369Q316 383 328 391L373 419Q399 435 399 405Z" fill="#184C37"/>
-  </g>
-</svg>
