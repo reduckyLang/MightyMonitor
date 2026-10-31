@@ -53,6 +53,17 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - run: gradle -p android testDebugUnitTest
+      - run: gradle -p android assembleRelease
+      - name: Release build has no legacy toggle
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -n 1)
+          AAPT2=$(ls "${ANDROID_HOME:-/nonexistent}"/build-tools/*/aapt2 2>/dev/null | tail -n 1 || true)
+          if [ -z "$AAPT2" ]; then echo "aapt2 not found; skipping release resource check"; exit 0; fi
+          "$AAPT2" dump resources "$APK" > /tmp/release-resources.txt
+          if grep -q adv_legacy_toggle /tmp/release-resources.txt; then echo "debug-only string present in release"; exit 1; fi
+          if grep -A3 'bool/legacy_toggle' /tmp/release-resources.txt | grep -qi true; then echo "legacy_toggle is true in release"; exit 1; fi
+      - run: python3 scripts/check-android-strings.py
       - uses: actions/upload-artifact@v4
         with:
           name: android-viewer-apks
@@ -107,6 +118,8 @@ jobs:
           script: |
             adb install $(find /tmp/trinix-apks -name app-debug.apk)
             adb install $(find /tmp/trinix-apks -name app-debug-androidTest.apk)
+            # Notification permission exists on API 33+ only; pre-grant it so the share flow reaches the screen-capture consent in tests.
+            adb shell pm grant com.mightymonitor.app android.permission.POST_NOTIFICATIONS || true
             # Isolated emulator acceptance: preauthorize only our test service/IME.
             # The shipped app never writes these settings and always requires the user's system grant.
             # Grant accessibility inside instrumentation after its process restart.
