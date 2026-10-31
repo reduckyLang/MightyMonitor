@@ -42,7 +42,8 @@ NetStats and Ping are sent approximately once per second once configured. TCP
 loss is not observable here, so loss_pct is zero; throughput excludes framing.
 UI frames use a latest-frame slot; encoded input remains ordered and bounded so
 reference frames are decoded even if the UI misses a refresh. Pinned TLS and private session links protect normal viewing. Optional focused
-input forwarding is implemented; audio, mDNS and persistent pairing are not.
+input forwarding, desktop Nearby discovery and persistent pairing are implemented;
+audio and Android pairing are not.
 
 ## Manual smoke test (requires a desktop)
 
@@ -90,7 +91,7 @@ are locked while the owned host runs. A sharing failure displays the last 4 KiB
 of host diagnostics; the private temporary log is removed during normal cleanup.
 Logs can remain after a crash or forced termination of the viewer.
 
-**View another screen** connects to a host IP/port. **Disconnect** cancels the
+**View a screen** lists nearby desktop shares and keeps a private-link fallback. **Disconnect** cancels the
 viewer session and clears the last displayed frame. Viewing and sharing can run
 at the same time on Linux, but this does not create independent extended displays
 or provide multi-viewer hosting. Sharing captures the X11 root window: avoid
@@ -109,3 +110,33 @@ Manual acceptance (not yet performed on physical devices):
 5. Close the app while sharing and verify no owned trinix-host process remains.
 6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
 7. Verify Windows host/viewer playback using the acceptance steps in WINDOWS.md.
+
+## Nearby and paired devices
+
+Open **View a screen**, then choose a device under **Nearby devices**. A new
+device displays a six-digit code derived from the secure connection on both
+devices. Compare them, choose **Yes, codes match**, and choose **Allow** on the
+sharing device only if the codes match. **No** or **Don't allow** aborts; a
+60-second timeout stores nothing. A successful pair is persisted and viewing
+starts. Choose a paired device next time for view-only viewing without a code.
+A changed key fails against the stored pin; discovery names/IDs cannot replace it.
+
+**Paired devices** lists sanitized friendly names, confirmed **Forget** and an
+editable name for this device. Saving a name persists it; an active advertisement
+uses the name from when sharing started, so restart sharing to advertise a new name.
+Forget removes the local stored pairing; the other device's record is independent.
+An existing stream is not stopped by Forget; use Stop sharing for immediate closure.
+
+Nearby runs bounded background browse windows and refreshes while the View page
+is open; replacement snapshots remove stale entries. The pure `ui` state module
+and bounded local parsers are headless-testable. The routing worker keeps network
+routes out of display rows. Nearby may not work on guest or shared Wi-Fi. Open
+**Can't find your device? Use a link**, paste a private viewing link, and Connect.
+The same fallback accepts a single-use `trinix-pair://` offer copied from
+a QR externally; the application does not scan QR codes yet. An offer still needs
+Allow and matching-code confirmation on both devices.
+
+Android pairing, physical multi-device/Wi-Fi/guest-network checks and Windows
+runtime acceptance are not covered by automated tests. Egui rendering has not
+been visually checked for this change. Home labels remain **Share this screen**
+and **View a screen**; the Home redesign and text-size control remain separate work.

@@ -1,7 +1,7 @@
 //! Lifecycle for the optional sibling host executable. Never invokes a shell.
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write},
+    io::{self, BufReader, Read, Seek, SeekFrom, Write},
     net::SocketAddr,
     path::PathBuf,
     process::{Child, Command, Stdio},
@@ -9,7 +9,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[derive(Default, Clone)]
+pub struct PairStatus {
+    pub state: Option<trinix_security::managed::Status>,
+    pub offer: Option<String>,
+}
 pub struct HostProcess {
+    pairing: Arc<Mutex<PairStatus>>,
     child: Child,
     log: File,
     log_path: PathBuf,
@@ -101,6 +107,8 @@ impl HostProcess {
             Ok(mut child) => {
                 let invitation = Arc::new(Mutex::new(None));
                 let shared = invitation.clone();
+                let pairing = Arc::new(Mutex::new(PairStatus::default()));
+                let shared_pairing = pairing.clone();
                 let Some(stdout) = child.stdout.take() else {
                     let _ = child.kill();
                     let _ = child.wait();
@@ -110,12 +118,37 @@ impl HostProcess {
                 let worker = std::thread::Builder::new()
                     .name("mm-invitation".into())
                     .spawn(move || {
-                        let mut input = BufReader::new(stdout).take(1024);
-                        let mut line = String::new();
-                        if input.read_line(&mut line).is_ok() {
+                        let mut input = BufReader::new(stdout);
+                        while let Ok(Some(line)) = trinix_security::managed::read_line(&mut input) {
                             if let Some(link) = line.strip_prefix("MM_INVITE ") {
-                                if let Ok(value) = link.trim().parse() {
-                                    *shared.lock().unwrap_or_else(|e| e.into_inner()) = Some(value);
+                                if let Ok(value) = link.parse() {
+                                    if let Ok(mut shared) = shared.lock() {
+                                        *shared = Some(value);
+                                    }
+                                }
+                            } else if let Some(status) =
+                                trinix_security::managed::Status::parse(&line)
+                            {
+                                if let Ok(mut pairing) = shared_pairing.lock() {
+                                    if matches!(
+                                        status,
+                                        trinix_security::managed::Status::Expired
+                                            | trinix_security::managed::Status::Locked
+                                    ) {
+                                        pairing.offer = None;
+                                    }
+                                    pairing.state = Some(status);
+                                }
+                            } else if let Some(value) = line.strip_prefix("MM_PAIR_OFFER ") {
+                                if trinix_security::pairing::PairingOffer::parse(
+                                    value,
+                                    &trinix_security::pairing::SystemClock,
+                                )
+                                .is_ok()
+                                {
+                                    if let Ok(mut pairing) = shared_pairing.lock() {
+                                        pairing.offer = Some(value.into());
+                                    }
                                 }
                             }
                         }
@@ -123,6 +156,7 @@ impl HostProcess {
                 match worker {
                     Ok(worker) => Ok(Self {
                         child,
+                        pairing,
                         log,
                         log_path,
                         invitation,
@@ -143,6 +177,24 @@ impl HostProcess {
                 Err(error)
             }
         }
+    }
+    pub fn pairing(&self) -> PairStatus {
+        self.pairing
+            .lock()
+            .map_or_else(|_| PairStatus::default(), |state| state.clone())
+    }
+    pub fn command(&mut self, command: trinix_security::managed::Command) -> io::Result<()> {
+        let line = command.line();
+        if trinix_security::managed::Command::parse(&line).is_none() {
+            return Err(io::Error::other("Invalid sharing command"));
+        }
+        let input = self
+            .child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| io::Error::other("Sharing stopped"))?;
+        writeln!(input, "{line}")?;
+        input.flush()
     }
     pub fn invitation(&self) -> Option<trinix_security::Invitation> {
         self.invitation

@@ -1,8 +1,8 @@
-# Discovery library (M8, part 1)
+# Desktop discovery (M8)
 
 Discovery never grants trust. LAN peers and their names, IDs and addresses are
 untrusted and may be spoofed. Keep pinned TLS and private invitation authorization;
-no pairing or persistent identity is implemented here.
+persistent pairing is supplied by the security crate, not discovery.
 
 Advertising is explicit opt-in through `Advertisement::start`. Dropping its guard
 unregisters the service and shuts down the daemon. Browse is on-demand, limited
@@ -16,8 +16,11 @@ No link, token, full fingerprint, certificate or key belongs in discovery.
 Parsing bounds TXT size and rejects invalid UTF-8, duplicate keys,
 invalid names/IDs and unsupported versions; unknown keys are ignored.
 
-The library is not wired into host/viewer or Android. Unit tests provide library
-evidence only. The real multicast loopback test is ignored by default. Real-device
+Desktop secure sharing advertises a device endpoint only while sharing; the
+desktop Nearby list browses on a background thread in three-second windows,
+refreshing every ten seconds while open. Snapshots replace the list, removing
+stale entries. Routes remain outside the display-only Nearby model. Android
+discovery/pairing is not wired. Unit and loopback tests provide automated evidence. The real multicast loopback test is ignored by default. Real-device
 Wi-Fi, Windows firewall and Android discovery behavior remain unverified.
 
 Backend boundary: mdns-sd normalizes incoming TXT properties (including keeping
@@ -38,3 +41,15 @@ refreshed for registration and each browse operation (and each mdns resolution).
 
 The advertised `wire` value and parser comparison derive from
 `trinix_core::PROTOCOL_VERSION` (currently 3); discovery follows protocol version bumps.
+
+The desktop device endpoint supports both first pairing and stored paired viewing;
+its port is separate from the unchanged private-link listener. See
+[SECURE_CONNECTIONS.md](SECURE_CONNECTIONS.md) for the routing preface, mutual
+confirmation, live three-failure lockout and single-use offer rules. Short IDs
+select a stored pin only when unambiguous; names and IDs never authenticate.
+A different key behind an advertised name/ID fails terminally against that pin.
+
+Nearby may not work on guest or shared Wi-Fi, including networks that isolate
+clients or block multicast. Use “Can't find your device? Use a link” and paste a
+private viewing link copied from the sharing device's Connect another way section.
+That fallback preserves pinned TLS; it does not bypass Wi-Fi client isolation.

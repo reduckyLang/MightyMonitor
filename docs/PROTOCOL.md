@@ -245,8 +245,11 @@ drains them, so callers needing a complete history should drain regularly.
 IP addresses may change during Wi-Fi roaming. `TcpConnector` stores `host:port`
 and re-resolves the address through Tokio `ToSocketAddrs` on every attempt,
 within the connect timeout (five seconds by default). A numeric address remains
-that literal address; M8 has a standalone mDNS discovery library, not yet wired into host/viewer.
-Discovery does not grant trust; pairing is not implemented.
+that literal address. Desktop M8 discovery now routes to a separate device
+endpoint supporting persistent pairing and paired viewing. Discovery never
+grants trust. See SECURE_CONNECTIONS.md for the TXROUTE1 selector, TLS ALPN,
+mutual code confirmation, local status/command channel and lockout/offer rules.
+Nearby may not work on guest or shared Wi-Fi; private-link paste remains available.
 
 ## Adaptive bitrate
 

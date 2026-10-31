@@ -318,3 +318,5 @@ impl Endpoint {
         matches!(self, Self::Secure(_) | Self::Paired { .. })
     }
 }
+
+pub mod managed;
