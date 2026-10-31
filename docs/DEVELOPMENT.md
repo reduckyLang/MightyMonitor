@@ -39,8 +39,9 @@ progress. Check newer PRs before editing.
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; discovery library implemented and unit-tested but not wired into host/viewer; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share; desktop Resume bound to authenticated principal, bounded registry | Legacy plaintext Resume remains unauthenticated; physical recovery matrix unverified |
 | Persistent pairing | Security API and desktop CLI: persistent identity/store, mutual commit-reveal SAS confirmation (TLS exporter plus both nonces), pinned paired view, forget, friendly names, code limiter and single-use QR-offer hooks; automated unit/loopback paired-video and Resume authorization tests | Discovery wiring, GUI and Android pairing absent; code-entry transport/QR rendering absent; physical devices and Windows runtime unverified; not released |
+| Discovery and pairing UI | Per-share opt-in advertisement, bounded background Nearby list, mutual code confirmation, paired view, QR offer/paste, countdown/Renew and confirmed Forget; pure model/parser and routed loopback tests | No real multi-device/Wi-Fi/guest-network or physical tests; Windows runtime and egui rendering unverified; Android and in-app QR scanning absent |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
@@ -62,10 +63,14 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
   `pairing_hooks.rs`: names, injectable clocks, code-entry limiter and single-use
   offers; `peer.rs`: transport-established principals; `device_cli.rs` and
   `bin/trinix-devices.rs`: terminal consent/maintenance. See SECURE_CONNECTIONS.md.
+- `host/src/pairing.rs`: per-share window, local decisions, routed device endpoint
+  and advertisement metadata. `security/src/managed.rs`: strict bounded local
+  command/status protocol. `viewer/src/devices.rs`: background browse/pairing
+  workers. `viewer/src/ui/mod.rs`: pure Nearby/PairFlow/window models.
 - `host/src/resume.rs`: bounded expiring session-to-principal bindings;
   `host/tests/authenticated_resume.rs` and `paired_view.rs`: loopback evidence.
 - `discovery/`: opt-in mDNS library, strict public TXT metadata and bounded browsing;
-  not wired into host/viewer. See DISCOVERY.md. Real devices, Wi-Fi, Windows
+  wired into desktop Share/Nearby. See DISCOVERY.md. Real devices, Wi-Fi, Windows
   firewall and Android discovery are unverified. The backend normalizes duplicate
   wire TXT keys before the strict parser; see DISCOVERY.md for that boundary.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
@@ -87,6 +92,8 @@ ANDROID instructions in `android/README.md` before changing their features.
 
 ## Security and lifecycle invariants
 
+- Discovery never broadcasts viewing links, tokens, offers, pairing secrets or
+  full fingerprints. Advertisement only lives during secure sharing.
 - Discovery service names, TXT short IDs and friendly names are unauthenticated
   routing/display hints, never identity. Authentication, revocation and Resume
   use the full 32-byte paired certificate fingerprint/authenticated principal.
@@ -106,7 +113,8 @@ ANDROID instructions in `android/README.md` before changing their features.
   Unknown/other-peer/revoked Resume never gets video. Legacy plaintext remains
   explicitly unauthenticated. No input or historical video is replayed.
 - Pairing code/offer APIs have injectable clocks, expiry and single-use/attempt
-  limits. Keep limiter state across reconnects; QR offers contain pin/route/nonce,
+  limits. Live failures lock after three tries; local Renew replaces the window
+  and invalidates old offers. Keep limiter state across reconnects; QR offers contain pin/route/nonce,
   never viewing tokens or pairing secrets. Local host confirmation is mandatory.
 - Sharing is view-only by default. Control needs local host permission plus a
   separate viewer request. Android also requires real OS Accessibility consent;
@@ -126,13 +134,11 @@ ANDROID instructions in `android/README.md` before changing their features.
    sessions, rotation/scaling, focus, revocation, congestion and reconnection.
    Finish KDE virtual-monitor layout/input tests and another supported compositor.
    OS permission dialogs require the user; do independent work while waiting.
-2. **Discovery and pairing UX (in progress, task P1, #9):** show nearby devices without broadcasting tokens
-   or treating nearby peers as trusted. Preserve explicit sharing/control consent.
-   Plan certificate identity, pairing confirmation, revocation and persistence
-   before replacing private links. Android discovery needs lifecycle/network tests.
-   Pairing identity/store, forget, the code limiter and single-use offer hooks, and
-   authenticated Resume are implemented in the security and host crates; discovery
-   wiring, GUI/QR presentation and Android remain.
+2. **Remaining discovery and UI work:** Android discovery/pairing, in-app QR
+   scanning, Home redesign and text-size control; physical multi-device/Wi-Fi,
+   guest-network and Windows runtime tests. Check egui layout/keyboard/accessibility
+   on real desktops. Desktop discovery, consent, QR offer/paste and pinned reconnects
+   are wired; private-link fallback remains. No typed code-entry mode is required.
 3. **Windows extended display:** implement/integrate a license-compatible virtual
    display driver and monitor/input mapping. Research driver signing/distribution.
    Do not automatically install a third-party root certificate or disable driver

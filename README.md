@@ -49,7 +49,7 @@ features, architecture, next milestones and the PR workflow.
 - `viewer`: egui/eframe viewer for Linux and Windows.
 - Browser streaming: planned; the static project website is not a streaming viewer.
 - `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture uses MediaProjection and surface H.264; optional accessibility and keyboard control are implemented. See [Android build/install instructions](android/README.md).
-- Networking: TCP today. QUIC and mDNS discovery are planned.
+- Networking: TCP with desktop nearby-device discovery and persistent pairing. QUIC remains planned.
 
 The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
 a desktop viewer, and latency tools. Linux host/viewer paths are implemented;
@@ -79,8 +79,12 @@ Windows capture and H.264 decoding are implemented with GStreamer; physical-devi
 validation is pending. An Android viewer APK is built and real desktop video
 decoding passed on Android 10, 11, 14 and 16 emulators; physical phone tests
 remain pending. Desktop and Android sharing use private session links and pinned
-TLS 1.3; persistent device pairing is pending. Input forwarding is implemented and undergoing platform acceptance testing. Discovery and
-Windows/X11 virtual displays remain future work. Wayland extension is experimental. Legacy plaintext compatibility is opt-in in
+TLS 1.3. Desktop devices on the same Wi-Fi can use Nearby and one-time mutual
+code confirmation, followed by stored pinned reconnects. Nearby may not work on
+guest or shared Wi-Fi; pasting a private viewing link remains the fallback.
+Android discovery/pairing and in-app QR scanning are not implemented. Physical
+multi-device verification remains pending. Input forwarding is implemented and
+undergoing platform acceptance testing. Windows/X11 virtual displays remain future work. Wayland extension is experimental. Legacy plaintext compatibility is opt-in in
 the viewer. See [secure connection instructions](docs/SECURE_CONNECTIONS.md). See [docs/STATUS.md](docs/STATUS.md).
 
 ## License
@@ -102,8 +106,10 @@ prototype; it does not mean all cross-device features are complete.
 
 ## App interface
 
-View and Share are separate destinations. Quality/network settings are under
-Settings, and live connection statistics under Details. Android sharing requires
+**Share this screen** and **View a screen** are separate destinations.
+Nearby devices and paired-device management are in View a screen. Private-link
+paste is under **Can't find your device? Use a link**. Quality/network settings
+are under Technical details, and live connection statistics under Details. Android sharing requires
 fresh system consent and includes a Stop action in its ongoing notification.
 
 ![Light desktop interface](docs/images/desktop-light.png)

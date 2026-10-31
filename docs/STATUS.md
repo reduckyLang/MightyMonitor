@@ -284,6 +284,63 @@ travel, directional wipes and a synchronized timeline. The rejected floating
 window stays removed. Pause/Play, hidden/offscreen suspension and reduced-motion
 handling are included. Local download and root Pages regressions pass.
 
+## 25 October 2026 — current snapshot
+
+As of 25 October 2026, PRs #35-#49 and #55 are merged on `main`. Merged work covers the protocol and
+transport core (M1), Linux and Windows desktop host/viewer (M2-M4), Android capture and
+Android viewer (M5-M6) at alpha level, plus Wayland sharing, remote control, secure
+pairing links, Linux and Windows installers and the website. M2-M6 evidence is
+loopback, Xvfb and emulator testing; physical Wi-Fi, Windows and phone acceptance is
+unverified. The browser viewer (M7) is not started (issue #8). Open work: draft PR #51
+(P2, protocol v3 and core hygiene) and draft PR #52 (P1 part 1, mDNS discovery crate).
+Next-batch order, acceptance tests and assignments are in issue #50; the claimed-task
+table is in ROADMAP.md.
+
+Not yet done: persistent device pairing and discovery UI (M8, in progress), Windows
+and X11 extended display (M9, spike not started), release signing and a stable
+release (M10; unsigned test builds are on the
+[Releases page](https://github.com/reduckyLang/Trinix/releases), tested on emulators,
+Xvfb and one KDE session only; the `.deb` description text is outdated),
+physical-device acceptance on Windows 11 and phones, and the Simplicity track (S1-S8
+in #50). Of the #19 reviewer follow-ups, items (1) and (8) are planned in P2 and item (7)
+is partly planned there (the Resume handling already exists in the host session in
+`host/src/session.rs`; P2 adds documentation and a test hook). The #19 checklist on
+GitHub has no items ticked yet, so treat the earlier STATUS entries (e.g. items 3
+and 4) as the record for the rest. Supply-chain checks (`cargo-deny`, advisory for
+bincode 1.3) are planned in P3 and P2.
+
+Wireless operation over Wi-Fi/LAN remains a cross-cutting requirement for every
+milestone.
+
+## 2026-10-25 — M8 part 1: discovery library
+
+Added standalone opt-in mDNS advertising and bounded on-demand browsing, strict
+TXT parsing, fake-backend lifecycle/dedupe/expiry tests and an ignored multicast
+loopback test. Credential-exclusion tests use a real session invitation. This is
+library implementation and unit-test evidence, not host/viewer integration or
+pairing. Real devices, Wi-Fi, Windows firewall and Android remain unverified;
+this work is not a release. See DISCOVERY.md.
+
+Validation: workspace formatting, Clippy with JNI and warnings denied, codec-required
+workspace tests, workspace build and rustdoc with warnings denied pass. Six discovery
+integration tests pass; the real multicast loopback test remains ignored. The
+mdns-sd backend normalizes duplicate wire TXT keys before exposing them; duplicate
+rejection is verified at the pure-parser boundary (see DISCOVERY.md).
+Rust 1.85.0 discovery all-targets check also passes with the locked dependencies.
+
+
+## 2026-10-25 — discovery address and wire policy
+
+Added private on-subnet address filtering for registration and browsing, local
+interface enumeration and daemon interface restriction. Wire metadata derives
+from the core protocol version. Deterministic address-policy, fake-backend and
+registration rejection tests cover these boundaries. Physical multicast and
+cross-device acceptance remain unverified; this change is not a release.
+
+Validation: workspace formatting, discovery Clippy and rustdoc with warnings
+denied, nine discovery integration tests, Rust 1.85.0 all-targets discovery check,
+and workspace all-targets Clippy with JNI and warnings denied pass with locked
+dependencies. The real multicast loopback test remains ignored.
 
 ## 2026-10-25 — persistent desktop pairing and authenticated Resume
 
@@ -418,3 +475,60 @@ failures recoverable), Windows configuration lives under `%LOCALAPPDATA%`, a wro
 offer nonce no longer consumes the genuine offer, and `trinix-host --pair` prints the
 paired device name. The attempt limiter and pairing code remain library hooks and
 are not used by `trinix-host --pair` or `trinix-devices`.
+
+## 2026-10-25 — M8 desktop discovery and pairing UI
+
+Implemented desktop secure-Share advertisement and a bounded background Nearby
+list, sanitized names and paired badges, mutual six-digit confirmation, stored
+pinned view-only reconnects, paired-device Forget with confirmation, and editable
+persistent device names. Home labels remain Share this screen / View a screen.
+Share opens a 60-second pairing window automatically, presents its countdown and
+single-use offer QR, and provides Renew after expiry or lockout. Offer paste is
+supported; in-app scanning is absent. A presented offer still requires local
+Allow with matching-code confirmation on both devices. No code is typed.
+
+The unchanged private-link listener remains available through the paste-a-link
+fallback. A separate device endpoint on the same interface routes pairing and
+paired viewing using the bounded TXROUTE1 selector before existing TLS prefaces
+and ALPN. It requires no additional TXT keys. Only friendly name, short device ID,
+wire version and the service port are advertised, with private on-subnet route
+filtering and a lifetime-bound advertisement guard. Discovery never broadcasts a
+viewing link, token, pairing offer, pairing secret or full fingerprint. Identity
+comes only from the stored full key pin, never a discovery name or short ID.
+
+The live host-owned PairingAttemptLimiter counts failed/denied/malformed attempts,
+offers and timeouts across connections. Three failures lock the window before
+further certificate processing. Renew replaces the mode/limiter and invalidates
+old offers; the atomic offer store consumes a presented nonce before consent.
+The bounded local status/command channel carries countdown/code/offer presentation,
+confirmation, denial, renewal and Forget alongside MM_INVITE. Closed managed stdin
+still stops sharing. Existing streams require Stop sharing for immediate closure
+after Forget; subsequent authentication and Resume reject forgotten credentials.
+
+Automated evidence: pure UI models and regex route-text exclusion (including
+sanitized names), strict bounded parser/injection checks, routed loopback offer
+pairing requiring Allow and matching codes, pinned reconnect and persisted Forget,
+live malformed-attempt lockout/renewal, metadata exclusion and offer expiry.
+Existing security tests cover mutual confirmation/denial/timeout, atomic concurrent
+single-use offers, spoofed-key pin rejection and store bounds; paired-video,
+authenticated Resume, discovery fake-backend and private-link suites remain passing.
+Denial now cancels the other pending confirmation promptly. The managed-host
+closed-stdin test does not open screen capture or inject input.
+
+Verification passed sequentially with the shared target directory: formatting,
+workspace Clippy with android-bridge/jni and warnings denied, workspace tests with
+MM_REQUIRE_CODECS=1 and android-bridge/jni, workspace build, rustdoc with warnings
+denied, Rust 1.85 all-targets check, and both website test scripts. The exact
+regex version already in Cargo.lock is reused for display-only tests and recorded
+in NOTICE; no new runtime third-party package is introduced.
+
+Not verified: real multi-device, Wi-Fi, guest/shared-network behavior, physical
+devices or Windows runtime. Egui rendering was not visually checked on this
+headless system. Android discovery/pairing, in-app QR scanning, Home redesign and
+text-size control remain outside this change. Full mockup layout, spoken-code
+accessibility and physical click-count acceptance remain follow-up UI work.
+Nearby may not work on guest or shared Wi-Fi; pasting a private viewing link is
+the fallback and cannot bypass network isolation. Local persistence on two devices
+is not an atomic distributed transaction; a final-acknowledgement interruption or
+local write failure can require Forget and pairing again. This is implementation
+and automated evidence, not physical acceptance or a release.

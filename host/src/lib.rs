@@ -8,3 +8,5 @@ pub mod session;
 
 /// Fallible host operations, including platform backend errors.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
+
+pub mod pairing;
