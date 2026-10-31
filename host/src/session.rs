@@ -4,16 +4,16 @@ use crate::{
     Error,
 };
 use async_trait::async_trait;
-use mightymonitor_core::{
-    BackoffPolicy, Codec, Connector, Message, MonotonicClock, ReconnectingSession, Role,
-    SendOutcome, SessionWriter, SplitMix64, TcpTransport, Transport, TransportError,
-    PROTOCOL_VERSION,
-};
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::{net::TcpStream, sync::mpsc};
+use trinix_core::{
+    BackoffPolicy, Codec, Connector, Message, MonotonicClock, ReconnectingSession, Role,
+    SendOutcome, SessionWriter, SplitMix64, TcpTransport, Transport, TransportError,
+    PROTOCOL_VERSION,
+};
 
 #[derive(Clone, Debug)]
 pub struct SessionConfig {
@@ -119,7 +119,7 @@ pub async fn serve_with_input<E: HostEncoder>(
             let ping_received_at =
                 matches!(&message, Message::Ping { .. }).then_some(received_at_us);
             let message = match message {
-                Message::Input(mightymonitor_core::InputEvent::ReleaseAll) => {
+                Message::Input(trinix_core::InputEvent::ReleaseAll) => {
                     if !reader_handshake.load(std::sync::atomic::Ordering::Acquire) {
                         break;
                     }
@@ -265,7 +265,7 @@ pub async fn serve_with_input<E: HostEncoder>(
                     // A live bitrate rejection is recoverable: keep streaming at
                     // the previous encoder setting. Initial setup errors are fatal.
                     if let Err(error) = pipeline.on_stats(&stats) {
-                        eprintln!("mm-host: {error}");
+                        eprintln!("trinix-host: {error}");
                     }
                 }
                 Message::ControlStatus { enabled } => {

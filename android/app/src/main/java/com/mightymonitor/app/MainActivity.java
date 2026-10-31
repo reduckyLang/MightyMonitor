@@ -64,7 +64,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                     drainOutput();
                 }
             } catch (Exception error) {
-                android.util.Log.w("MightyMonitor", "Video stopped", error);
+                android.util.Log.w("Trinix", "Video stopped", error);
                 disconnect(ErrorText.plain(error));
                 return;
             }
@@ -130,17 +130,17 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         LinearLayout controlBar = new LinearLayout(this);
         viewControl = new CheckBox(this); viewControl.setId(CONTROL_ID); viewControl.setText(R.string.allow_computer_control); viewControl.setVisibility(View.GONE); controlBar.addView(viewControl);
         keyboard = new Button(this); keyboard.setText(R.string.keyboard); styleButton(keyboard, false); keyboard.setVisibility(View.GONE); controlBar.addView(keyboard); viewPage.addView(controlBar);
-        viewControl.setOnCheckedChangeListener((v, enabled) -> { if (!updatingControl && handle != 0) { try { NativeBridge.requestControl(handle, enabled); } catch (Exception error) { android.util.Log.w("MightyMonitor", "Could not change control permission", error); disconnect(ErrorText.plain(error)); } } });
+        viewControl.setOnCheckedChangeListener((v, enabled) -> { if (!updatingControl && handle != 0) { try { NativeBridge.requestControl(handle, enabled); } catch (Exception error) { android.util.Log.w("Trinix", "Could not change control permission", error); disconnect(ErrorText.plain(error)); } } });
         keyboard.setOnClickListener(v -> {
             EditText text = new EditText(this); text.setHint(R.string.type_hint); text.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(1024)});
             new android.app.AlertDialog.Builder(this).setTitle(R.string.keyboard).setView(text).setPositiveButton(R.string.type, (dialog, which) -> {
-                try { if (handle != 0 && text.length() > 0) NativeBridge.typeText(handle, text.getText().toString()); } catch (Exception error) { android.util.Log.w("MightyMonitor", "Could not send typing", error); disconnect(ErrorText.plain(error)); }
-            }).setNeutralButton(R.string.enter, (dialog, which) -> { try { if (handle != 0) {NativeBridge.key(handle,40,true);NativeBridge.key(handle,40,false);} } catch (Exception error) { android.util.Log.w("MightyMonitor", "Could not send a key", error); disconnect(ErrorText.plain(error));} }).setNegativeButton(R.string.cancel, null).show();
+                try { if (handle != 0 && text.length() > 0) NativeBridge.typeText(handle, text.getText().toString()); } catch (Exception error) { android.util.Log.w("Trinix", "Could not send typing", error); disconnect(ErrorText.plain(error)); }
+            }).setNeutralButton(R.string.enter, (dialog, which) -> { try { if (handle != 0) {NativeBridge.key(handle,40,true);NativeBridge.key(handle,40,false);} } catch (Exception error) { android.util.Log.w("Trinix", "Could not send a key", error); disconnect(ErrorText.plain(error));} }).setNegativeButton(R.string.cancel, null).show();
         });
         status = text(getString(R.string.not_connected), 14, Color.rgb(61, 91, 77)); status.setPadding(0, dp(8), 0, dp(8)); viewPage.addView(status);
         video = new SurfaceView(this); video.setId(VIDEO_ID); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
         video.setFocusableInTouchMode(true);
-        video.setOnFocusChangeListener((v, focused) -> {if (!focused && handle != 0 && remoteControlActive) {try {NativeBridge.releaseInput(handle);} catch (Exception error) {android.util.Log.w("MightyMonitor", "Could not release control", error); disconnect(ErrorText.plain(error));}}});
+        video.setOnFocusChangeListener((v, focused) -> {if (!focused && handle != 0 && remoteControlActive) {try {NativeBridge.releaseInput(handle);} catch (Exception error) {android.util.Log.w("Trinix", "Could not release control", error); disconnect(ErrorText.plain(error));}}});
         video.setOnTouchListener((v, event) -> {
             if (handle == 0 || !viewControl.isChecked()) return false;
             int action = event.getActionMasked(); int phase;
@@ -150,14 +150,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             else if (action == android.view.MotionEvent.ACTION_CANCEL) phase = 3;
             else return true;
             try { NativeBridge.pointer(handle, Math.max(0, Math.min(1, event.getX() / Math.max(1, video.getWidth()))), Math.max(0, Math.min(1, event.getY() / Math.max(1, video.getHeight()))), phase); }
-            catch (Exception error) { android.util.Log.w("MightyMonitor", "Could not send pointer input", error); disconnect(ErrorText.plain(error)); }
+            catch (Exception error) { android.util.Log.w("Trinix", "Could not send pointer input", error); disconnect(ErrorText.plain(error)); }
             if (action == android.view.MotionEvent.ACTION_UP) v.performClick();
             return true;
         });
         video.setOnKeyListener((v, code, event) -> {
             if (handle == 0 || !viewControl.isChecked()) return false;
             int hid = androidKey(code); if (hid == 0) return false;
-            try { NativeBridge.key(handle, hid, event.getAction() == android.view.KeyEvent.ACTION_DOWN); } catch (Exception error) {android.util.Log.w("MightyMonitor", "Could not send key input", error); disconnect(ErrorText.plain(error));}
+            try { NativeBridge.key(handle, hid, event.getAction() == android.view.KeyEvent.ACTION_DOWN); } catch (Exception error) {android.util.Log.w("Trinix", "Could not send key input", error); disconnect(ErrorText.plain(error));}
             return true;
         });
         video.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fitVideo());
@@ -260,7 +260,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             if (handle == 0) throw new IllegalStateException("Could not start the network client");
             renderedFrames.set(0); connect.setText(R.string.disconnect);
             handler.post(pump);
-        } catch (Exception | UnsatisfiedLinkError error) { android.util.Log.w("MightyMonitor", "Could not connect", error); disconnect(ErrorText.plain(error)); }
+        } catch (Exception | UnsatisfiedLinkError error) { android.util.Log.w("Trinix", "Could not connect", error); disconnect(ErrorText.plain(error)); }
     }
     private static int androidKey(int code) {
         if (code >= 29 && code <= 54) return code - 29 + 4;

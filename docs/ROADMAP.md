@@ -1,7 +1,7 @@
 # Roadmap
 
 For the current implementation/evidence matrix and remaining work, start with
-[PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). The numbered milestones below describe
+[DEVELOPMENT.md](DEVELOPMENT.md). The numbered milestones below describe
 the original plan; they are not a current completion checklist.
 
 See [CROSS_DEVICE.md](CROSS_DEVICE.md) for cross-device roles, secure control,
@@ -18,42 +18,42 @@ Cross-cutting requirement for every milestone: it must work **wirelessly over Wi
 5. **Android capture to desktop with control.** Acceptance: MediaProjection stream over Wi-Fi to desktop viewer; control via Accessibility or wireless adb (no cable); adaptive bitrate; reconnect.
 6. **Android as client (PC to phone).** Acceptance: phone displays a PC stream over Wi-Fi and sends touch input back; reconnect.
 7. **Browser viewer.** Acceptance: static page served by host works in a modern browser over LAN with mouse/keyboard/touch; adaptive bitrate; reconnect.
-8. **mDNS discovery.** Acceptance: hosts advertise and viewers list devices automatically on LAN; wireless adb Android devices are discoverable and pairable without cable.
+8. **mDNS discovery.** Library exists with unit tests; not yet wired into host/viewer, with no pairing yet. Acceptance: hosts advertise and viewers list devices automatically on LAN; wireless adb Android devices are discoverable and pairable without cable.
 9. **Virtual extended monitors (optional, per OS).** Acceptance: EVDI/compositor output on Linux, indirect display driver on Windows; streams wirelessly.
 10. **Polish, docs, installers, first release.** Acceptance: packaged installers, user docs, end-to-end wireless test matrix passes, tagged release.
 
-## Current work / claimed tasks
+## Current work
 
 Snapshot dated 2026-10-25 (check `git log origin/main` for the current head). Task definitions, acceptance tests and
-ordering live in tracking issue [#50](https://github.com/reduckyLang/MightyMonitor/issues/50);
+ordering live in tracking issue [#50](https://github.com/reduckyLang/Trinix/issues/50);
 milestone issues are #2-#11 and reviewer follow-ups are in #19. Update this table
-through a small docs PR whenever a task is claimed, opened or merged.
+through a small docs PR whenever a task starts, opens a PR or merges.
 
-| Task | Owner role | Branch | Issue / PR | Depends on | Status |
-|---|---|---|---|---|---|
-| P1 M8 mDNS discovery + persistent pairing (3 PRs) | Codex (ChatGPT Developer) | `feat/m8a-discovery` (part 1) | #9, draft PR #52 | none | in progress |
-| P2 Protocol v3 + core hygiene | VS Code Developer | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
-| S1 User-message catalog (`ux/` crate) | VS Code Developer | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
-| P3 CI/supply-chain + pre-release pipeline | VS Code Developer | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; a manual unsigned pre-release `v0.1.0-alpha.1` already exists, this task adds the repeatable pipeline |
-| S3 Android plain-language pass (incl. Android legacy toggle debug-only) | VS Code Developer | `feat/s3-android-plain` | #50, draft PR #59 | P3 (queue order) | in progress |
-| S4 Windows installer 7 -> 3 clicks | VS Code Developer | not started | #50 | S3 (queue order) | queued, not started |
-| S2 Getting-started docs and copy | docs | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
-| Neutral workflow wording in handover and status | docs | `docs/neutral-wording` | PR #55 | none | merged |
-| S5 Wire message catalog into viewer/host | Codex or VS Code Developer | not started | #50 | P1, S1 | after P1 |
-| S6 One-screen Home, zero-settings Share | Codex (ChatGPT Developer) | not started | #50 | P1, S5 | after S5 |
-| S7 Pair by code / QR + Nearby list | Codex (ChatGPT Developer) | not started | #50 | P1, S6 | after S6 |
-| S8 Android nearby + QR | VS Code Developer or Codex | not started | #50 | S7, P1b | after S7 |
-| P1b Android discovery (NsdManager / wireless adb listing) | Codex (ChatGPT Developer) | not started | #9 | P1 | after P1 |
-| P4 Host session hardening + capture robustness | unassigned | not started | #50 | P2 | after P2 |
-| P5 Extended display spike (X11 PoC, Windows design) | unassigned | not started | #10 | none | waiting / not started |
-| P6 Viewer batch | Codex (ChatGPT Developer) | not started | #50 | P1, P2 | after P1 + P2 |
+| Task | Branch | Issue / PR | Depends on | Status |
+|---|---|---|---|---|
+| P1 M8 mDNS discovery + persistent pairing (3 PRs) | `feat/m8a-discovery` (part 1) | #9, draft PR #52 | none | in progress |
+| P2 Protocol v3 + core hygiene | `feat/p2-protocol-v3` | #50, #19, draft PR #51 | none | in progress |
+| S1 User-message catalog (`ux/` crate) | planned: `feat/s1-user-messages` | #50 | P2 (queue order) | queued, not started |
+| P3 CI/supply-chain + pre-release pipeline | `ci/p3-supply-chain-prerelease` | #11 / draft PR #56 | P2, S1 (queue order) | draft PR open; adds a repeatable pre-release pipeline |
+| S3 Android plain-language pass (incl. Android legacy toggle debug-only) | `feat/s3-android-plain` | #50, draft PR #59 | P3 (queue order) | in progress |
+| S4 Windows installer 7 -> 3 clicks | not started | #50 | S3 (queue order) | queued, not started |
+| S2 Getting-started docs and copy | `docs/s2-getting-started` | #50, draft PR #54 | none | in progress |
+| S5 Wire message catalog into viewer/host | not started | #50 | P1, S1 | after P1 |
+| S6 One-screen Home, zero-settings Share | not started | #50 | P1, S5 | after S5 |
+| S7 Pair by code / QR + Nearby list | not started | #50 | P1, S6 | after S6 |
+| S8 Android nearby + QR | not started | #50 | S7, P1b | after S7 |
+| P1b Android discovery (NsdManager / wireless adb listing) | not started | #9 | P1 | after P1 |
+| P4 Host session hardening + capture robustness | not started | #50 | P2 | after P2 |
+| P5 Extended display spike (X11 PoC, Windows design) | not started | #10 | none | waiting / not started |
+| P6 Viewer batch | not started | #50 | P1, P2 | after P1 + P2 |
 
-A pre-release, [`v0.1.0-alpha.1`](https://github.com/reduckyLang/MightyMonitor/releases/tag/v0.1.0-alpha.1) (unsigned alpha, tag at `357d22d`), is published
-with a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`, built from the existing
-manual CI builds. It was tested on emulators, Xvfb and one KDE session only; physical-device
+Download the latest build from the
+[Releases page](https://github.com/reduckyLang/Trinix/releases). Test builds are
+unsigned and include a Windows installer, a `.deb`, a debug APK and `SHA256SUMS`.
+They were tested on emulators, Xvfb and one KDE session only; physical-device
 and Wi-Fi acceptance are unverified. There is no
 stable release, and production signing and a stable release are still open. Known
-follow-ups: the Windows installer file keeps the internal `0.0.1-alpha.1` name and version string
+follow-ups: the Windows installer version string is fixed in the build script
 (draft PR #56 adds a version input), and the `.deb` description text in
 `scripts/package-linux.py` is outdated (it describes an X11-only development prototype).
 Labels `claimed`, `blocked` and `follow-up` mark issue state on

@@ -81,7 +81,7 @@ impl WindowsCapture {
         Ok(bytes)
     }
 }
-impl mightymonitor_core::Capture for WindowsCapture {
+impl trinix_core::Capture for WindowsCapture {
     fn next_frame(&mut self) -> Option<Vec<u8>> {
         match self.next_rgba() {
             Ok(bytes) => Some(bytes),

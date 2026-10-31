@@ -3,8 +3,6 @@ use crate::{
     socket::{Connection, FrameWriter},
     Error, FrameDecoder, Message, MonotonicClock, Role, PROTOCOL_VERSION,
 };
-use mightymonitor_core::{encode_stream_frame, Codec, InputEvent};
-use mightymonitor_security::{blocking, Invitation, ShareIdentity};
 use std::{
     collections::VecDeque,
     io::{self, Read},
@@ -16,6 +14,8 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+use trinix_core::{encode_stream_frame, Codec, InputEvent};
+use trinix_security::{blocking, Invitation, ShareIdentity};
 struct Frame {
     data: Vec<u8>,
     timestamp_us: u64,

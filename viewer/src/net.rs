@@ -1,11 +1,11 @@
 //! Protocol handling and bounded output, independent of any GUI toolkit.
 use async_trait::async_trait;
-use mightymonitor_core::*;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tokio::sync::mpsc;
+use trinix_core::*;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,7 +64,7 @@ pub enum ControlAction {
 }
 pub type SharedOutput = Arc<Mutex<Output>>;
 struct Dial {
-    endpoint: mightymonitor_security::Endpoint,
+    endpoint: trinix_security::Endpoint,
     first: Option<Box<dyn Transport>>,
 }
 #[async_trait]
@@ -72,7 +72,7 @@ impl Connector for Dial {
     async fn connect(&mut self) -> Result<Box<dyn Transport>, TransportError> {
         let transport = match self.first.take() {
             Some(t) => t,
-            None => mightymonitor_security::asynchronous::connect_transport(&self.endpoint).await?,
+            None => trinix_security::asynchronous::connect_transport(&self.endpoint).await?,
         };
         Ok(transport)
     }
@@ -117,17 +117,16 @@ impl<D: Decoder> ViewerSession<D> {
         }
     }
     async fn drive(&mut self, address: String) -> Result<(), Error> {
-        let endpoint = mightymonitor_security::Endpoint::parse(&address, true)?;
+        let endpoint = trinix_security::Endpoint::parse(&address, true)?;
         let handshake_timeout = Duration::from_secs(if endpoint.is_secure() { 15 } else { 5 });
         let (transport, id, control_available) = loop {
             match tokio::time::timeout(handshake_timeout, async {
-                let mut t =
-                    mightymonitor_security::asynchronous::connect_transport(&endpoint).await?;
+                let mut t = trinix_security::asynchronous::connect_transport(&endpoint).await?;
                 send_transport(
                     t.as_mut(),
                     Message::Hello {
                         proto_version: PROTOCOL_VERSION,
-                        device_name: "mm-viewer".into(),
+                        device_name: "trinix-viewer".into(),
                         role: Role::Viewer,
                         capabilities: vec!["h264".into(), "input-v1".into()],
                     },

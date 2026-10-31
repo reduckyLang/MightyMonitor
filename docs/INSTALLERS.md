@@ -5,7 +5,7 @@
 Build native optimized binaries, then generate an installable .deb:
 
 ```sh
-cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
+cargo build --release --locked -p trinix-host -p trinix-viewer
 python3 scripts/package-linux.py --version '0.0.1~alpha.1'
 ```
 
@@ -14,8 +14,8 @@ It validates the ELF architecture, derives linked-library ABI requirements using
 dpkg-shlibdeps, and declares dynamically loaded GUI/codec plugins explicitly.
 Packaging never installs software or executes application binaries.
 
-The package contains the host and viewer together in /usr/lib/mightymonitor,
-a mightymonitor command, an application-menu entry, the project icon, and the
+The package contains the host and viewer together in /usr/lib/trinix,
+a trinix command, an application-menu entry, the project icon, and the
 project license/NOTICE. All package ownership is normalized to root:root without
 requiring root during creation. It contains no service, boot autostart, privileged
 input device setup, or network listener enabled by installation.
@@ -24,12 +24,12 @@ Install a package built for your distribution/architecture using its graphical
 package installer, or:
 
 ```sh
-sudo apt install ./mightymonitor_0.0.1~alpha.1_amd64.deb
+sudo apt install ./trinix_0.0.1~alpha.1_amd64.deb
 ```
 
-Then open MightyMonitor from the application menu. apt resolves the declared
+Then open Trinix from the application menu. apt resolves the declared
 GStreamer/GUI runtime dependencies. Remove it using your package manager or
-`sudo apt remove mightymonitor`.
+`sudo apt remove trinix`.
 
 The Build Linux installer workflow produces an artifact built on Ubuntu 24.04.
 A local build records ABI requirements of the machine where it was built; it is
@@ -89,3 +89,12 @@ All pre-release artifacts are alpha quality:
 See [docs/RELEASING.md](RELEASING.md) for the full publish procedure, artifact
 naming, verification steps, and signing status.
 
+
+## Upgrading from earlier packages
+
+The Windows installer keeps the same application id, installs into
+`%LOCALAPPDATA%\Programs\Trinix`, and removes folders and shortcuts left by
+earlier packages (see `[InstallDelete]` in `packaging/windows/trinix.iss`). The
+video runtime is downloaded again under `%LOCALAPPDATA%\Trinix`. The `trinix`
+Debian package declares `Conflicts`, `Replaces` and `Provides: mightymonitor`,
+so installing it replaces an earlier package of that name.

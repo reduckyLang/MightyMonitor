@@ -1,7 +1,7 @@
-use mightymonitor_core::*;
-use mightymonitor_viewer::net::{State, ViewerSession};
 use std::time::Duration;
 use tokio::net::TcpListener;
+use trinix_core::*;
+use trinix_viewer::net::{State, ViewerSession};
 struct Dummy;
 impl Decoder for Dummy {
     fn decode(&mut self, _: &[u8]) -> Result<Vec<u8>, CodecError> {
@@ -204,7 +204,7 @@ async fn invalid_config_closes_with_error() {
 
 #[test]
 fn converts_i420_black_and_white_and_rejects_bad_layout() {
-    use mightymonitor_viewer::{net::Picture, render::rgb};
+    use trinix_viewer::{net::Picture, render::rgb};
     let mut p = Picture {
         i420: vec![16, 235, 16, 235, 128, 128],
         width: 2,

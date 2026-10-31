@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 use host_linux::PipeWireCapture;
-use mightymonitor_core::Capture;
+use trinix_core::Capture;
 
 #[test]
 #[ignore = "requires a Wayland session, ScreenCast portal, PipeWire and interactive consent"]

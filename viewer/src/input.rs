@@ -1,6 +1,6 @@
 //! Translate focused preview events into bounded portable remote input.
 use eframe::egui::{self, Event, Key};
-use mightymonitor_core::{InputEvent, MouseButton};
+use trinix_core::{InputEvent, MouseButton};
 pub fn hid(key: Key) -> Option<u32> {
     Some(match key {
         Key::A => 4,

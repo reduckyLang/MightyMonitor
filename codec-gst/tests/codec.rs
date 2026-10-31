@@ -158,7 +158,7 @@ fn rgba_and_trait_adapters() {
     if !available() {
         return;
     }
-    use mightymonitor_core::traits::{Decoder as _, Encoder as _};
+    use trinix_core::traits::{Decoder as _, Encoder as _};
     let mut cfg = config(66, 34);
     cfg.format = PixelFormat::Rgba;
     let mut enc = Encoder::new(cfg).unwrap();
@@ -166,7 +166,7 @@ fn rgba_and_trait_adapters() {
     assert!(enc.set_bitrate_kbps(0).is_err());
     let raw = [50, 100, 150, 255].repeat(66 * 34);
     assert!(enc.encode(&[]).is_err());
-    assert!(mightymonitor_core::Encoder::set_bitrate_kbps(&mut enc, 0).is_err());
+    assert!(trinix_core::Encoder::set_bitrate_kbps(&mut enc, 0).is_err());
     let packet = enc.encode(&raw).unwrap();
     let mut dec = Decoder::new().unwrap();
     assert!(dec.decode(&[]).is_err());

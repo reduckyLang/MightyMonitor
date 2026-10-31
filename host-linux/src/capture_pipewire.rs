@@ -54,7 +54,6 @@ mod native {
         PersistMode,
     };
     use futures_util::StreamExt;
-    use mightymonitor_core::{Bytes, Capture};
     use pipewire::{self as pw, properties::properties, spa};
     use std::{
         sync::{
@@ -64,6 +63,7 @@ mod native {
         thread::JoinHandle,
         time::Duration,
     };
+    use trinix_core::{Bytes, Capture};
 
     /// Setup errors include portal cancellation, unavailable services and negotiation errors.
     #[derive(Debug, thiserror::Error)]
@@ -238,7 +238,7 @@ mod native {
         let core = context.connect_fd(fd, None)?;
         let stream = pw::stream::Stream::new(
             &core,
-            "MightyMonitor",
+            "Trinix",
             properties! {
                 *pw::keys::MEDIA_TYPE => "Video",
                 *pw::keys::MEDIA_CATEGORY => "Capture",

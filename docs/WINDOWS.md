@@ -19,8 +19,8 @@ not the application's installer.
 
 ```powershell
 cargo build --release --workspace
-.\target\release\mm-host.exe --secure --bind 192.168.1.10:5000 --fps 30 --bitrate 4000
-.\target\release\mm-viewer.exe
+.\target\release\trinix-host.exe --secure --bind 192.168.1.10:5000 --fps 30 --bitrate 4000
+.\target\release\trinix-viewer.exe
 ```
 
 Use the host computer's actual LAN IP instead of the example. On a second Linux
@@ -28,7 +28,7 @@ or Windows computer, paste the private connection link printed by the host into 
 must allow the chosen local-network port. Keep this development listener on a local network. Secure links use pinned TLS
 and expire when sharing stops; see [connection security](SECURE_CONNECTIONS.md).
 
-The viewer can also start/stop its sibling mm-host.exe from Share this screen.
+The viewer can also start/stop its sibling trinix-host.exe from Share this screen.
 Keep both executables together. Windows codec errors are now surfaced from the
 actual GStreamer decoder rather than an unconditional unsupported message.
 

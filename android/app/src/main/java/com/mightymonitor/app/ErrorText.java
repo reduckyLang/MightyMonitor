@@ -10,7 +10,7 @@ final class ErrorText {
     private static final String CONNECTION = "Couldn't connect. Make sure both devices are on the same Wi-Fi, then try again.";
     private static final String VIDEO = "The video could not be shown. Tap Connect to try again.";
     private static final String LINK = "This connection link isn't valid or has expired. Ask the other device for a new link.";
-    private static final String MISSING = "This app is missing a part. Reinstall MightyMonitor.";
+    private static final String MISSING = "This app is missing a part. Reinstall Trinix.";
     private static final String PERMISSION = "Screen sharing was not allowed. Tap Share, then Share this screen, and choose Start now.";
 
     private ErrorText() { }
@@ -30,7 +30,7 @@ final class ErrorText {
         if (message.contains("connection verification failed")
                 || message.contains("invalid connection link")
                 || message.contains("connection link is too long")
-                || message.contains("paste a mightymonitor connection link")
+                || message.contains("paste a trinix connection link")
                 || message.contains("paste the connection link")
                 || message.contains("missing sharing address")
                 || message.contains("missing host identity")

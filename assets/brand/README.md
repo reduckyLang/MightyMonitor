@@ -1,10 +1,10 @@
-# MightyMonitor: folded screens
+# Trinix: folded screens
 
 The mark joins two screen-like upright planes into one M. Evergreen carries the
 silhouette; a leaf-green fold connects the screens. It uses flat fills, shared
 geometry and generous spacing so it remains legible in a taskbar.
 
-`mightymonitor.svg` is the editable production master. PNG exports are used by the
+`trinix.svg` is the editable production master. PNG exports are used by the
 desktop window, Linux packaging, Android launcher and website. The Windows ICO
 contains 16/24/32/48/64/128/256-pixel images. No remote asset is loaded by the app.
 

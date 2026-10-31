@@ -72,7 +72,7 @@ public final class ScreenShareService extends Service {
         // Capability metadata can be incomplete on older codec implementations.
         // Honor available rate limits; configure() is the final compatibility check.
         if (capabilities.isSizeSupported(width, height)) fps = Math.max(1, Math.min(30, (int)Math.floor(capabilities.getSupportedFrameRatesFor(width, height).getUpper())));
-        android.util.Log.i("MightyMonitor", "Capture " + width + "x" + height + " at " + fps + " fps");
+        android.util.Log.i("Trinix", "Capture " + width + "x" + height + " at " + fps + " fps");
         captureWidth = width; captureHeight = height;
         host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
         String address = localAddress();
@@ -119,7 +119,7 @@ public final class ScreenShareService extends Service {
             @Override public void onStop() { summary = getString(R.string.sharing_stopped); stopSelf(); }
         };
         projection.registerCallback(projectionCallback, worker);
-        display = projection.createVirtualDisplay("MightyMonitor", width, height, getResources().getConfiguration().densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, worker);
+        display = projection.createVirtualDisplay("Trinix", width, height, getResources().getConfiguration().densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, worker);
         worker.post(update);
     }
     private final Runnable update = new Runnable() {
@@ -144,7 +144,7 @@ public final class ScreenShareService extends Service {
             } catch (Exception error) { fail(error); }
         }
     };
-    private void fail(Throwable error) { android.util.Log.w("MightyMonitor", "Sharing failed", error); failed = true; summary = ErrorText.plain(error); stopSelf(); }
+    private void fail(Throwable error) { android.util.Log.w("Trinix", "Sharing failed", error); failed = true; summary = ErrorText.plain(error); stopSelf(); }
     static byte[] annexB(byte[] bytes) throws Exception {
         if (bytes.length >= 4 && bytes[0] == 0 && bytes[1] == 0 && (bytes[2] == 1 || (bytes[2] == 0 && bytes[3] == 1))) return bytes;
         ByteArrayOutputStream output = new ByteArrayOutputStream(); int offset = 0;

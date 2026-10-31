@@ -37,7 +37,7 @@ jobs:
     name: Check version and tag
     # Releases are only built and published from main.
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Validate version and make sure the tag is unused
         env:
@@ -103,18 +103,18 @@ jobs:
   collect:
     name: Collect artifacts and compute checksums
     needs: [linux, windows, android]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Download Linux DEB
         uses: actions/download-artifact@v4
         with:
-          name: mightymonitor-linux-deb
+          name: trinix-linux-deb
           path: dist/
 
       - name: Download Windows installer
         uses: actions/download-artifact@v4
         with:
-          name: mightymonitor-windows-installer
+          name: trinix-windows-installer
           path: dist/
 
       - name: Download Android APKs
@@ -130,7 +130,7 @@ jobs:
         run: |
           apk=$(find . -name "app-debug.apk" | head -n 1)
           test -n "$apk"
-          mv "$apk" "mightymonitor-${VERSION}-debug-signed.apk"
+          mv "$apk" "trinix-${VERSION}-debug-signed.apk"
           # Exclude the instrumentation test APK and leftover empty directories.
           find . -name "app-debug-androidTest.apk" -delete
           find . -mindepth 1 -type d -empty -delete
@@ -144,7 +144,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mightymonitor-${{ inputs.version }}-prerelease
+          name: trinix-${{ inputs.version }}-prerelease
           path: dist/
           if-no-files-found: error
 
@@ -153,14 +153,14 @@ jobs:
     # Releases are only published from main.
     if: ${{ inputs.publish == true && github.ref == 'refs/heads/main' }}
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - name: Download collected artifacts
         uses: actions/download-artifact@v4
         with:
-          name: mightymonitor-${{ inputs.version }}-prerelease
+          name: trinix-${{ inputs.version }}-prerelease
           path: dist/
 
       - name: Create GitHub pre-release
@@ -205,7 +205,7 @@ jobs:
           # release appeared after the preflight job ran.
           check_unused
           printf '%s\n' \
-            "## MightyMonitor v${VERSION}: alpha pre-release" \
+            "## Trinix v${VERSION}: alpha pre-release" \
             "" \
             "**Status:** unsigned alpha for early testing. Not for production use." \
             "" \
@@ -221,6 +221,6 @@ jobs:
             --repo "${REPO}" \
             --prerelease \
             --target "${SHA}" \
-            --title "MightyMonitor v${VERSION} (pre-release)" \
+            --title "Trinix v${VERSION} (pre-release)" \
             --notes-file /tmp/release-notes.md \
             dist/*
