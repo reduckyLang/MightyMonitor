@@ -19,6 +19,15 @@ struct Window {
     code: Option<String>,
     active: bool,
 }
+/// Status lines are advisory: a closed or unread stdout must not stop sharing.
+macro_rules! status {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let mut out = std::io::stdout().lock();
+        let _ = writeln!(out, $($arg)*);
+        let _ = out.flush();
+    }};
+}
 pub struct SharePairing {
     identity: Arc<DeviceIdentity>,
     directory: PathBuf,
@@ -56,8 +65,8 @@ impl SharePairing {
             .map_err(|_| io::Error::other("Pairing unavailable"))?;
         let offer = window.mode.create_offer(&self.identity, self.address)?;
         // Explicit local presentation channel; never diagnostics or discovery.
-        println!("MM_PAIR_OFFER {}", offer.to_offer_string());
-        println!("MM_PAIR OPEN 60");
+        status!("MM_PAIR_OFFER {}", offer.to_offer_string());
+        status!("MM_PAIR OPEN 60");
         Ok(())
     }
     pub fn command(&self, command: Command) -> io::Result<()> {
@@ -113,11 +122,11 @@ impl SharePairing {
                 return;
             }
             if window.mode.locked() {
-                println!("MM_PAIR LOCKED");
+                status!("MM_PAIR LOCKED");
             } else if Instant::now() >= window.end {
-                println!("MM_PAIR EXPIRED");
+                status!("MM_PAIR EXPIRED");
             } else {
-                println!(
+                status!(
                     "MM_PAIR OPEN {}",
                     window
                         .end
@@ -158,7 +167,7 @@ impl SharePairing {
                 }
                 window.code = Some(code.clone());
                 window.decision = Some(tx);
-                println!("MM_PAIR_CODE {code}");
+                status!("MM_PAIR_CODE {code}");
             }
             rx.await.unwrap_or(false)
         })
