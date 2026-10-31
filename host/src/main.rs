@@ -267,12 +267,12 @@ mod desktop {
         if pair && (paired || managed || allow_control || extend) {
             return Err("--pair cannot be combined with sharing flags".into());
         }
-        let directory = if pair || paired {
+        let directory = if secure || pair || paired {
             mightymonitor_security::store::config_dir()?
         } else {
             std::path::PathBuf::new()
         };
-        let device_identity = if pair || paired {
+        let device_identity = if secure || pair || paired {
             Some(std::sync::Arc::new(
                 mightymonitor_security::pairing::DeviceIdentity::open(&directory)?,
             ))
@@ -308,20 +308,27 @@ mod desktop {
             return Err("Remote control requires --secure and the primary/default screen".into());
         }
         let factory = CaptureFactory::open(&capture_mode, allow_control, extend)?;
-        let mut stop = Box::pin(async move {
-            if managed {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                std::thread::spawn(move || {
-                    use std::io::BufRead;
-                    let mut line = String::new();
-                    let _ = std::io::stdin().lock().read_line(&mut line);
-                    let _ = tx.send(());
-                });
-                let _ = rx.await;
-            } else {
-                std::future::pending::<()>().await;
-            }
-        });
+        let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(16);
+        if managed || secure {
+            std::thread::spawn(move || {
+                let mut input = std::io::stdin().lock();
+                while let Ok(Some(line)) = mightymonitor_security::managed::read_line(&mut input) {
+                    let Some(command) = mightymonitor_security::managed::Command::parse(&line)
+                    else {
+                        break;
+                    };
+                    let stop = command == mightymonitor_security::managed::Command::Stop;
+                    if command_tx.blocking_send(command).is_err() || stop {
+                        return;
+                    }
+                }
+                if managed {
+                    let _ =
+                        command_tx.blocking_send(mightymonitor_security::managed::Command::Stop);
+                }
+            });
+        }
+        let mut commands_open = managed || secure;
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure && !paired {
             Some(std::sync::Arc::new(
@@ -335,6 +342,37 @@ mod desktop {
             // stdout is an explicit invitation channel; never write it to diagnostics.
             println!("MM_INVITE {}", invitation.to_link());
         }
+        let device_listener = if secure && !paired {
+            Some(
+                tokio::net::TcpListener::bind(std::net::SocketAddr::new(
+                    listener.local_addr()?.ip(),
+                    0,
+                ))
+                .await?,
+            )
+        } else {
+            None
+        };
+        let pairing = match (&device_listener, &device_identity) {
+            (Some(listener), Some(identity)) => Some(std::sync::Arc::new(
+                mightymonitor_host::pairing::SharePairing::new(
+                    identity.clone(),
+                    directory.clone(),
+                    listener.local_addr()?,
+                )?,
+            )),
+            _ => None,
+        };
+        let _advertisement = pairing.as_ref().and_then(|pairing| {
+            let metadata = pairing.metadata().ok()?;
+            let address = device_listener.as_ref()?.local_addr().ok()?;
+            mightymonitor_discovery::Mdns::new()
+                .and_then(|backend| {
+                    mightymonitor_discovery::Advertisement::start(backend, &metadata, address)
+                })
+                .ok()
+        });
+        let mut pairing_tick = tokio::time::interval(Duration::from_secs(1));
         if !secure && !listener.local_addr()?.ip().is_loopback() {
             eprintln!(
                 "WARNING: non-loopback bind exposes streaming without authentication or encryption"
@@ -348,15 +386,33 @@ mod desktop {
         let mut tasks = tokio::task::JoinSet::new();
         loop {
             tokio::select! {
-                _=&mut stop=>{tasks.shutdown().await;return Ok(());},
+                command=command_rx.recv(),if commands_open=>{
+                    match command {
+                        None => {commands_open = false;if managed {tasks.shutdown().await;return Ok(());}},
+                        Some(mightymonitor_security::managed::Command::Stop) => {tasks.shutdown().await;return Ok(());},
+                        Some(command) => if let Some(pairing) = &pairing { let _ = pairing.command(command); },
+                    }
+                },
+                _=pairing_tick.tick(),if pairing.is_some()=>{if let Some(pairing)=&pairing {pairing.publish_status();}},
                 finished=tasks.join_next(),if !tasks.is_empty()=>{match finished {Some(Ok(Err(error)))=>eprintln!("viewer session ended: {error}"),Some(Err(error))=>eprintln!("viewer task ended: {error}"),_=>{}}},
-                peer=listener.accept()=>{
-                    let(stream,_)=peer?;
+                peer=async {
+                    if let Some(device_listener) = &device_listener {
+                        tokio::select! { result=listener.accept()=>result.map(|(stream,_)|(stream,false)), result=device_listener.accept()=>result.map(|(stream,_)|(stream,true)) }
+                    } else {listener.accept().await.map(|(stream,_)|(stream,false))}
+                }=>{
+                    let(mut stream,device_route)=peer?;
                     let Ok(permit)=viewers.clone().try_acquire_owned() else {drop(stream);continue;};
-                    let identity=identity.clone();let device_identity=device_identity.clone();let directory=directory.clone();let registry=registry.clone();let factory=factory.clone();let controller=controller.clone();
+                    let pairing=pairing.clone();let identity=identity.clone();let device_identity=device_identity.clone();let directory=directory.clone();let registry=registry.clone();let factory=factory.clone();let controller=controller.clone();
                     tasks.spawn(async move {
                         let _permit=permit;
-                        let (transport,peer):(Box<dyn mightymonitor_core::Transport>,Option<mightymonitor_security::AuthenticatedPeer>)=if paired {
+                        let device_route = if device_route {
+                            match mightymonitor_host::pairing::route(&mut stream).await {
+                                Ok(true) => { if let Some(pairing)=pairing {pairing.pair(stream).await?;} return Ok(()); },
+                                Ok(false) => true,
+                                Err(_) => {if let Some(pairing)=pairing {pairing.record_failure();pairing.publish_status();} return Ok(());},
+                            }
+                        } else {false};
+                        let (transport,peer):(Box<dyn mightymonitor_core::Transport>,Option<mightymonitor_security::AuthenticatedPeer>)=if paired || device_route {
                             let (tls,peer)=mightymonitor_security::pairing::asynchronous::accept_authenticated(stream,device_identity.as_deref().ok_or("Device identity unavailable")?,&directory).await?;
                             (Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),Some(peer))
                         } else if let Some(identity)=identity {
@@ -367,7 +423,7 @@ mod desktop {
                             let(capture,width,height)=factory.capture(fps,monitor)?;
                             let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
                             let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
-                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
+                            let input=if allow_control && !device_route {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
                             let config=SessionConfig{session_id:if secure {mightymonitor_security::random_session_id()?} else {1},codec:mightymonitor_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
                             Ok((pipeline,config,input))
                         }).await??;

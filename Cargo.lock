@@ -2154,6 +2154,7 @@ dependencies = [
  "enigo",
  "host-linux",
  "mightymonitor-core",
+ "mightymonitor-discovery",
  "mightymonitor-security",
  "mightymonitor-viewer",
  "socket2 0.6.5",
@@ -2186,8 +2187,10 @@ dependencies = [
  "codec-gst",
  "eframe",
  "mightymonitor-core",
+ "mightymonitor-discovery",
  "mightymonitor-security",
  "qrcode",
+ "regex",
  "tokio",
 ]
 
